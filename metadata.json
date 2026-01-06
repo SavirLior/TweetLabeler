@@ -1,0 +1,5 @@
+{
+  "name": "TweetLabeler",
+  "description": "A Hebrew tweet labeling tool for academic research allowing students to classify texts and admins to export data.",
+  "requestFramePermissions": []
+}

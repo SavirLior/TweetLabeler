@@ -1,0 +1,8 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# אם יש לך גם Node/JS
+node_modules/
