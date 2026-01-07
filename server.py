@@ -1,7 +1,9 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import json
 import os
+import csv
+import io
 from datetime import datetime
 
 app = Flask(__name__)
@@ -9,6 +11,7 @@ CORS(app)
 
 # Data file paths
 DATA_FILE = 'data.json'
+CSV_FILE = 'tweet_classifications.csv'
 DEFAULT_DATA = {
     'tweets': [],
     'users': []
@@ -31,9 +34,42 @@ def save_data(data):
     try:
         with open(DATA_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        # Also save to CSV file
+        save_to_csv(data)
         return True
     except Exception as e:
         print(f"Error saving data: {e}")
+        return False
+
+def save_to_csv(data):
+    """Save tweets with final decisions to CSV file"""
+    try:
+        tweets = data.get('tweets', [])
+        
+        with open(CSV_FILE, 'w', newline='', encoding='utf-8-sig') as f:
+            writer = csv.writer(f)
+            # Write header
+            writer.writerow(['Tweet ID', 'Tweet Text', 'Final Decision'])
+            
+            # Write tweet data
+            for tweet in tweets:
+                final_label = tweet.get('finalLabel', 'Pending')
+                
+                # Handle CONFLICT label
+                if final_label == 'CONFLICT':
+                    final_label = 'CONFLICT (Unresolved)'
+                
+                writer.writerow([
+                    tweet.get('id', ''),
+                    tweet.get('text', ''),
+                    final_label
+                ])
+        
+        print(f"CSV file updated: {CSV_FILE}")
+        return True
+    except Exception as e:
+        print(f"Error saving CSV: {e}")
         return False
 
 # Routes
@@ -134,6 +170,70 @@ def register_user():
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'ok', 'message': 'TweetLabeler server is running'})
+
+@app.route('/api/export/csv', methods=['GET'])
+def export_csv():
+    """Export tweets with classifications to CSV file"""
+    try:
+        data = load_data()
+        tweets = data.get('tweets', [])
+        users = data.get('users', [])
+        
+        # Get list of student usernames
+        student_names = [u['username'] for u in users if u.get('role') == 'student']
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        
+        # Build header: ID, Text, Final Decision, Assigned To, then for each student [Label, Reasons]
+        header = ['Tweet ID', 'Text', 'Final Decision', 'Assigned To']
+        for student in student_names:
+            header.append(f'Label_{student}')
+            header.append(f'Reasons_{student}')
+        
+        writer = csv.writer(output)
+        writer.writerow(header)
+        
+        # Write tweet data
+        for tweet in tweets:
+            assigned_str = ';'.join(tweet.get('assignedTo', []))
+            final_label = tweet.get('finalLabel', '')
+            
+            # Handle CONFLICT label
+            if final_label == 'CONFLICT':
+                final_label = 'CONFLICT (Unresolved)'
+            
+            row = [
+                tweet.get('id', ''),
+                tweet.get('text', ''),
+                final_label,
+                assigned_str
+            ]
+            
+            # Add label and reasons for each student
+            annotations = tweet.get('annotations', {})
+            annotation_features = tweet.get('annotationFeatures', {})
+            
+            for student in student_names:
+                label = annotations.get(student, '')
+                reasons = '; '.join(annotation_features.get(student, []))
+                row.append(label)
+                row.append(reasons)
+            
+            writer.writerow(row)
+        
+        # Convert to bytes and send as file
+        output.seek(0)
+        csv_bytes = output.getvalue().encode('utf-8-sig')  # utf-8-sig adds BOM for Excel
+        
+        return send_file(
+            io.BytesIO(csv_bytes),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'tweets_classifications_{datetime.now().strftime("%Y-%m-%d")}.csv'
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("🚀 TweetLabeler Server Starting...")

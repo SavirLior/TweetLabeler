@@ -1,47 +1,5 @@
 {
-  "tweets": [
-    {
-      "id": "ehfjro62n",
-      "text": "test",
-      "annotations": {
-        "lior": "לא זה ולא זה"
-      },
-      "assignedTo": [
-        "lior"
-      ],
-      "annotationFeatures": {
-        "lior": [
-          "אחר"
-        ]
-      },
-      "annotationTimestamps": {
-        "lior": 1767773214698
-      },
-      "finalLabel": "לא זה ולא זה"
-    },
-    {
-      "id": "i2ecmhon1",
-      "text": "banana",
-      "annotations": {
-        "lior": "לא בטוח / דלג"
-      },
-      "assignedTo": [
-        "lior"
-      ],
-      "annotationTimestamps": {
-        "lior": 1767773325991
-      },
-      "finalLabel": "לא זה ולא זה"
-    },
-    {
-      "id": "3rhl8xtig",
-      "text": "abc",
-      "annotations": {},
-      "assignedTo": [
-        "lior"
-      ]
-    }
-  ],
+  "tweets": [],
   "users": [
     {
       "username": "lior",
