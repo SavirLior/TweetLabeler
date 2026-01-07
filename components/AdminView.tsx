@@ -484,7 +484,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             }
           }}
           variant="danger"
-          className="flex items-center gap-2 bg-red-100 text-red-700 border border-red-200 hover:bg-red-200 text-sm"
+          className="flex items-center gap-2 bg-red-100 border border-red-200 hover:bg-red-200 text-sm"
         >
           <Trash2 className="w-4 h-4" />
           מחק את כל הציוצים
