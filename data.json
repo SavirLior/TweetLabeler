@@ -1,5 +1,133 @@
 {
-  "tweets": [],
+  "tweets": [
+    {
+      "id": "nfl7fj5uc",
+      "text": "Beware of the scholars who dine with the tyrants.",
+      "annotations": {},
+      "assignedTo": [
+        "3",
+        "4",
+        "1",
+        "2",
+        "lior",
+        "ofek"
+      ]
+    },
+    {
+      "id": "c6zpnvylb",
+      "text": "test",
+      "annotations": {
+        "1": "סלפי ג'יהאדיסטי",
+        "5": "סלפי ג'יהאדיסטי",
+        "ofek": "סלפי ג'יהאדיסטי",
+        "eden": "סלפי ג'יהאדיסטי"
+      },
+      "assignedTo": [
+        "ofek",
+        "5",
+        "1",
+        "eden"
+      ],
+      "annotationTimestamps": {
+        "1": 1767782515216,
+        "5": 1767782520627,
+        "ofek": 1767782509531,
+        "eden": 1767782511846
+      },
+      "finalLabel": "סלפי ג'יהאדיסטי"
+    },
+    {
+      "id": "h1u9siych",
+      "text": "asd",
+      "annotations": {
+        "lior": "סלפי תקלידי"
+      },
+      "assignedTo": [
+        "lior"
+      ],
+      "annotationTimestamps": {
+        "lior": 1767782562193
+      },
+      "finalLabel": "סלפי תקלידי"
+    },
+    {
+      "id": "xkn2flyoo",
+      "text": "qwe",
+      "annotations": {
+        "lior": "סלפי תקלידי",
+        "ofek": "סלפי ג'יהאדיסטי"
+      },
+      "assignedTo": [
+        "lior",
+        "ofek"
+      ],
+      "annotationTimestamps": {
+        "lior": 1767782676211,
+        "ofek": 1767782680066
+      },
+      "finalLabel": "סלפי ג'יהאדיסטי"
+    },
+    {
+      "annotationTimestamps": {
+        "lior": 1767783546775,
+        "ofek": 1767783350467,
+        "eden": 1767783998519
+      },
+      "annotations": {
+        "lior": "סלפי ג'יהאדיסטי",
+        "ofek": "סלפי תקלידי",
+        "eden": "סלפי ג'יהאדיסטי"
+      },
+      "assignedTo": [
+        "lior",
+        "ofek",
+        "eden"
+      ],
+      "id": "3kpgqdgju",
+      "text": "asdasd",
+      "finalLabel": "לא זה ולא זה"
+    },
+    {
+      "annotationTimestamps": {
+        "eden": 1767783741705,
+        "lior": 1767783582066,
+        "ofek": 1767783694442
+      },
+      "annotations": {
+        "eden": "סלפי ג'יהאדיסטי",
+        "lior": "סלפי תקלידי",
+        "ofek": "לא זה ולא זה"
+      },
+      "assignedTo": [
+        "lior",
+        "ofek",
+        "eden"
+      ],
+      "finalLabel": "סלפי ג'יהאדיסטי",
+      "id": "83yhawomn",
+      "text": "שדג"
+    },
+    {
+      "id": "j1iao3umm",
+      "text": "'ק",
+      "annotations": {
+        "lior": "סלפי ג'יהאדיסטי",
+        "ofek": "סלפי תקלידי",
+        "eden": "סלפי תקלידי"
+      },
+      "assignedTo": [
+        "lior",
+        "ofek",
+        "eden"
+      ],
+      "annotationTimestamps": {
+        "lior": 1767783925734,
+        "ofek": 1767783928145,
+        "eden": 1767783954382
+      },
+      "finalLabel": "סלפי ג'יהאדיסטי"
+    }
+  ],
   "users": [
     {
       "username": "lior",
@@ -10,6 +138,51 @@
       "username": "admin",
       "password": "123",
       "role": "admin"
+    },
+    {
+      "username": "ofek",
+      "password": "123",
+      "role": "student"
+    },
+    {
+      "username": "eden",
+      "password": "123",
+      "role": "student"
+    },
+    {
+      "username": "1",
+      "password": "1",
+      "role": "student"
+    },
+    {
+      "username": "2",
+      "password": "2",
+      "role": "student"
+    },
+    {
+      "username": "3",
+      "password": "3",
+      "role": "student"
+    },
+    {
+      "username": "4",
+      "password": "4",
+      "role": "student"
+    },
+    {
+      "username": "5",
+      "password": "5",
+      "role": "student"
+    },
+    {
+      "username": "6",
+      "password": "6",
+      "role": "student"
+    },
+    {
+      "username": "7",
+      "password": "7",
+      "role": "student"
     }
   ]
 }

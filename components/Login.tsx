@@ -184,7 +184,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
         </form>
         
-        {!isRegistering && (
+        {/* {!isRegistering && (
            <div className="mt-8 pt-6 border-t border-gray-100 text-center">
              <p className="text-xs text-gray-400">
                חשבונות ברירת מחדל:<br/>
@@ -192,7 +192,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                student1 / 123
              </p>
            </div>
-        )}
+        )} */}
       </div>
     </div>
   );

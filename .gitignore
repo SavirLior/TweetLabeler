@@ -4,5 +4,9 @@ __pycache__/
 venv/
 .env
 
-# אם יש לך גם Node/JS
+# Data files (local/testing only)
+data.json
+tweet_classifications.csv
+
+# Node/JS
 node_modules/
