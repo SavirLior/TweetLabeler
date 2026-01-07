@@ -7,7 +7,21 @@ import io
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)
+# Allow the Vite dev server to call the API during local development.
+CORS(
+    app,
+    resources={r"/api/*": {"origins": "http://localhost:5173"}},
+    supports_credentials=True,
+)
+
+# Ensure preflight requests return the expected CORS headers.
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 # Data file paths
 DATA_FILE = 'data.json'
@@ -237,6 +251,6 @@ def export_csv():
 
 if __name__ == '__main__':
     print("🚀 TweetLabeler Server Starting...")
-    print("API running at http://localhost:5000")
+    print("API running at http://localhost:8080")
     print("Data file: ", os.path.abspath(DATA_FILE))
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host="0.0.0.0", port=8080)
