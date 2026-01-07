@@ -23,7 +23,7 @@ const App: React.FC = () => {
         setIsInitialized(true);
       }
     };
-    
+
     loadData();
   }, []);
 
@@ -42,22 +42,22 @@ const App: React.FC = () => {
 
     // Check if all assigned students have labeled
     const labels = assigned.map(u => newAnnotations[u]).filter(Boolean);
-    
+
     // If not everyone finished, we don't calculate final label yet
-    if (labels.length < assigned.length) return tweet.finalLabel; 
+    if (labels.length < assigned.length) return tweet.finalLabel;
 
     // All finished. Check equality.
     const first = labels[0];
     const allMatch = labels.every(l => l === first);
 
     if (!allMatch) {
-        return "CONFLICT";
+      return "CONFLICT";
     }
 
     // NEW LOGIC: If everyone agrees, BUT they agreed on "Skip/Unsure", 
     // we do NOT auto-resolve. We flag it as CONFLICT so Admin sees it in Quality Control.
     if (first === LabelOption.Skip) {
-        return "CONFLICT";
+      return "CONFLICT";
     }
 
     return first;
@@ -70,8 +70,8 @@ const App: React.FC = () => {
     const updatedTweets = tweets.map(tweet => {
       if (tweet.id === tweetId) {
         const newAnnotations = {
-            ...tweet.annotations,
-            [currentUser.username]: label
+          ...tweet.annotations,
+          [currentUser.username]: label
         };
 
         // Calculate auto-consensus
@@ -111,19 +111,19 @@ const App: React.FC = () => {
       if (tweet.id === tweetId) {
         const newAnnotations = { ...tweet.annotations };
         delete newAnnotations[currentUser.username];
-        
+
         const newFeatures = { ...(tweet.annotationFeatures || {}) };
         delete newFeatures[currentUser.username];
 
         const newTimestamps = { ...(tweet.annotationTimestamps || {}), };
         delete newTimestamps[currentUser.username];
-        
+
         const newTweet = {
           ...tweet,
           annotations: newAnnotations,
           annotationFeatures: newFeatures,
           annotationTimestamps: newTimestamps,
-          finalLabel: undefined 
+          finalLabel: undefined
         };
         changedTweet = newTweet;
         return newTweet;
@@ -145,10 +145,10 @@ const App: React.FC = () => {
     const updatedTweets = tweets.map(tweet => {
       if (tweet.id === tweetId) {
         const newAnnotations = {
-            ...tweet.annotations,
-            [studentUsername]: newLabel
+          ...tweet.annotations,
+          [studentUsername]: newLabel
         };
-        
+
         const newTweet = {
           ...tweet,
           annotations: newAnnotations,
@@ -174,70 +174,70 @@ const App: React.FC = () => {
 
   // NEW: Handle setting the Final Label directly (Admin Override / Resolution)
   const handleSetFinalLabel = async (tweetId: string, finalLabel: string) => {
-      let changedTweet: Tweet | undefined;
-      const updatedTweets = tweets.map(tweet => {
-          if (tweet.id === tweetId) {
-              const newTweet = { ...tweet, finalLabel };
-              changedTweet = newTweet;
-              return newTweet;
-          }
-          return tweet;
-      });
-      setTweets(updatedTweets);
-      
-      if (changedTweet) {
-          await saveTweet(changedTweet);
+    let changedTweet: Tweet | undefined;
+    const updatedTweets = tweets.map(tweet => {
+      if (tweet.id === tweetId) {
+        const newTweet = { ...tweet, finalLabel };
+        changedTweet = newTweet;
+        return newTweet;
       }
+      return tweet;
+    });
+    setTweets(updatedTweets);
+
+    if (changedTweet) {
+      await saveTweet(changedTweet);
+    }
   };
 
   const handleAssignmentChange = async (tweetId: string, assignedTo: string[]) => {
-      // 1. Optimistic
-      let changedTweet: Tweet | undefined;
-      const updatedTweets = tweets.map(tweet => {
-          if (tweet.id === tweetId) {
-              // If assignment changes, reset final label to force re-check
-              const newTweet = { ...tweet, assignedTo, finalLabel: undefined };
-              changedTweet = newTweet;
-              return newTweet;
-          }
-          return tweet;
-      });
-      setTweets(updatedTweets);
-
-      // 2. Persist
-      if (changedTweet) {
-          await saveTweet(changedTweet);
+    // 1. Optimistic
+    let changedTweet: Tweet | undefined;
+    const updatedTweets = tweets.map(tweet => {
+      if (tweet.id === tweetId) {
+        // If assignment changes, reset final label to force re-check
+        const newTweet = { ...tweet, assignedTo, finalLabel: undefined };
+        changedTweet = newTweet;
+        return newTweet;
       }
+      return tweet;
+    });
+    setTweets(updatedTweets);
+
+    // 2. Persist
+    if (changedTweet) {
+      await saveTweet(changedTweet);
+    }
   };
 
   const handleDeleteTweet = async (tweetId: string) => {
-      // 1. Optimistic
-      const updatedTweets = tweets.filter(t => t.id !== tweetId);
-      setTweets(updatedTweets);
+    // 1. Optimistic
+    const updatedTweets = tweets.filter(t => t.id !== tweetId);
+    setTweets(updatedTweets);
 
-      // 2. Persist
-      await deleteTweet(tweetId);
+    // 2. Persist
+    await deleteTweet(tweetId);
   };
 
   const handleBulkUpdateTweets = async (updatedList: Tweet[]) => {
-      // 1. Optimistic
-      // Create a map for faster lookup
-      const updatesMap = new Map(updatedList.map(t => [t.id, t]));
-      const newTweetsState = tweets.map(t => {
-          return updatesMap.has(t.id) ? updatesMap.get(t.id)! : t;
-      });
-      setTweets(newTweetsState);
+    // 1. Optimistic
+    // Create a map for faster lookup
+    const updatesMap = new Map(updatedList.map(t => [t.id, t]));
+    const newTweetsState = tweets.map(t => {
+      return updatesMap.has(t.id) ? updatesMap.get(t.id)! : t;
+    });
+    setTweets(newTweetsState);
 
-      // 2. Persist
-      await updateTweets(updatedList);
+    // 2. Persist
+    await updateTweets(updatedList);
   };
 
   const handleAddTweets = async (newTweets: Tweet[]) => {
-     // 1. Optimistic
-     const updatedTweets = [...tweets, ...newTweets];
-     setTweets(updatedTweets);
-     // 2. Persist
-     await addTweets(newTweets);
+    // 1. Optimistic
+    const updatedTweets = [...tweets, ...newTweets];
+    setTweets(updatedTweets);
+    // 2. Persist
+    await addTweets(newTweets);
   };
 
   if (!isInitialized) {
@@ -262,8 +262,8 @@ const App: React.FC = () => {
             </div>
             <div className="flex items-center gap-4">
               <div title="מסד נתונים מקומי" className="text-gray-600 bg-gray-50 p-1.5 rounded-full flex items-center gap-2 px-3">
-                 <Database className="w-4 h-4" />
-                 <span className="text-xs font-medium">מקומי</span>
+                <Database className="w-4 h-4" />
+                <span className="text-xs font-medium">מקומי</span>
               </div>
 
               <div className="text-sm text-right hidden sm:block">
@@ -285,8 +285,8 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="py-6">
         {currentUser.role === UserRole.Admin ? (
-          <AdminView 
-            tweets={tweets} 
+          <AdminView
+            tweets={tweets}
             onAdminLabelChange={handleAdminLabelChange}
             onAddTweets={handleAddTweets}
             onBulkUpdateTweets={handleBulkUpdateTweets}
@@ -295,10 +295,10 @@ const App: React.FC = () => {
             onSetFinalLabel={handleSetFinalLabel}
           />
         ) : (
-          <StudentView 
-            user={currentUser} 
-            tweets={tweets} 
-            onLabelTweet={handleLabelTweet} 
+          <StudentView
+            user={currentUser}
+            tweets={tweets}
+            onLabelTweet={handleLabelTweet}
             onResetLabel={handleResetLabel}
           />
         )}
