@@ -1,117 +1,69 @@
 import { Tweet, AppData, User, UserRole } from '../types';
 
-const STORAGE_KEY = 'tweet_labeler_data';
-const USERS_STORAGE_KEY = 'tweet_labeler_users';
+const API_URL = 'http://localhost:5000/api';
 
-const DUMMY_TWEETS: Tweet[] = [
-  {
-    id: '1',
-    text: 'חובה עלינו לחזור למקורות ולטהר את האמונה מכל חידוש פסול. רק כך נצליח לכונן חברה צודקת.',
-    assignedTo: ['student1'],
-    annotations: {}
-  },
-  {
-    id: '2',
-    text: 'המנהיגים הנוכחיים הם כופרים ויש להילחם בהם בכל האמצעים האפשריים עד להפלתם.',
-    assignedTo: ['student1', 'student2'],
-    annotations: {}
-  },
-  {
-    id: '3',
-    text: 'עדיף לסבול שליט עריץ מאשר ליצור כאוס במדינה. עלינו להתמקד בלימוד תורה וחינוך.',
-    assignedTo: ['student2'],
-    annotations: {}
-  },
-  {
-    id: '4',
-    text: 'היום הלכתי לקניון וקניתי נעליים חדשות, היה מבצע ממש שווה.',
-    assignedTo: ['student1'],
-    annotations: {}
-  },
-  {
-    id: '5',
-    text: 'הג\'יהאד הוא הדרך היחידה להחזיר את כבוד האומה האסלאמית.',
-    assignedTo: ['student1', 'student2'],
-    annotations: {}
-  }
-];
+// --- Helper for fetch with error handling ---
+const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) => {
+    try {
+        const options: RequestInit = {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+        };
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
 
-const DEFAULT_USERS: User[] = [
-  { username: 'admin', password: '123', role: UserRole.Admin },
-  { username: 'student1', password: '123', role: UserRole.Student },
-  { username: 'student2', password: '123', role: UserRole.Student },
-];
+        const response = await fetch(`${API_URL}${endpoint}`, options);
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.statusText}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error(`Failed to request ${endpoint}:`, error);
+        throw error;
+    }
+};
 
 // --- Data Fetching ---
 
 export const getTweets = async (): Promise<Tweet[]> => {
-  // Simulate DB Delay for realism (optional, but good for UX)
-  // await new Promise(resolve => setTimeout(resolve, 300));
-
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
     try {
-      const parsed: AppData = JSON.parse(stored);
-      if (Array.isArray(parsed.tweets)) {
-        return parsed.tweets;
-      }
+        const data = await apiRequest('/data');
+        return data.tweets || [];
     } catch (e) {
-      console.error("Failed to parse stored data", e);
+        console.error("Could not connect to backend, ensure server.py is running.");
+        // Fallback for UI if server is down, though it won't persist
+        return [];
     }
-  }
-  
-  const initialData: AppData = { tweets: DUMMY_TWEETS };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(initialData));
-  return DUMMY_TWEETS;
 };
 
 // --- Data Saving ---
 
 export const saveTweet = async (tweet: Tweet): Promise<void> => {
-  const tweets = await getTweets();
-  const updatedTweets = tweets.map(t => t.id === tweet.id ? tweet : t);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ tweets: updatedTweets }));
+    await apiRequest('/tweet', 'POST', tweet);
 };
 
 export const updateTweets = async (updatedTweetsList: Tweet[]): Promise<void> => {
-    const currentTweets = await getTweets();
-    // Create a map for faster lookup
-    const updatesMap = new Map(updatedTweetsList.map(t => [t.id, t]));
-    
-    const newTweetsState = currentTweets.map(t => {
-        return updatesMap.has(t.id) ? updatesMap.get(t.id)! : t;
-    });
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ tweets: newTweetsState }));
+    await apiRequest('/tweets/bulk', 'POST', updatedTweetsList);
 };
 
 export const addTweets = async (newTweets: Tweet[]): Promise<void> => {
-  const tweets = await getTweets();
-  const combined = [...tweets, ...newTweets];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ tweets: combined }));
+    await apiRequest('/tweets/add', 'POST', newTweets);
 };
 
 export const deleteTweet = async (tweetId: string): Promise<void> => {
-  const tweets = await getTweets();
-  const filteredTweets = tweets.filter(t => t.id !== tweetId);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ tweets: filteredTweets }));
+    await apiRequest(`/tweet/${tweetId}`, 'DELETE');
 };
 
 // --- User Management ---
 
 export const getUsers = async (): Promise<User[]> => {
-  const stored = localStorage.getItem(USERS_STORAGE_KEY);
-  if (stored) {
     try {
-      return JSON.parse(stored);
+        const data = await apiRequest('/data');
+        return data.users || [];
     } catch (e) {
-      console.error("Failed to parse users", e);
+        return [];
     }
-  }
-  
-  // Initialize default if empty
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(DEFAULT_USERS));
-  return DEFAULT_USERS;
 };
 
 export const getAllStudents = async (): Promise<string[]> => {
@@ -120,38 +72,47 @@ export const getAllStudents = async (): Promise<string[]> => {
 };
 
 export const authenticateUser = async (username: string, password: string): Promise<User | null> => {
-  const users = await getUsers();
-  const user = users.find(u => u.username === username && u.password === password);
-  return user || null;
+    const users = await getUsers();
+    const user = users.find(u => u.username === username && u.password === password);
+    return user || null;
 };
 
 export const registerUser = async (user: User): Promise<User> => {
-  const users = await getUsers();
-  if (users.some(u => u.username === user.username)) {
-    throw new Error('שם המשתמש כבר קיים במערכת');
-  }
-  
-  const updatedUsers = [...users, user];
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-  return user;
+    try {
+        return await apiRequest('/users/register', 'POST', user);
+    } catch (e) {
+        throw new Error('שם המשתמש כבר קיים או שיש בעיית תקשורת');
+    }
 };
 
 // --- Export ---
 
 export const exportToCSV = (tweets: Tweet[], users: string[]) => {
-  const header = ['Tweet ID', 'Text', 'Assigned To', ...users.map(u => `Label_${u}`)];
+  // Build header: ID, Text, AssignedTo, Final Decision, then for each user [Label, Features]
+  const header = ['Tweet ID', 'Text', 'Final Decision', 'Assigned To'];
+  users.forEach(u => {
+      header.push(`Label_${u}`);
+      header.push(`Reasons_${u}`);
+  });
   
   const rows = tweets.map(tweet => {
     const assignedStr = tweet.assignedTo ? tweet.assignedTo.join(';') : '';
+    const finalLabel = tweet.finalLabel === 'CONFLICT' ? 'CONFLICT (Unresolved)' : (tweet.finalLabel || '');
+    
     const row = [
       tweet.id,
       `"${tweet.text.replace(/"/g, '""')}"`,
-      `"${assignedStr}"`,
-      ...users.map(u => {
-        const label = tweet.annotations[u] || '';
-        return `"${label}"`;
-      })
+      `"${finalLabel}"`,
+      `"${assignedStr}"`
     ];
+
+    users.forEach(u => {
+        const label = tweet.annotations[u] || '';
+        const features = tweet.annotationFeatures?.[u]?.join('; ') || '';
+        row.push(`"${label}"`);
+        row.push(`"${features}"`);
+    });
+
     return row.join(',');
   });
 
@@ -161,7 +122,7 @@ export const exportToCSV = (tweets: Tweet[], users: string[]) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `tweets_labels_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `tweets_labels_detailed_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Tweet, LabelOption } from '../types';
 import { Button } from './Button';
 import { exportToCSV, getAllStudents } from '../services/dataService';
-import { Download, Users, FileText, CheckSquare, BarChart2, Edit3, Filter, Upload, Plus, AlertCircle, RefreshCw, X, Trash2, FileSpreadsheet, AlertTriangle, Shuffle, Play, Settings, Eye, Maximize2, Info, HelpCircle } from 'lucide-react';
+import { Download, Users, FileText, CheckSquare, BarChart2, Edit3, Filter, Upload, Plus, AlertCircle, RefreshCw, X, Trash2, FileSpreadsheet, AlertTriangle, Shuffle, Play, Settings, Eye, Maximize2, Info, HelpCircle, Gavel, Check } from 'lucide-react';
 
 interface AdminViewProps {
   tweets: Tweet[];
@@ -11,6 +11,7 @@ interface AdminViewProps {
   onBulkUpdateTweets: (tweets: Tweet[]) => void;
   onDeleteTweet: (tweetId: string) => void;
   onUpdateAssignment: (tweetId: string, assignedTo: string[]) => void;
+  onSetFinalLabel: (tweetId: string, finalLabel: string) => void;
 }
 
 // Local interface for the drafting stage
@@ -26,8 +27,8 @@ interface AssignmentConfig {
     overlapPercentage: number;
 }
 
-export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange, onAddTweets, onBulkUpdateTweets, onDeleteTweet, onUpdateAssignment }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'upload'>('dashboard');
+export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange, onAddTweets, onBulkUpdateTweets, onDeleteTweet, onUpdateAssignment, onSetFinalLabel }) => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'upload' | 'resolutions'>('dashboard');
   
   // Filters
   const [selectedStudentFilter, setSelectedStudentFilter] = useState<string>('all');
@@ -63,22 +64,34 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
     loadStudents();
   }, [activeTab, showAssignModal]); // Reload when modal opens too
 
+  // --- Helper: Conflict / Resolution Detection ---
+  const needsResolution = (tweet: Tweet) => {
+      // 1. Explicit Conflict calculated by system
+      if (tweet.finalLabel === 'CONFLICT') return true;
+      
+      // 2. Also flag if final label is "Skip" (manual or legacy) so admin sees it
+      if (tweet.finalLabel === LabelOption.Skip) return true;
+
+      return false;
+  };
+
   // --- Statistics Logic ---
   const { studentStats, allStudentNames } = useMemo(() => {
     const stats: Record<string, number> = {};
+    const distribution: Record<string, Record<string, number>> = {};
     const students = new Set<string>();
 
     tweets.forEach(tweet => {
-      // Count existing labels
-      Object.keys(tweet.annotations).forEach(username => {
+      Object.entries(tweet.annotations).forEach(([username, label]) => {
         students.add(username);
         stats[username] = (stats[username] || 0) + 1;
+        
+        if (!distribution[username]) distribution[username] = {};
+        distribution[username][label] = (distribution[username][label] || 0) + 1;
       });
     });
 
-    // Also include students from dynamic list
     availableStudents.forEach(s => students.add(s));
-    
     const studentList = Array.from(students).sort();
 
     return {
@@ -88,7 +101,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
         return {
             name: student,
             labeledCount: stats[student] || 0,
-            totalAssigned: totalAssigned
+            totalAssigned: totalAssigned,
+            distribution: distribution[student] || {}
         };
       })
     };
@@ -129,48 +143,43 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
       });
   };
 
-  // --- Helper: Conflict Detection ---
-  const hasConflict = (tweet: Tweet) => {
-      const labels = Object.values(tweet.annotations).filter(Boolean); // Get all labels given
-      if (labels.length < 2) return false;
-      
-      const uniqueLabels = new Set(labels);
-      // Remove 'Skip' if you want to be lenient, but usually skip is a valid label to conflict with
-      return uniqueLabels.size > 1;
+  // Handle forcing a consensus on a tweet (Resolution Tab)
+  // NOW: This updates the FINAL LABEL, it does NOT overwrite student labels.
+  const handleDecideFinal = (tweet: Tweet, chosenLabel: string) => {
+      onSetFinalLabel(tweet.id, chosenLabel);
   };
 
   // --- Helper: Filtering Logic ---
   const filteredTweets = useMemo(() => {
       return tweets.filter(tweet => {
-          // 1. Conflict Filter
-          if (showConflictsOnly && !hasConflict(tweet)) return false;
-
-          // 2. Label Filter (Show tweet if ANY student gave it this label)
+          if (showConflictsOnly && !needsResolution(tweet)) return false;
           if (selectedLabelFilter !== 'all') {
-             const labels = Object.values(tweet.annotations);
-             if (!labels.includes(selectedLabelFilter)) return false;
+             // Filter based on Final Label if exists, otherwise check any student annotation
+             if (tweet.finalLabel) {
+                 if (tweet.finalLabel !== selectedLabelFilter) return false;
+             } else {
+                 const labels = Object.values(tweet.annotations);
+                 if (!labels.includes(selectedLabelFilter)) return false;
+             }
           }
-
-          // 3. Note: Student filter is handled in render column visibility, 
-          // but we could also filter rows if the student hasn't touched it. 
-          // For now, keeping rows visible but filtering columns is better for admin view.
-          
           return true;
       });
   }, [tweets, showConflictsOnly, selectedLabelFilter]);
 
-  // --- Draft / Upload Logic ---
+  // Tweets that need resolution
+  const resolutionTweets = useMemo(() => {
+      return tweets.filter(t => needsResolution(t));
+  }, [tweets]);
 
+  // --- Draft / Upload Logic ---
   const handleTextToDraft = () => {
     if (!pasteText.trim()) return;
-    
     const lines = pasteText.split('\n').filter(line => line.trim().length > 0);
     const newDrafts: DraftTweet[] = lines.map(line => ({
       tempId: Math.random().toString(36).substr(2, 9),
       text: line.trim(),
-      assignedTo: [] // Start with no assignment
+      assignedTo: [] 
     }));
-
     setDraftTweets(prev => [...prev, ...newDrafts]);
     setPasteText('');
   };
@@ -178,17 +187,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
-        // Simple CSV parsing: split by line, remove quotes if they wrap the entire line
         const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
-        
         const newDrafts: DraftTweet[] = lines.map(line => {
           let text = line.trim();
-          // Remove surrounding quotes if present (basic CSV handling)
           if (text.startsWith('"') && text.endsWith('"')) {
             text = text.slice(1, -1).replace(/""/g, '"');
           }
@@ -198,7 +203,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
              assignedTo: []
           };
         }).filter(d => d.text.toLowerCase() !== 'text' && d.text.toLowerCase() !== 'tweet');
-
         setDraftTweets(prev => [...prev, ...newDrafts]);
       }
     };
@@ -239,87 +243,63 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
 
   const saveDraftsToSystem = () => {
     if (draftTweets.length === 0) return;
-
     const newTweets: Tweet[] = draftTweets.map(draft => ({
       id: Math.random().toString(36).substr(2, 9),
       text: draft.text,
       annotations: {},
       assignedTo: draft.assignedTo.length > 0 ? draft.assignedTo : undefined
     }));
-
     onAddTweets(newTweets);
     setDraftTweets([]);
     alert(`${newTweets.length} ציוצים נוספו למערכת בהצלחה!`);
   };
 
   // --- Auto Assignment Logic ---
-
   const handleAutoAssign = () => {
       const { selectedStudents, overlapPercentage } = assignmentConfig;
       if (selectedStudents.length === 0) {
           alert('אנא בחר לפחות סטודנט אחד.');
           return;
       }
-
-      // 1. Identify unassigned tweets
       const unassignedTweets = tweets.filter(t => !t.assignedTo || t.assignedTo.length === 0);
-      
       if (unassignedTweets.length === 0) {
           alert('לא נמצאו ציוצים ללא שיוך.');
           setShowAssignModal(false);
           return;
       }
-
-      // 2. Determine number of tweets to have overlap
       const totalTweets = unassignedTweets.length;
       const overlapCount = Math.floor(totalTweets * (overlapPercentage / 100));
-      
-      // 3. Shuffle tweets
       const shuffledTweets = [...unassignedTweets].sort(() => Math.random() - 0.5);
-      
-      // 4. Distribute
       const tweetsToUpdate: Tweet[] = [];
-      
-      // Helper to get next student index round-robin
       let studentIdx = 0;
       const getNextStudent = () => {
           const s = selectedStudents[studentIdx];
           studentIdx = (studentIdx + 1) % selectedStudents.length;
           return s;
       };
-
       shuffledTweets.forEach((tweet, index) => {
           const newAssigned: string[] = [];
-          
-          // First assignment (everyone gets one)
           newAssigned.push(getNextStudent());
-
-          // Overlap assignment (for the first X tweets)
           if (index < overlapCount && selectedStudents.length > 1) {
               let secondStudent = getNextStudent();
-              // Ensure different student
               while (secondStudent === newAssigned[0]) {
                   secondStudent = getNextStudent();
               }
               newAssigned.push(secondStudent);
           }
-          
           tweetsToUpdate.push({
               ...tweet,
               assignedTo: newAssigned
           });
       });
-
       onBulkUpdateTweets(tweetsToUpdate);
       setShowAssignModal(false);
       alert(`${tweetsToUpdate.length} ציוצים שויכו בהצלחה.`);
   };
 
-
   // --- Render Helpers ---
-
   const getLabelColor = (label: string | undefined) => {
-    if (!label) return "bg-gray-50 text-gray-400 border-gray-300";
+    if (!label || label === 'CONFLICT') return "bg-gray-50 text-gray-400 border-gray-300";
     switch (label) {
         case LabelOption.Jihadist: return "bg-red-50 text-red-700 border-red-200 ring-red-200 font-medium";
         case LabelOption.Quietist: return "bg-purple-50 text-purple-700 border-purple-200 ring-purple-200 font-medium";
@@ -327,6 +307,28 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
         case LabelOption.Skip: return "bg-yellow-50 text-yellow-700 border-yellow-200 ring-yellow-200 font-medium";
         default: return "bg-white text-gray-900 border-gray-300";
     }
+  };
+
+  // For chart colors (Backgrounds)
+  const getLabelBaseColor = (label: string) => {
+       switch (label) {
+        case LabelOption.Jihadist: return "#FECACA"; // Red 200
+        case LabelOption.Quietist: return "#E9D5FF"; // Purple 200
+        case LabelOption.Neither: return "#E5E7EB"; // Gray 200
+        case LabelOption.Skip: return "#FEF08A"; // Yellow 200
+        default: return "#F3F4F6";
+    }
+  };
+
+  // For Resolution Buttons (Interactive states)
+  const getConsensusButtonClass = (label: string) => {
+        switch (label) {
+            case LabelOption.Jihadist: return "bg-red-100 hover:bg-red-200 text-red-800 border-red-200";
+            case LabelOption.Quietist: return "bg-purple-100 hover:bg-purple-200 text-purple-800 border-purple-200";
+            case LabelOption.Neither: return "bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-200";
+            case LabelOption.Skip: return "bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border-yellow-200";
+            default: return "bg-white hover:bg-gray-50 text-gray-700 border-gray-300";
+        }
   };
 
   return (
@@ -337,32 +339,46 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
           <h1 className="text-3xl font-bold text-gray-900">לוח בקרה למרצה</h1>
           <p className="text-gray-500 mt-1">ניהול פרויקט תיוג ומעקב אחר התקדמות הסטודנטים</p>
         </div>
-        <div className="flex gap-3">
-             <Button 
-                onClick={() => setShowAssignModal(true)}
-                variant='neutral'
-                className="flex items-center gap-2 bg-purple-100 text-purple-700 border border-purple-200 hover:bg-purple-200"
-            >
-                <Shuffle className="w-4 h-4" />
-                שיוך אוטומטי
-            </Button>
+        <div className="flex gap-2 bg-white p-1 rounded-lg border shadow-sm">
              <Button 
                 onClick={() => setActiveTab('dashboard')} 
-                variant={activeTab === 'dashboard' ? 'primary' : 'secondary'}
-                className="flex items-center gap-2"
+                variant={activeTab === 'dashboard' ? 'primary' : 'neutral'}
+                className={`flex items-center gap-2 text-sm ${activeTab !== 'dashboard' && 'bg-white border-transparent'}`}
             >
                 <BarChart2 className="w-4 h-4" />
                 דשבורד
             </Button>
             <Button 
+                onClick={() => setActiveTab('resolutions')} 
+                variant={activeTab === 'resolutions' ? 'primary' : 'neutral'}
+                className={`flex items-center gap-2 text-sm ${activeTab !== 'resolutions' && 'bg-white border-transparent'}`}
+            >
+                <Gavel className="w-4 h-4" />
+                בקרת איכות והכרעות
+                {resolutionTweets.length > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 rounded-full">{resolutionTweets.length}</span>
+                )}
+            </Button>
+            <Button 
                 onClick={() => setActiveTab('upload')} 
-                variant={activeTab === 'upload' ? 'primary' : 'secondary'}
-                className="flex items-center gap-2"
+                variant={activeTab === 'upload' ? 'primary' : 'neutral'}
+                className={`flex items-center gap-2 text-sm ${activeTab !== 'upload' && 'bg-white border-transparent'}`}
             >
                 <Upload className="w-4 h-4" />
-                העלאת ציוצים
+                העלאת נתונים
             </Button>
         </div>
+      </div>
+
+      <div className="flex justify-end">
+            <Button 
+                onClick={() => setShowAssignModal(true)}
+                variant='neutral'
+                className="flex items-center gap-2 bg-purple-100 text-purple-700 border border-purple-200 hover:bg-purple-200 text-sm"
+            >
+                <Shuffle className="w-4 h-4" />
+                שיוך אוטומטי
+            </Button>
       </div>
 
       {/* Tweet Detail / Edit Modal */}
@@ -389,24 +405,21 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                           <p className="text-lg leading-relaxed text-gray-800 font-medium">"{editingTweet.text}"</p>
                       </div>
 
-                      {/* Conflict Alert */}
-                      {hasConflict(editingTweet) && (
-                          <div className="flex items-start gap-3 bg-red-50 p-4 rounded-lg border border-red-100 text-red-700">
-                              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                              <div>
-                                  <p className="font-bold">זוהתה התנגשות בסיווגים</p>
-                                  <p className="text-sm opacity-90">הסטודנטים סיווגו ציוץ זה בקטגוריות שונות.</p>
-                                  <div className="mt-2 text-xs bg-white p-2 rounded border border-red-100">
-                                      {Object.entries(editingTweet.annotations).map(([student, label]) => (
-                                          <div key={student} className="flex justify-between mb-1 last:mb-0">
-                                              <span className="font-medium">{student}:</span>
-                                              <span>{label}</span>
-                                          </div>
-                                      ))}
-                                  </div>
-                              </div>
+                      {/* Final Label Status */}
+                      <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg border border-blue-100">
+                          <div>
+                              <span className="text-sm font-bold text-blue-800 block">סיווג סופי (Final Decision):</span>
+                              {editingTweet.finalLabel && editingTweet.finalLabel !== 'CONFLICT' ? (
+                                  <span className={`text-sm px-2 py-0.5 rounded mt-1 inline-block ${getLabelColor(editingTweet.finalLabel)}`}>
+                                      {editingTweet.finalLabel}
+                                  </span>
+                              ) : (
+                                  <span className="text-sm text-red-600 font-bold mt-1 inline-block">
+                                      {editingTweet.finalLabel === 'CONFLICT' ? 'טרם נקבע / נדרשת הכרעה' : 'טרם נקבע'}
+                                  </span>
+                              )}
                           </div>
-                      )}
+                      </div>
 
                       {/* Student List & Assignment */}
                       <div>
@@ -422,56 +435,63 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                               {availableStudents.length > 0 ? availableStudents.map(student => {
                                   const isAssigned = editingTweet.assignedTo?.includes(student) || false;
                                   const currentLabel = editingTweet.annotations[student];
+                                  const currentFeatures = editingTweet.annotationFeatures?.[student] || [];
                                   
                                   if (!isAssigned && selectedStudentFilter !== 'all') return null;
 
                                   return (
                                       <div 
                                         key={student} 
-                                        className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                                        className={`flex flex-col p-3 rounded-lg border transition-colors ${
                                             isAssigned ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50 border-gray-100 opacity-75'
                                         }`}
                                       >
-                                          <div className="flex items-center gap-4">
-                                              {/* Checkbox for assignment */}
-                                              <input 
-                                                type="checkbox" 
-                                                checked={isAssigned}
-                                                onChange={() => handleToggleAssignment(student)}
-                                                className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
-                                                title={`שייך/בטל שיוך עבור ${student}`}
-                                              />
-                                              
-                                              <div className="flex items-center gap-3">
-                                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                                                      isAssigned ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
-                                                  }`}>
-                                                      {student.charAt(0).toUpperCase()}
-                                                  </div>
-                                                  <div>
-                                                      <p className={`font-medium ${isAssigned ? 'text-gray-900' : 'text-gray-500'}`}>
-                                                          {student}
-                                                      </p>
-                                                      {!isAssigned && <span className="text-xs text-gray-400">לא משויך</span>}
+                                          <div className="flex items-center justify-between mb-2">
+                                              <div className="flex items-center gap-4">
+                                                  <input 
+                                                    type="checkbox" 
+                                                    checked={isAssigned}
+                                                    onChange={() => handleToggleAssignment(student)}
+                                                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                                                  />
+                                                  
+                                                  <div className="flex items-center gap-3">
+                                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                                          isAssigned ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
+                                                      }`}>
+                                                          {student.charAt(0).toUpperCase()}
+                                                      </div>
+                                                      <div>
+                                                          <p className={`font-medium ${isAssigned ? 'text-gray-900' : 'text-gray-500'}`}>
+                                                              {student}
+                                                          </p>
+                                                      </div>
                                                   </div>
                                               </div>
-                                          </div>
 
-                                          <div className="w-48">
-                                              <select
-                                                value={currentLabel || ""}
-                                                onChange={(e) => onAdminLabelChange(editingTweet.id, student, e.target.value)}
-                                                disabled={!isAssigned}
-                                                className={`block w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${getLabelColor(currentLabel)} disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200`}
-                                                >
-                                                <option value="" disabled className="bg-white text-gray-500">
-                                                    {isAssigned ? 'טרם סווג' : '-'}
-                                                </option>
-                                                {Object.values(LabelOption).map((option) => (
-                                                    <option key={option} value={option} className="bg-white text-gray-900">{option}</option>
-                                                ))}
-                                                </select>
+                                              <div className="w-48">
+                                                  <select
+                                                    value={currentLabel || ""}
+                                                    onChange={(e) => onAdminLabelChange(editingTweet.id, student, e.target.value)}
+                                                    disabled={!isAssigned}
+                                                    className={`block w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${getLabelColor(currentLabel)} disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200`}
+                                                    >
+                                                    <option value="" disabled className="bg-white text-gray-500">
+                                                        {isAssigned ? 'טרם סווג' : '-'}
+                                                    </option>
+                                                    {Object.values(LabelOption).map((option) => (
+                                                        <option key={option} value={option} className="bg-white text-gray-900">{option}</option>
+                                                    ))}
+                                                    </select>
+                                              </div>
                                           </div>
+                                          
+                                          {/* Show reasons if available */}
+                                          {isAssigned && currentFeatures.length > 0 && (
+                                              <div className="mr-9 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
+                                                  <span className="font-bold">נימוקים:</span> {currentFeatures.join(', ')}
+                                              </div>
+                                          )}
                                       </div>
                                   );
                               }) : (
@@ -483,7 +503,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
 
                   {/* Modal Footer */}
                   <div className="p-4 bg-gray-50 border-t border-gray-100 rounded-b-xl flex justify-between">
-                      <Button onClick={() => handleDeleteClick(editingTweet.id)} variant="danger" className="text-sm bg-red-100 hover:bg-red-200 hover: shadow-none">
+                      <Button onClick={() => handleDeleteClick(editingTweet.id)} variant="danger" className="text-sm bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 shadow-none">
                           <Trash2 className="w-4 h-4 ml-2" />
                           מחק ציוץ
                       </Button>
@@ -493,89 +513,95 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
           </div>
       )}
 
-      {/* Auto Assign Modal */}
-      {showAssignModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
-              <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
-                  <div className="flex justify-between items-center mb-6 border-b pb-4">
-                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                          <Shuffle className="w-5 h-5 text-purple-600" />
-                          שיוך אוטומטי
-                      </h3>
-                      <button onClick={() => setShowAssignModal(false)} className="text-gray-400 hover:text-gray-600">
-                          <X className="w-6 h-6" />
-                      </button>
+      {/* --- Resolutions Tab --- */}
+      {activeTab === 'resolutions' && (
+          <div className="space-y-6 animate-fadeIn">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="bg-orange-100 p-2 rounded-lg">
+                          <Gavel className="w-6 h-6 text-orange-600" />
+                      </div>
+                      <div>
+                          <h2 className="text-lg font-bold text-gray-900">בקרת איכות והכרעות (סיווג סופי)</h2>
+                          <p className="text-sm text-gray-500">
+                              רשימת ציוצים בהם קיימת אי-הסכמה ("CONFLICT") בין המתייגים.
+                              קבע כאן את הסיווג הסופי (Final Decision) שיופיע בייצוא הנתונים.
+                          </p>
+                      </div>
                   </div>
                   
-                  <div className="space-y-6">
-                      <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 flex items-start gap-3">
-                          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                          <div>
-                            פעולה זו תחלק את כל הציוצים ש<strong>טרם שויכו</strong> בין הסטודנטים הנבחרים.
-                            נמצאו {tweets.filter(t => !t.assignedTo || t.assignedTo.length === 0).length} ציוצים פנויים.
-                          </div>
+                  {resolutionTweets.length === 0 ? (
+                      <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                          <CheckSquare className="w-12 h-12 mx-auto text-green-500 mb-3 opacity-50" />
+                          <h3 className="text-lg font-medium text-gray-900">אין קונפליקטים!</h3>
+                          <p className="text-gray-500">כל הציוצים שתויגו ע"י כל הסטודנטים נמצאים בהסכמה.</p>
                       </div>
-
-                      <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">בחר סטודנטים משתתפים:</label>
-                          <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border p-2 rounded">
-                              {availableStudents.length > 0 ? availableStudents.map(student => (
-                                  <label key={student} className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                                      <input 
-                                        type="checkbox" 
-                                        checked={assignmentConfig.selectedStudents.includes(student)}
-                                        onChange={(e) => {
-                                            const isChecked = e.target.checked;
-                                            setAssignmentConfig(prev => ({
-                                                ...prev,
-                                                selectedStudents: isChecked 
-                                                    ? [...prev.selectedStudents, student]
-                                                    : prev.selectedStudents.filter(s => s !== student)
-                                            }));
-                                        }}
-                                        className="rounded text-blue-600 focus:ring-blue-500"
-                                      />
-                                      <span className="text-sm text-gray-900 font-medium">{student}</span>
-                                  </label>
-                              )) : (
-                                  <p className="col-span-2 text-sm text-gray-500 text-center p-2">לא נמצאו סטודנטים רשומים.</p>
-                              )}
-                          </div>
+                  ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                          {resolutionTweets.map(tweet => {
+                              // Treat both explicit CONFLICT and Skip as cases needing attention
+                              const isConflict = tweet.finalLabel === 'CONFLICT' || tweet.finalLabel === LabelOption.Skip;
+                              
+                              return (
+                                  <div key={tweet.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                                      <div className="flex justify-between items-start gap-4 mb-3">
+                                          <div className="flex gap-2">
+                                              <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded font-mono">#{tweet.id}</span>
+                                              {isConflict && (
+                                                  <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
+                                                      <AlertTriangle className="w-3 h-3" /> טרם נקבע / נדרשת הכרעה
+                                                  </span>
+                                              )}
+                                          </div>
+                                      </div>
+                                      
+                                      <p className="text-gray-900 font-medium mb-4 text-lg">"{tweet.text}"</p>
+                                      
+                                      <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 mb-4">
+                                          <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">תיוגים של סטודנטים:</h4>
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                              {Object.entries(tweet.annotations).map(([student, label]) => (
+                                                  <div key={student} className="flex flex-col gap-1 bg-white p-2 rounded border shadow-sm">
+                                                      <div className="flex justify-between items-center">
+                                                          <span className="text-xs font-bold text-gray-500">{student}:</span>
+                                                          <span className={`text-xs px-2 py-0.5 rounded ${getLabelColor(label)}`}>{label}</span>
+                                                      </div>
+                                                      {tweet.annotationFeatures?.[student] && (
+                                                          <div className="text-[10px] text-gray-500 border-t pt-1 mt-1">
+                                                              {tweet.annotationFeatures[student].join(', ')}
+                                                          </div>
+                                                      )}
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-2 flex-wrap bg-blue-50 p-3 rounded border border-blue-100">
+                                          <span className="text-sm font-bold text-blue-800 ml-2">קבע סיווג סופי:</span>
+                                          {Object.values(LabelOption).map(option => (
+                                              <button
+                                                  key={option}
+                                                  onClick={() => handleDecideFinal(tweet, option)}
+                                                  className={`text-xs px-4 py-2 rounded-md border font-medium transition-all shadow-sm ${
+                                                      tweet.finalLabel === option 
+                                                        ? 'ring-2 ring-offset-1 ring-blue-500 ' + getConsensusButtonClass(option)
+                                                        : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300 opacity-80'
+                                                  }`}
+                                              >
+                                                  {option}
+                                              </button>
+                                          ))}
+                                      </div>
+                                  </div>
+                              );
+                          })}
                       </div>
-
-                      <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                              אחוז חפיפה ({assignmentConfig.overlapPercentage}%)
-                          </label>
-                          <p className="text-xs text-gray-500 mb-3">אחוז הציוצים שיקבלו בדיקה כפולה (שני סטודנטים) לבדיקת אמינות.</p>
-                          <input 
-                            type="range" 
-                            min="0" 
-                            max="100" 
-                            step="5"
-                            value={assignmentConfig.overlapPercentage}
-                            onChange={(e) => setAssignmentConfig(prev => ({ ...prev, overlapPercentage: Number(e.target.value) }))}
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                          />
-                          <div className="flex justify-between text-xs text-gray-400 mt-1">
-                              <span>0% (ללא חפיפה)</span>
-                              <span>100% (חפיפה מלאה)</span>
-                          </div>
-                      </div>
-
-                      <div className="pt-4 flex justify-end gap-3">
-                          <Button variant="secondary" onClick={() => setShowAssignModal(false)}>ביטול</Button>
-                          <Button onClick={handleAutoAssign} className="bg-purple-600 hover:bg-purple-700">
-                              <Play className="w-4 h-4 ml-2" />
-                              בצע שיוך
-                          </Button>
-                      </div>
-                  </div>
+                  )}
               </div>
           </div>
       )}
 
-      {activeTab === 'upload' ? (
+      {activeTab === 'upload' && (
           <div className="space-y-8">
              {/* Info Box */}
              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
@@ -733,7 +759,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                </div>
              )}
           </div>
-      ) : (
+      )}
+
+      {activeTab === 'dashboard' && (
         <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Quick Stats Cards */}
@@ -786,7 +814,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">שויכו</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תויגו</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">נותרו</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">הושלם</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32">התקדמות</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">התפלגות תיוגים</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -810,11 +839,40 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                                 </span>
                                 </div>
                             </td>
+                            <td className="px-6 py-4">
+                                {stat.labeledCount > 0 ? (
+                                    <div className="w-full h-5 flex rounded-md overflow-hidden bg-gray-100 border border-gray-200">
+                                        {Object.entries(stat.distribution).map(([label, count]) => {
+                                            const pct = Math.round((count / stat.labeledCount) * 100);
+                                            if (pct === 0) return null;
+                                            return (
+                                                <div 
+                                                    key={label}
+                                                    style={{ 
+                                                        width: `${pct}%`,
+                                                        backgroundColor: getLabelBaseColor(label)
+                                                    }}
+                                                    title={`${label}: ${count} (${pct}%)`}
+                                                    className="h-full flex items-center justify-center hover:opacity-90 transition-opacity cursor-help relative group"
+                                                >
+                                                    {pct >= 10 && (
+                                                        <span className="text-[9px] font-bold text-gray-800 truncate px-1">
+                                                            {pct}%
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <span className="text-xs text-gray-300">אין נתונים</span>
+                                )}
+                            </td>
                             </tr>
                         ))
                         ) : (
                         <tr>
-                            <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">
+                            <td colSpan={6} className="px-6 py-8 text-center text-gray-500 text-sm">
                             אין עדיין נתונים להצגה
                             </td>
                         </tr>
@@ -895,7 +953,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                         <tr>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">מזהה</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs">תוכן הציוץ</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32">משויך ל:</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32">סיווג סופי</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-40">התקדמות</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-64">סיווגים נוכחיים</th>
                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
@@ -905,16 +963,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredTweets.map((tweet) => {
-                            const isConflict = hasConflict(tweet);
+                            const isConflict = tweet.finalLabel === 'CONFLICT' || tweet.finalLabel === LabelOption.Skip;
                             const assignedCount = tweet.assignedTo?.length || 0;
                             const labeledCount = Object.keys(tweet.annotations).filter(k => tweet.assignedTo?.includes(k)).length;
                             
-                            // Check for 'Unsure/Skip' labels
-                            const unsureStudents = Object.entries(tweet.annotations)
-                                .filter(([_, label]) => label === LabelOption.Skip)
-                                .map(([student]) => student);
-                            const hasUnsure = unsureStudents.length > 0;
-
                             // Prepare conflict tooltip details
                             const conflictDetails = Object.entries(tweet.annotations)
                                 .map(([s, l]) => `${s}: ${l}`)
@@ -937,16 +989,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                                                 className="text-red-500 mt-1 cursor-help flex items-center gap-1 bg-white rounded-full px-1 border border-red-200 shadow-sm w-fit"
                                             >
                                                 <AlertTriangle className="w-3 h-3" />
-                                                <span className="text-[10px] font-bold">התנגשות</span>
-                                            </div>
-                                        )}
-                                        {hasUnsure && (
-                                            <div 
-                                                title={`סומן כ'לא בטוח' על ידי: ${unsureStudents.join(', ')}`} 
-                                                className="text-yellow-600 mt-1 cursor-help flex items-center gap-1 bg-yellow-50 rounded-full px-2 py-0.5 border border-yellow-200 shadow-sm w-fit"
-                                            >
-                                                <HelpCircle className="w-3 h-3" />
-                                                <span className="text-[10px] font-bold">לא בטוח</span>
+                                                <span className="text-[10px] font-bold">טרם נקבע / נדרשת הכרעה</span>
                                             </div>
                                         )}
                                     </td>
@@ -955,15 +998,14 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                                             {tweet.text}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-xs text-gray-500 align-top">
-                                        <div className="flex flex-wrap gap-1">
-                                            {tweet.assignedTo?.map(s => (
-                                                <span key={s} className="bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
-                                                    {s}
-                                                </span>
-                                            ))}
-                                            {!tweet.assignedTo?.length && <span className="text-gray-400 italic">לא משויך</span>}
-                                        </div>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
+                                        {tweet.finalLabel && tweet.finalLabel !== 'CONFLICT' ? (
+                                            <span className={`text-xs px-2 py-0.5 rounded border ${getLabelColor(tweet.finalLabel)}`}>
+                                                {tweet.finalLabel}
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-gray-400 italic">טרם נקבע</span>
+                                        )}
                                     </td>
                                     
                                     <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
@@ -976,9 +1018,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ tweets, onAdminLabelChange
                                                 </div>
                                                 <span className="text-xs text-gray-500 font-medium">{labeledCount}/{assignedCount}</span>
                                             </div>
-                                            {assignedCount > 0 && labeledCount === assignedCount && (
-                                                <span className="text-[10px] text-green-600 font-bold bg-green-50 px-1.5 py-0.5 rounded border border-green-100">הושלם</span>
-                                            )}
                                     </td>
 
                                     <td className="px-6 py-4 whitespace-nowrap text-sm align-top">

@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { User, Tweet, LabelOption } from '../types';
+import { User, Tweet, LabelOption, LABEL_REASONS } from '../types';
 import { Button } from './Button';
 import { exportToCSV } from '../services/dataService';
-import { CheckCircle, Clock, Save, History, RotateCcw, Download, Trash2, Search, ArrowUpDown, Calendar, Lock } from 'lucide-react';
+import { CheckCircle, Clock, Save, History, RotateCcw, Download, Trash2, Search, ArrowUpDown, Calendar, Lock, CheckSquare, X } from 'lucide-react';
 
 interface StudentViewProps {
   user: User;
   tweets: Tweet[];
-  onLabelTweet: (tweetId: string, label: string) => void;
+  onLabelTweet: (tweetId: string, label: string, features: string[]) => void;
   onResetLabel: (tweetId: string) => void;
 }
 
@@ -15,6 +15,10 @@ export const StudentView: React.FC<StudentViewProps> = ({ user, tweets, onLabelT
   const [activeTab, setActiveTab] = useState<'label' | 'history'>('label');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
+  // Modal State
+  const [pendingLabel, setPendingLabel] = useState<{tweetId: string, label: string} | null>(null);
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
 
   // Filter tweets specifically assigned to this user
   const myTweets = useMemo(() => {
@@ -65,6 +69,38 @@ export const StudentView: React.FC<StudentViewProps> = ({ user, tweets, onLabelT
     }
   };
 
+  // --- Handlers ---
+
+  const initiateLabel = (tweetId: string, label: string) => {
+    // If 'Skip' is selected, maybe we don't need features? 
+    // But for research consistency, let's keep it or make it optional. 
+    // For now, prompt for everything.
+    setPendingLabel({ tweetId, label });
+    setSelectedFeatures([]);
+  };
+
+  const toggleFeature = (feature: string) => {
+      setSelectedFeatures(prev => 
+        prev.includes(feature) 
+        ? prev.filter(f => f !== feature)
+        : [...prev, feature]
+      );
+  };
+
+  const confirmLabel = () => {
+      if (!pendingLabel) return;
+      onLabelTweet(pendingLabel.tweetId, pendingLabel.label, selectedFeatures);
+      setPendingLabel(null);
+      setSelectedFeatures([]);
+  };
+
+  const cancelLabel = () => {
+      setPendingLabel(null);
+      setSelectedFeatures([]);
+  };
+
+  // --- Render ---
+
   if (myTweets.length === 0 && activeTab === 'label') {
     return (
       <div className="max-w-4xl mx-auto p-6 text-center mt-10">
@@ -81,6 +117,53 @@ export const StudentView: React.FC<StudentViewProps> = ({ user, tweets, onLabelT
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+      
+      {/* Feature Selection Modal */}
+      {pendingLabel && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full flex flex-col max-h-[90vh]">
+                  <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+                      <h3 className="text-lg font-bold text-gray-900">מדוע בחרת בסיווג זה?</h3>
+                      <button onClick={cancelLabel} className="text-gray-400 hover:text-gray-600">
+                          <X className="w-6 h-6" />
+                      </button>
+                  </div>
+                  
+                  <div className="p-5 overflow-y-auto">
+                      <div className="mb-4 bg-gray-50 p-3 rounded text-sm text-gray-600">
+                          סיווג נבחר: <span className={`font-bold px-2 py-0.5 rounded border ${getLabelColor(pendingLabel.label)}`}>{pendingLabel.label}</span>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-3">אנא סמן את המאפיינים שהובילו להחלטה (ניתן לבחור יותר מאחד):</p>
+                      
+                      <div className="space-y-2">
+                          {LABEL_REASONS.map(reason => (
+                              <label key={reason} className="flex items-start gap-3 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={selectedFeatures.includes(reason)}
+                                    onChange={() => toggleFeature(reason)}
+                                    className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm text-gray-800">{reason}</span>
+                              </label>
+                          ))}
+                      </div>
+                  </div>
+
+                  <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-between gap-3">
+                      <Button variant="secondary" onClick={cancelLabel} className="flex-1">ביטול</Button>
+                      <Button 
+                        onClick={confirmLabel} 
+                        disabled={selectedFeatures.length === 0} 
+                        className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                          שמור תיוג
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* Header & Stats */}
       <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -162,25 +245,25 @@ export const StudentView: React.FC<StudentViewProps> = ({ user, tweets, onLabelT
                 <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">בחר סיווג:</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Button 
-                    onClick={() => onLabelTweet(currentTweet.id, LabelOption.Jihadist)}
+                    onClick={() => initiateLabel(currentTweet.id, LabelOption.Jihadist)}
                     className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 hover:border-red-300 py-3"
                   >
                     {LabelOption.Jihadist}
                   </Button>
                   <Button 
-                    onClick={() => onLabelTweet(currentTweet.id, LabelOption.Quietist)}
+                    onClick={() => initiateLabel(currentTweet.id, LabelOption.Quietist)}
                     className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 hover:border-purple-300 py-3"
                   >
                     {LabelOption.Quietist}
                   </Button>
                   <Button 
-                    onClick={() => onLabelTweet(currentTweet.id, LabelOption.Neither)}
+                    onClick={() => initiateLabel(currentTweet.id, LabelOption.Neither)}
                     className="bg-gray-200 hover:bg-gray-300 text-gray-800 border border-gray-300 hover:border-gray-400 py-3 font-medium"
                   >
                     {LabelOption.Neither}
                   </Button>
                   <Button 
-                    onClick={() => onLabelTweet(currentTweet.id, LabelOption.Skip)}
+                    onClick={() => initiateLabel(currentTweet.id, LabelOption.Skip)}
                     variant="secondary"
                     className="py-3"
                   >
@@ -251,13 +334,14 @@ export const StudentView: React.FC<StudentViewProps> = ({ user, tweets, onLabelT
                   <tr>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">מזהה</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תוכן הציוץ</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-48">סיווג</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-48">סיווג ונימוקים</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">פעולות</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {labeledTweets.map((tweet) => {
                     const currentLabel = tweet.annotations[user.username];
+                    const currentFeatures = tweet.annotationFeatures?.[user.username] || [];
                     const timestamp = tweet.annotationTimestamps?.[user.username];
                     
                     return (
@@ -274,16 +358,19 @@ export const StudentView: React.FC<StudentViewProps> = ({ user, tweets, onLabelT
                         <td className="px-6 py-4 text-sm text-gray-900 max-w-md align-top">
                           <div className="line-clamp-3 hover:line-clamp-none transition-all">{tweet.text}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium align-top">
-                          <select
-                            value={currentLabel}
-                            onChange={(e) => onLabelTweet(tweet.id, e.target.value)}
-                            className={`block w-full py-1.5 px-3 text-sm border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 ${getLabelColor(currentLabel)}`}
-                          >
-                            {Object.values(LabelOption).map((option) => (
-                              <option key={option} value={option} className="bg-white text-gray-900">{option}</option>
-                            ))}
-                          </select>
+                        <td className="px-6 py-4 text-sm font-medium align-top">
+                           {/* Only allow changing label via text for simplicity in history, or re-open modal. 
+                               For now, we display readonly with button to reset */}
+                           <div className={`inline-block px-2 py-1 rounded text-xs mb-2 ${getLabelColor(currentLabel)}`}>
+                               {currentLabel}
+                           </div>
+                           <div className="flex flex-wrap gap-1">
+                               {currentFeatures.map(f => (
+                                   <span key={f} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                       {f}
+                                   </span>
+                               ))}
+                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
                            <Button 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Tweet, UserRole } from './types';
+import { User, Tweet, UserRole, LabelOption } from './types';
 import { getTweets, saveTweet, addTweets, updateTweets, deleteTweet } from './services/dataService';
 import { Login } from './components/Login';
 import { StudentView } from './components/StudentView';
@@ -35,22 +35,60 @@ const App: React.FC = () => {
     setCurrentUser(null);
   };
 
-  const handleLabelTweet = async (tweetId: string, label: string) => {
+  // Helper to check consensus
+  const calculateFinalLabel = (tweet: Tweet, newAnnotations: Record<string, string>): string | undefined => {
+    const assigned = tweet.assignedTo || [];
+    if (assigned.length === 0) return undefined;
+
+    // Check if all assigned students have labeled
+    const labels = assigned.map(u => newAnnotations[u]).filter(Boolean);
+    
+    // If not everyone finished, we don't calculate final label yet
+    if (labels.length < assigned.length) return tweet.finalLabel; 
+
+    // All finished. Check equality.
+    const first = labels[0];
+    const allMatch = labels.every(l => l === first);
+
+    if (!allMatch) {
+        return "CONFLICT";
+    }
+
+    // NEW LOGIC: If everyone agrees, BUT they agreed on "Skip/Unsure", 
+    // we do NOT auto-resolve. We flag it as CONFLICT so Admin sees it in Quality Control.
+    if (first === LabelOption.Skip) {
+        return "CONFLICT";
+    }
+
+    return first;
+  };
+
+  const handleLabelTweet = async (tweetId: string, label: string, features: string[] = []) => {
     if (!currentUser) return;
 
     // 1. Optimistic Update (Update UI immediately)
     const updatedTweets = tweets.map(tweet => {
       if (tweet.id === tweetId) {
-        return {
-          ...tweet,
-          annotations: {
+        const newAnnotations = {
             ...tweet.annotations,
             [currentUser.username]: label
+        };
+
+        // Calculate auto-consensus
+        const newFinalLabel = calculateFinalLabel(tweet, newAnnotations);
+
+        return {
+          ...tweet,
+          annotations: newAnnotations,
+          annotationFeatures: {
+            ...(tweet.annotationFeatures || {}),
+            [currentUser.username]: features
           },
           annotationTimestamps: {
             ...(tweet.annotationTimestamps || {}),
             [currentUser.username]: Date.now()
-          }
+          },
+          finalLabel: newFinalLabel
         };
       }
       return tweet;
@@ -74,13 +112,18 @@ const App: React.FC = () => {
         const newAnnotations = { ...tweet.annotations };
         delete newAnnotations[currentUser.username];
         
+        const newFeatures = { ...(tweet.annotationFeatures || {}) };
+        delete newFeatures[currentUser.username];
+
         const newTimestamps = { ...(tweet.annotationTimestamps || {}), };
         delete newTimestamps[currentUser.username];
         
         const newTweet = {
           ...tweet,
           annotations: newAnnotations,
-          annotationTimestamps: newTimestamps
+          annotationFeatures: newFeatures,
+          annotationTimestamps: newTimestamps,
+          finalLabel: undefined 
         };
         changedTweet = newTweet;
         return newTweet;
@@ -101,16 +144,20 @@ const App: React.FC = () => {
     let changedTweet: Tweet | undefined;
     const updatedTweets = tweets.map(tweet => {
       if (tweet.id === tweetId) {
-        const newTweet = {
-          ...tweet,
-          annotations: {
+        const newAnnotations = {
             ...tweet.annotations,
             [studentUsername]: newLabel
-          },
+        };
+        
+        const newTweet = {
+          ...tweet,
+          annotations: newAnnotations,
           annotationTimestamps: {
             ...(tweet.annotationTimestamps || {}),
             [studentUsername]: Date.now()
-          }
+          },
+          // Re-evaluate consensus based on admin change to student label
+          finalLabel: calculateFinalLabel(tweet, newAnnotations)
         };
         changedTweet = newTweet;
         return newTweet;
@@ -125,12 +172,31 @@ const App: React.FC = () => {
     }
   };
 
+  // NEW: Handle setting the Final Label directly (Admin Override / Resolution)
+  const handleSetFinalLabel = async (tweetId: string, finalLabel: string) => {
+      let changedTweet: Tweet | undefined;
+      const updatedTweets = tweets.map(tweet => {
+          if (tweet.id === tweetId) {
+              const newTweet = { ...tweet, finalLabel };
+              changedTweet = newTweet;
+              return newTweet;
+          }
+          return tweet;
+      });
+      setTweets(updatedTweets);
+      
+      if (changedTweet) {
+          await saveTweet(changedTweet);
+      }
+  };
+
   const handleAssignmentChange = async (tweetId: string, assignedTo: string[]) => {
       // 1. Optimistic
       let changedTweet: Tweet | undefined;
       const updatedTweets = tweets.map(tweet => {
           if (tweet.id === tweetId) {
-              const newTweet = { ...tweet, assignedTo };
+              // If assignment changes, reset final label to force re-check
+              const newTweet = { ...tweet, assignedTo, finalLabel: undefined };
               changedTweet = newTweet;
               return newTweet;
           }
@@ -226,6 +292,7 @@ const App: React.FC = () => {
             onBulkUpdateTweets={handleBulkUpdateTweets}
             onDeleteTweet={handleDeleteTweet}
             onUpdateAssignment={handleAssignmentChange}
+            onSetFinalLabel={handleSetFinalLabel}
           />
         ) : (
           <StudentView 
