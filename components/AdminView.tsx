@@ -12,6 +12,7 @@ interface AdminViewProps {
   onDeleteTweet: (tweetId: string) => void;
   onUpdateAssignment: (tweetId: string, assignedTo: string[]) => void;
   onSetFinalLabel: (tweetId: string, finalLabel: string) => void;
+  onDeleteAllTweets: () => Promise<void>;
 }
 
 // Local interface for the drafting stage
