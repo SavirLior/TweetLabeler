@@ -1,6 +1,6 @@
 import { Tweet, AppData, User, UserRole } from '../types';
 
-const API_URL = 'http://127.0.0.1:8080/api';
+const API_URL = '/api';
 
 // --- Helper for fetch with error handling ---
 const apiRequest = async (endpoint: string, method: string = 'GET', body?: any) => {

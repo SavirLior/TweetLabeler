@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 import json
 import os
@@ -6,7 +6,7 @@ import csv
 import io
 from datetime import datetime
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="dist", static_url_path="")
 # Allow the Vite dev server to call the API during local development.
 CORS(
     app,
@@ -184,6 +184,14 @@ def register_user():
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'ok', 'message': 'TweetLabeler server is running'})
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_react_app(path):
+    """Serve the React app and static assets."""
+    if path and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/api/export/csv', methods=['GET'])
 def export_csv():
