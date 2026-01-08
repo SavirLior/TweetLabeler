@@ -6,6 +6,10 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # זה מאפשר לשמור את קובץ הנתונים (tweets.json) מחוץ לדוקר כדי שלא ימחק
+      # מיפוי תיקיית ה-DB (הכי חשוב לסנכרן לענן)
+      - ./db:/app/db
+      # מיפוי הקוד לעדכונים חיים
+      - ./server.py:/app/server.py
+      # המיגרציה מה-JSON הישן
       - ./data.json:/app/data.json
     restart: unless-stopped

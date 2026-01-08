@@ -3,10 +3,13 @@ __pycache__/
 *.py[cod]
 venv/
 .env
+# תמחק את ההערה הזאת כדי להכניס את הדאטא לגיט איגנור
+# db/
+# *.db
 
 # Data files (local/testing only)
 data.json
 tweet_classifications.csv
-
+dist/
 # Node/JS
 node_modules/

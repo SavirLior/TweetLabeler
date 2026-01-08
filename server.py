@@ -4,6 +4,7 @@ import json
 import os
 import csv
 import io
+import sqlite3
 from datetime import datetime
 
 app = Flask(__name__, static_folder="dist", static_url_path="")
@@ -25,73 +26,212 @@ def add_cors_headers(response):
 
 # Data file paths
 DATA_FILE = 'data.json'
+DB_FILE = os.path.join('db', 'labeler.db')
 CSV_FILE = 'tweet_classifications.csv'
-DEFAULT_DATA = {
-    'tweets': [],
-    'users': []
-}
 
-# Helper functions
-def load_data():
-    """Load data from JSON file"""
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"Error loading data: {e}")
-            return DEFAULT_DATA.copy()
-    return DEFAULT_DATA.copy()
+def get_db_connection():
+    if not os.path.exists('db'):
+        os.makedirs('db')
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-def save_data(data):
-    """Save data to JSON file"""
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Create tables
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            username TEXT PRIMARY KEY,
+            password TEXT,
+            role TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tweets (
+            id TEXT PRIMARY KEY,
+            text TEXT,
+            final_label TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS assignments (
+            tweet_id TEXT,
+            username TEXT,
+            PRIMARY KEY (tweet_id, username),
+            FOREIGN KEY (tweet_id) REFERENCES tweets (id),
+            FOREIGN KEY (username) REFERENCES users (username)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS annotations (
+            tweet_id TEXT,
+            username TEXT,
+            label TEXT,
+            timestamp INTEGER,
+            features TEXT,
+            PRIMARY KEY (tweet_id, username),
+            FOREIGN KEY (tweet_id) REFERENCES tweets (id),
+            FOREIGN KEY (username) REFERENCES users (username)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+def init_db_from_json():
+    """Migrate data from JSON to SQLite if DB is empty"""
+    if not os.path.exists(DATA_FILE):
+        return
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if users table is empty
+    cursor.execute('SELECT count(*) FROM users')
+    if cursor.fetchone()[0] > 0:
+        conn.close()
+        return
+
+    print("Migrating data from JSON to SQLite...")
+    
     try:
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        # Also save to CSV file
-        save_to_csv(data)
-        return True
-    except Exception as e:
-        print(f"Error saving data: {e}")
-        return False
-
-def save_to_csv(data):
-    """Save tweets with final decisions to CSV file"""
-    try:
-        tweets = data.get('tweets', [])
-        
-        with open(CSV_FILE, 'w', newline='', encoding='utf-8-sig') as f:
-            writer = csv.writer(f)
-            # Write header
-            writer.writerow(['Tweet ID', 'Tweet Text', 'Final Decision'])
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
             
-            # Write tweet data
-            for tweet in tweets:
-                final_label = tweet.get('finalLabel', 'Pending')
+        # Migrate users
+        for user in data.get('users', []):
+            cursor.execute(
+                'INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)',
+                (user['username'], user['password'], user['role'])
+            )
+            
+        # Migrate tweets and related data
+        for tweet in data.get('tweets', []):
+            # Insert tweet
+            cursor.execute(
+                'INSERT OR IGNORE INTO tweets (id, text, final_label) VALUES (?, ?, ?)',
+                (tweet['id'], tweet['text'], tweet.get('finalLabel'))
+            )
+            
+            # Insert assignments
+            for username in tweet.get('assignedTo', []):
+                cursor.execute(
+                    'INSERT OR IGNORE INTO assignments (tweet_id, username) VALUES (?, ?)',
+                    (tweet['id'], username)
+                )
                 
-                # Handle CONFLICT label
-                if final_label == 'CONFLICT':
-                    final_label = 'CONFLICT (Unresolved)'
+            # Insert annotations
+            annotations = tweet.get('annotations', {})
+            timestamps = tweet.get('annotationTimestamps', {})
+            features_map = tweet.get('annotationFeatures', {})
+            
+            # Get all unique usernames involved in annotations
+            annotators = set(annotations.keys()) | set(timestamps.keys()) | set(features_map.keys())
+            
+            for username in annotators:
+                label = annotations.get(username)
+                timestamp = timestamps.get(username)
+                features = features_map.get(username)
                 
-                writer.writerow([
-                    tweet.get('id', ''),
-                    tweet.get('text', ''),
-                    final_label
-                ])
+                if label or timestamp or features:
+                    cursor.execute(
+                        '''INSERT OR REPLACE INTO annotations 
+                           (tweet_id, username, label, timestamp, features) 
+                           VALUES (?, ?, ?, ?, ?)''',
+                        (tweet['id'], username, label, timestamp, json.dumps(features) if features else None)
+                    )
         
-        print(f"CSV file updated: {CSV_FILE}")
-        return True
+        conn.commit()
+        print("Migration completed successfully.")
+        
     except Exception as e:
-        print(f"Error saving CSV: {e}")
-        return False
+        print(f"Error during migration: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+# Initialize DB on startup
+init_db()
+init_db_from_json()
+
+def load_data_from_db():
+    """Fetch all data from SQL tables and reconstruct the original JSON structure"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    data = {
+        'users': [],
+        'tweets': []
+    }
+    
+    try:
+        # Fetch users
+        cursor.execute('SELECT * FROM users')
+        users = cursor.fetchall()
+        for user in users:
+            data['users'].append({
+                'username': user['username'],
+                'password': user['password'],
+                'role': user['role']
+            })
+            
+        # Fetch tweets
+        cursor.execute('SELECT * FROM tweets')
+        tweets = cursor.fetchall()
+        
+        for tweet_row in tweets:
+            tweet_id = tweet_row['id']
+            tweet_obj = {
+                'id': tweet_id,
+                'text': tweet_row['text'],
+                'finalLabel': tweet_row['final_label'],
+                'assignedTo': [],
+                'annotations': {},
+                'annotationTimestamps': {},
+                'annotationFeatures': {}
+            }
+            
+            # Fetch assignments for this tweet
+            cursor.execute('SELECT username FROM assignments WHERE tweet_id = ?', (tweet_id,))
+            assignments = cursor.fetchall()
+            tweet_obj['assignedTo'] = [a['username'] for a in assignments]
+            
+            # Fetch annotations for this tweet
+            cursor.execute('SELECT * FROM annotations WHERE tweet_id = ?', (tweet_id,))
+            annotations = cursor.fetchall()
+            
+            for ann in annotations:
+                username = ann['username']
+                if ann['label']:
+                    tweet_obj['annotations'][username] = ann['label']
+                if ann['timestamp']:
+                    tweet_obj['annotationTimestamps'][username] = ann['timestamp']
+                if ann['features']:
+                    try:
+                        tweet_obj['annotationFeatures'][username] = json.loads(ann['features'])
+                    except:
+                        pass
+            
+            data['tweets'].append(tweet_obj)
+            
+        return data
+    except Exception as e:
+        print(f"Error loading data from DB: {e}")
+        return {'users': [], 'tweets': []}
+    finally:
+        conn.close()
 
 # Routes
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
     """Get all tweets and users"""
-    data = load_data()
+    data = load_data_from_db()
     return jsonify(data)
 
 @app.route('/api/tweet', methods=['POST'])
@@ -99,18 +239,58 @@ def save_tweet():
     """Save a single tweet with its annotations"""
     try:
         tweet = request.json
-        data = load_data()
+        tweet_id = tweet['id']
         
-        # Find and update the tweet, or add it if it doesn't exist
-        tweet_index = next((i for i, t in enumerate(data['tweets']) if t['id'] == tweet['id']), None)
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        if tweet_index is not None:
-            data['tweets'][tweet_index] = tweet
-        else:
-            data['tweets'].append(tweet)
-        
-        save_data(data)
-        return jsonify({'success': True, 'message': 'Tweet saved successfully'})
+        try:
+            # Update tweet details
+            cursor.execute(
+                'INSERT OR REPLACE INTO tweets (id, text, final_label) VALUES (?, ?, ?)',
+                (tweet_id, tweet.get('text'), tweet.get('finalLabel'))
+            )
+            
+            # Update assignments
+            # First delete existing assignments for this tweet
+            cursor.execute('DELETE FROM assignments WHERE tweet_id = ?', (tweet_id,))
+            # Then insert new ones
+            for username in tweet.get('assignedTo', []):
+                cursor.execute(
+                    'INSERT INTO assignments (tweet_id, username) VALUES (?, ?)',
+                    (tweet_id, username)
+                )
+            
+            # Update annotations
+            # First delete existing annotations for this tweet to ensure we match the frontend state
+            cursor.execute('DELETE FROM annotations WHERE tweet_id = ?', (tweet_id,))
+            
+            annotations = tweet.get('annotations', {})
+            timestamps = tweet.get('annotationTimestamps', {})
+            features_map = tweet.get('annotationFeatures', {})
+            
+            annotators = set(annotations.keys()) | set(timestamps.keys()) | set(features_map.keys())
+            
+            for username in annotators:
+                label = annotations.get(username)
+                timestamp = timestamps.get(username)
+                features = features_map.get(username)
+                
+                cursor.execute(
+                    '''INSERT INTO annotations 
+                       (tweet_id, username, label, timestamp, features) 
+                       VALUES (?, ?, ?, ?, ?)''',
+                    (tweet_id, username, label, timestamp, json.dumps(features) if features else None)
+                )
+            
+            conn.commit()
+            return jsonify({'success': True, 'message': 'Tweet saved successfully'})
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+            
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -119,13 +299,57 @@ def update_tweets_bulk():
     """Update multiple tweets at once"""
     try:
         updated_tweets = request.json
-        data = load_data()
         
-        # Replace all tweets
-        data['tweets'] = updated_tweets
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        save_data(data)
-        return jsonify({'success': True, 'message': 'Tweets updated successfully'})
+        try:
+            for tweet in updated_tweets:
+                tweet_id = tweet['id']
+                
+                # Update tweet details
+                cursor.execute(
+                    'INSERT OR REPLACE INTO tweets (id, text, final_label) VALUES (?, ?, ?)',
+                    (tweet_id, tweet.get('text'), tweet.get('finalLabel'))
+                )
+                
+                # Update assignments
+                cursor.execute('DELETE FROM assignments WHERE tweet_id = ?', (tweet_id,))
+                for username in tweet.get('assignedTo', []):
+                    cursor.execute(
+                        'INSERT INTO assignments (tweet_id, username) VALUES (?, ?)',
+                        (tweet_id, username)
+                    )
+                
+                # Update annotations
+                cursor.execute('DELETE FROM annotations WHERE tweet_id = ?', (tweet_id,))
+                
+                annotations = tweet.get('annotations', {})
+                timestamps = tweet.get('annotationTimestamps', {})
+                features_map = tweet.get('annotationFeatures', {})
+                
+                annotators = set(annotations.keys()) | set(timestamps.keys()) | set(features_map.keys())
+                
+                for username in annotators:
+                    label = annotations.get(username)
+                    timestamp = timestamps.get(username)
+                    features = features_map.get(username)
+                    
+                    cursor.execute(
+                        '''INSERT INTO annotations 
+                           (tweet_id, username, label, timestamp, features) 
+                           VALUES (?, ?, ?, ?, ?)''',
+                        (tweet_id, username, label, timestamp, json.dumps(features) if features else None)
+                    )
+            
+            conn.commit()
+            return jsonify({'success': True, 'message': 'Tweets updated successfully'})
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+            
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -134,16 +358,30 @@ def add_tweets():
     """Add new tweets to the database"""
     try:
         new_tweets = request.json
-        data = load_data()
         
-        # Add only tweets that don't already exist
-        existing_ids = {t['id'] for t in data['tweets']}
-        for tweet in new_tweets:
-            if tweet['id'] not in existing_ids:
-                data['tweets'].append(tweet)
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        save_data(data)
-        return jsonify({'success': True, 'message': f'Added {len(new_tweets)} tweets'})
+        try:
+            count = 0
+            for tweet in new_tweets:
+                # Check if exists
+                cursor.execute('SELECT 1 FROM tweets WHERE id = ?', (tweet['id'],))
+                if cursor.fetchone() is None:
+                    cursor.execute(
+                        'INSERT INTO tweets (id, text, final_label) VALUES (?, ?, ?)',
+                        (tweet['id'], tweet['text'], tweet.get('finalLabel'))
+                    )
+                    count += 1
+            
+            conn.commit()
+            return jsonify({'success': True, 'message': f'Added {count} tweets'})
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+            
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -151,11 +389,22 @@ def add_tweets():
 def delete_tweet(tweet_id):
     """Delete a tweet by ID"""
     try:
-        data = load_data()
-        data['tweets'] = [t for t in data['tweets'] if t['id'] != tweet_id]
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        save_data(data)
-        return jsonify({'success': True, 'message': 'Tweet deleted successfully'})
+        try:
+            cursor.execute('DELETE FROM annotations WHERE tweet_id = ?', (tweet_id,))
+            cursor.execute('DELETE FROM assignments WHERE tweet_id = ?', (tweet_id,))
+            cursor.execute('DELETE FROM tweets WHERE id = ?', (tweet_id,))
+            
+            conn.commit()
+            return jsonify({'success': True, 'message': 'Tweet deleted successfully'})
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+            
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -164,19 +413,32 @@ def register_user():
     """Register a new user"""
     try:
         new_user = request.json
-        data = load_data()
         
-        # Check if user already exists
-        if any(u['username'] == new_user['username'] for u in data['users']):
-            return jsonify({'success': False, 'error': 'Username already exists'}), 400
+        conn = get_db_connection()
+        cursor = conn.cursor()
         
-        # Add the new user
-        data['users'].append(new_user)
-        save_data(data)
-        
-        # Return user without password
-        user_response = {k: v for k, v in new_user.items() if k != 'password'}
-        return jsonify(user_response)
+        try:
+            # Check if user already exists
+            cursor.execute('SELECT 1 FROM users WHERE username = ?', (new_user['username'],))
+            if cursor.fetchone() is not None:
+                return jsonify({'success': False, 'error': 'Username already exists'}), 400
+            
+            cursor.execute(
+                'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+                (new_user['username'], new_user['password'], new_user['role'])
+            )
+            
+            conn.commit()
+            
+            # Return user without password
+            user_response = {k: v for k, v in new_user.items() if k != 'password'}
+            return jsonify(user_response)
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+            
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -197,7 +459,7 @@ def serve_react_app(path):
 def export_csv():
     """Export tweets with classifications to CSV file"""
     try:
-        data = load_data()
+        data = load_data_from_db()
         tweets = data.get('tweets', [])
         users = data.get('users', [])
         
@@ -261,4 +523,5 @@ if __name__ == '__main__':
     print("🚀 TweetLabeler Server Starting...")
     print("API running at http://localhost:8080")
     print("Data file: ", os.path.abspath(DATA_FILE))
+    print("DB file: ", os.path.abspath(DB_FILE))
     app.run(debug=True, host="0.0.0.0", port=8080)
