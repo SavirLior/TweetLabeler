@@ -5,11 +5,7 @@ services:
     build: .
     ports:
       - "8080:8080"
-    volumes:
-      # מיפוי תיקיית ה-DB (הכי חשוב לסנכרן לענן)
-      - ./db:/app/db
-      # מיפוי הקוד לעדכונים חיים
-      - ./server.py:/app/server.py
-      # המיגרציה מה-JSON הישן
-      - ./data.json:/app/data.json
+    environment:
+      - MONGO_URI=mongodb+srv://ofekmazor2121dbUser:4ZvTINrC6KAxmooT@fusion-tweets.9pn4kn4.mongodb.net/?appName=fusion-tweets
+      - MONGO_DB_NAME=tweetlabeler 
     restart: unless-stopped
