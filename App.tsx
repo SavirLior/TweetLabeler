@@ -312,11 +312,11 @@ const App: React.FC = () => {
             </div>
             <div className="flex items-center gap-4">
               <div
-                title="מסד נתונים מקומי"
+                title="MongoDB"
                 className="text-gray-600 bg-gray-50 p-1.5 rounded-full flex items-center gap-2 px-3"
               >
                 <Database className="w-4 h-4" />
-                <span className="text-xs font-medium">מקומי</span>
+                <span className="text-xs font-medium">MongoDB</span>
               </div>
 
               <div className="text-sm text-right hidden sm:block">

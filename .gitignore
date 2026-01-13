@@ -7,6 +7,7 @@ venv/
 # Data files (local/testing only)
 data.json
 tweet_classifications.csv
+db/mongo/
 
 # Node/JS
 node_modules/
