@@ -1,40 +1,33 @@
-# --- שלב 1: בניית ה-Frontend (Node.js) ---
-    FROM node:20-alpine as frontend-build
-    WORKDIR /app
-    
-    # העתקת הגדרות והתקנת ספריות JS
-    COPY package*.json ./
-    # דילוג על tsc כדי למנוע בעיות, בנייה ישירה
-    RUN npm install
-    
-    # העתקת כל הקוד ובנייה
-    COPY . .
-    # זה ייצור את תיקיית dist בתוך הקונטיינר
-    RUN npm run build
-    
-    # --- שלב 2: בניית ה-Backend והרצה (Python) ---
-    FROM python:3.11-slim
-    WORKDIR /app
-    
-    # התקנת ספריות Python
-    COPY requirements.txt .
-    RUN pip install --no-cache-dir -r requirements.txt
-    
-    # --- הקסם קורה כאן: העתקת ה-dist מהשלב הראשון ---
-    COPY --from=frontend-build /app/dist ./dist
-    
-    # העתקת קוד השרת
-    COPY server.py .
-    COPY services/ ./services/
-    COPY *.json .
-    # (אם יש לך עוד קבצים חשובים בתיקייה הראשית, וודא שהם מועתקים)
-    
-    # הגדרת משתני סביבה (אופציונלי)
-    ENV FLASK_APP=server.py
-    ENV PORT=8080
-    
-    # חשיפת הפורט
-    EXPOSE 8080
-    
-    # הפעלת השרת על 0.0.0.0 (חשוב לדוקר!)
-    CMD ["python", "server.py"]
+# Stage 1: Build the frontend
+FROM node:20-alpine AS frontend-build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Stage 2: Serve with Python
+FROM python:3.11-slim
+WORKDIR /app
+
+# התקנת ספריות מערכת נחוצות (אם צריך)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/ports/lists/*
+
+# העתקת דרישות והתקנה
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# --- החלק החדש עבור ה-DB ---
+# יצירת התיקייה ומתן הרשאות כתיבה
+RUN mkdir -p /app/db && chmod 777 /app/db
+
+# העתקת שאר הקבצים
+COPY --from=frontend-build /app/dist ./dist
+COPY server.py .
+COPY services/ ./services/
+COPY *.json .
+
+# פקודת ההרצה
+CMD ["python", "server.py"]
