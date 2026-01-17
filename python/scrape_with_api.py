@@ -1,0 +1,202 @@
+import pandas as pd
+from apify_client import ApifyClient
+import re
+import datetime
+
+
+APIFY_TOKEN = 'YOUR_APIFY_TOKEN_HERE'  # שים פה את הטוקן שלך
+
+USERNAMES = [
+    "elonmusk",
+    "BarakRavid",
+    "AMIRD1978"
+    # תוסיף עוד שמות...
+]
+
+MAX_TWEETS_PER_USER = 20
+
+
+
+def clean_text(text):
+    if not isinstance(text, str):
+        return ""
+    text = re.sub(r'http\S+', '', text).strip()
+    return text
+
+def format_date(date_str):
+    try:
+        dt = datetime.datetime.strptime(date_str, '%a %b %d %H:%M:%S %z %Y')
+        return dt.strftime('%d/%m/%Y %H:%M')
+    except:
+        return date_str
+
+def get_best_text(tweet_obj):
+    """
+    הפונקציה שצדה את הטקסט הכי ארוך בתוך האובייקט,
+    לא משנה איפה הוא מסתתר (legacy, extended, fullText, retweet וכו')
+    """
+    if not isinstance(tweet_obj, dict):
+        return ""
+
+    candidates = []
+    # בדיקה בשדות הרגילים
+    candidates.append(tweet_obj.get('fullText'))
+    candidates.append(tweet_obj.get('text'))
+    candidates.append(tweet_obj.get('full_text'))
+
+    # בדיקה בתוך extended_tweet
+    if 'extended_tweet' in tweet_obj:
+        candidates.append(tweet_obj['extended_tweet'].get('full_text'))
+    
+    # בדיקה בתוך legacy
+    if 'legacy' in tweet_obj:
+        candidates.append(tweet_obj['legacy'].get('full_text'))
+        candidates.append(tweet_obj['legacy'].get('text'))
+
+    # סינון: זורקים None ובוחרים את הכי ארוך
+    valid_texts = [t for t in candidates if t and isinstance(t, str)]
+    
+    if not valid_texts:
+        return ""
+    
+    return max(valid_texts, key=len)
+
+# ==========================================
+# 3. הפעלת הרובוט של Apify
+# ==========================================
+
+print("🚀 מתחיל בהרצת הרובוט של Apify... זה יקח זמן בהתאם לכמות.")
+
+try:
+    client = ApifyClient(APIFY_TOKEN)
+
+    start_urls = [{"url": f"https://twitter.com/{user}"} for user in USERNAMES]
+
+    run_input = {
+        "startUrls": start_urls,
+        "maxItems": MAX_TWEETS_PER_USER * len(USERNAMES),
+        "sort": "Latest"
+        # הורדתי את הגבלת השפה ב-API כדי שנוכל לסנן בעצמנו בצורה חכמה יותר בקוד
+    }
+
+    run = client.actor("apidojo/twitter-scraper").call(run_input=run_input)
+    
+    print("✅ הסריקה הסתיימה! מוריד נתונים...")
+    
+    dataset_items = client.dataset(run["defaultDatasetId"]).list_items().items
+
+except Exception as e:
+    print(f"❌ שגיאה בהרצת Apify: {e}")
+    exit()
+
+# ==========================================
+# 4. עיבוד הנתונים (לוגיקה משופרת)
+# ==========================================
+
+processed_rows = []
+skipped_arabic_count = 0
+
+print(f"📂 מעבד {len(dataset_items)} ציוצים...")
+
+for item in dataset_items:
+    if not isinstance(item, dict):
+        continue
+
+    # --- פילטר שפה 1: ציוץ ראשי ---
+    if item.get('lang') == 'ar':
+        skipped_arabic_count += 1
+        continue
+
+    # --- זיהוי ריטוויט וטקסט ראשי ---
+    # מחפשים אובייקט ריטוויט בכל השמות האפשריים
+    rt_obj = item.get('retweet') or item.get('retweetedStatus') or item.get('retweeted_status') or item.get('retweetedTweet')
+
+    # --- פילטר שפה 2: תוכן הריטוויט ---
+    if rt_obj and isinstance(rt_obj, dict):
+        if rt_obj.get('lang') == 'ar':
+            skipped_arabic_count += 1
+            continue
+
+    # שליפת הטקסט (באמצעות "הצייד")
+    final_user_text = ""
+    is_retweet = False
+
+    if rt_obj and isinstance(rt_obj, dict):
+        # לוקחים טקסט מלא מהריטוויט
+        final_user_text = get_best_text(rt_obj)
+        is_retweet = True
+    else:
+        # לוקחים טקסט מלא מהציוץ הרגיל
+        final_user_text = get_best_text(item)
+        is_retweet = False
+
+    if not final_user_text:
+        continue
+
+    # --- טיפול ב-Quote (ציטוט) ---
+    combined_text = ""
+    is_quote = False
+    quote_obj = item.get('quote') or item.get('quoted_status') or item.get('quotedTweet')
+
+    if quote_obj:
+        quote_content = get_best_text(quote_obj)
+        quote_author = quote_obj.get('author', {}).get('userName', 'Unknown')
+        
+        # אופציונלי: סינון אם הציטוט עצמו בערבית (כרגע מכובה)
+        if quote_obj.get('lang') == 'ar': continue
+
+        if quote_content:
+            is_quote = True
+            combined_text = (
+                
+                f'""{quote_content}"\n"\n'
+                f'--------------\n\n'
+                f'{final_user_text}'
+            )
+
+    # --- בניית הטקסט הסופי ---
+    if not is_quote:
+        if is_retweet:
+            combined_text = f'[Retweeted]\n"{final_user_text}"'
+        else:
+            combined_text = final_user_text
+
+    # ניקוי
+    clean_combined_text = clean_text(combined_text)
+
+    if clean_combined_text:
+        user_name = item.get('author', {}).get('userName', 'Unknown')
+        created_at = format_date(item.get('createdAt', ''))
+        
+        processed_rows.append({
+            "username": user_name,
+            "date": created_at,
+            "full_display_text": clean_combined_text
+        })
+
+# ==========================================
+# 5. שמירה לקבצים
+# ==========================================
+
+df = pd.DataFrame(processed_rows)
+
+if df.empty:
+    print("⚠️ לא נמצאו נתונים (או שהכל סונן).")
+else:
+    # קובץ 1: מלא
+    file_full = "twitter_data_full.csv"
+    df.to_csv(file_full, index=False, encoding='utf-8-sig')
+    print(f"✅ נוצר קובץ מלא: {file_full}")
+
+    # קובץ 2: טקסט בלבד לאתר
+    file_text_only = "twitter_text_only_with_api.csv"
+    df_text_only = df[['full_display_text']].rename(columns={'full_display_text': 'text'})
+    df_text_only.insert(0, 'id', range(1, len(df_text_only) + 1))
+    
+    df_text_only.to_csv(file_text_only, index=False, encoding='utf-8-sig')
+    
+    print("-" * 50)
+    print(f"✅ נוצר קובץ לאתר: {file_text_only}")
+    print(f"📥 סה\"כ נשמרו: {len(df)}")
+    print(f"🗑️ סוננו (ערבית): {skipped_arabic_count}")
+    print("-" * 50)
