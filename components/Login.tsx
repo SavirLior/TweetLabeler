@@ -8,7 +8,7 @@ interface LoginProps {
   onLogin: (user: User) => void;
 }
 
-const ADMIN_SECRET_CODE = "super_secret_fusion_key";
+const ADMIN_SECRET_CODE = "secret";
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [isRegistering, setIsRegistering] = useState(false);

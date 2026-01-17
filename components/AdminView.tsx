@@ -238,26 +238,66 @@ export const AdminView: React.FC<AdminViewProps> = ({
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
-        const lines = content
-          .split(/\r?\n/)
-          .filter((line) => line.trim().length > 0);
-        const newDrafts: DraftTweet[] = lines
-          .map((line) => {
-            let text = line.trim();
-            if (text.startsWith('"') && text.endsWith('"')) {
-              text = text.slice(1, -1).replace(/""/g, '"');
+        // Parse CSV respecting quoted cells with potential newlines
+        const rows: string[] = [];
+        let currentRow = "";
+        let insideQuotes = false;
+
+        for (let i = 0; i < content.length; i++) {
+          const char = content[i];
+          const nextChar = content[i + 1];
+
+          if (char === '"') {
+            if (insideQuotes && nextChar === '"') {
+              // Escaped quote - add one and skip next
+              currentRow += '"';
+              i++;
+            } else {
+              // Toggle quote state
+              insideQuotes = !insideQuotes;
             }
-            return {
-              tempId: Math.random().toString(36).substr(2, 9),
-              text: text,
-              assignedTo: [],
-            };
+          } else if (char === "\n" && !insideQuotes) {
+            // End of row (only if not inside quotes)
+            if (currentRow.trim()) {
+              rows.push(currentRow);
+            }
+            currentRow = "";
+          } else if (char === "\r" && nextChar === "\n" && !insideQuotes) {
+            // Windows line ending - skip \r, handle \n next iteration
+            continue;
+          } else if (char === "\r" && !insideQuotes) {
+            // Old Mac line ending
+            if (currentRow.trim()) {
+              rows.push(currentRow);
+            }
+            currentRow = "";
+          } else {
+            currentRow += char;
+          }
+        }
+
+        // Add last row if exists
+        if (currentRow.trim()) {
+          rows.push(currentRow);
+        }
+
+        // Convert rows to tweets
+        const newDrafts: DraftTweet[] = rows
+          .map((text) => {
+            // Remove surrounding quotes if present
+            let cleanText = text.trim();
+            if (cleanText.startsWith('"') && cleanText.endsWith('"')) {
+              cleanText = cleanText.slice(1, -1);
+            }
+            return cleanText;
           })
-          .filter(
-            (d) =>
-              d.text.toLowerCase() !== "text" &&
-              d.text.toLowerCase() !== "tweet"
-          );
+          .filter((text) => text.length > 0 && text.toLowerCase() !== "text")
+          .map((text) => ({
+            tempId: Math.random().toString(36).substr(2, 9),
+            text: text,
+            assignedTo: [],
+          }));
+
         setDraftTweets((prev) => [...prev, ...newDrafts]);
       }
     };
@@ -332,44 +372,54 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const numTweets = unassignedTweets.length;
     const numStudents = selectedStudents.length;
 
-    // Calculate how many students should be assigned to each tweet
-    // overlapPercentage = 50% means each tweet gets assigned to 50% of students
-    const numStudentsPerTweet = Math.max(
-      1,
-      Math.round((numStudents * overlapPercentage) / 100)
+    // Calculate how many tweets should get assigned to 2 students (overlap)
+    // overlapPercentage = 30% means 30% of tweets get assigned to 2 different students
+    const numTweetsWithOverlap = Math.round(
+      (numTweets * overlapPercentage) / 100
     );
+    const numTweetsWithoutOverlap = numTweets - numTweetsWithOverlap;
 
     const tweetsToUpdate: Tweet[] = [];
 
-    // To ensure equal distribution, we use a "student pool" approach
-    // Create an array of student assignments that cycles through students
-    // This ensures each student gets roughly the same number of assignments
-
+    // Create a student index for round-robin distribution
     let studentIndex = 0;
 
-    unassignedTweets.forEach((tweet) => {
-      const newAssigned: string[] = [];
-
-      // Assign numStudentsPerTweet students to this tweet
-      // Use round-robin to ensure equal distribution
-      for (let i = 0; i < numStudentsPerTweet; i++) {
-        newAssigned.push(selectedStudents[studentIndex % numStudents]);
-        studentIndex++;
-      }
-
-      // Shuffle the selected students for this tweet to add randomness
-      newAssigned.sort(() => Math.random() - 0.5);
+    // First: assign tweets without overlap (1 student each)
+    for (let i = 0; i < numTweetsWithoutOverlap; i++) {
+      const tweet = unassignedTweets[i];
+      const assignedStudent = selectedStudents[studentIndex % numStudents];
+      studentIndex++;
 
       tweetsToUpdate.push({
         ...tweet,
-        assignedTo: newAssigned,
+        assignedTo: [assignedStudent],
       });
-    });
+    }
+
+    // Second: assign tweets with overlap (2 different students each)
+    for (let i = numTweetsWithoutOverlap; i < numTweets; i++) {
+      const tweet = unassignedTweets[i];
+      const student1 = selectedStudents[studentIndex % numStudents];
+      studentIndex++;
+      let student2 = selectedStudents[studentIndex % numStudents];
+      studentIndex++;
+
+      // Make sure we don't assign the same student twice
+      if (student1 === student2 && numStudents > 1) {
+        student2 =
+          selectedStudents[(studentIndex - 1 + numStudents) % numStudents];
+      }
+
+      tweetsToUpdate.push({
+        ...tweet,
+        assignedTo: [student1, student2].sort(() => Math.random() - 0.5),
+      });
+    }
 
     onBulkUpdateTweets(tweetsToUpdate);
     setShowAssignModal(false);
     alert(
-      `${tweetsToUpdate.length} ציוצים שויכו בהצלחה!\n\nכל ציוץ משויך ל-${numStudentsPerTweet} סטודנט(ים) (${overlapPercentage}% מ-${numStudents} סטודנטים).`
+      `${tweetsToUpdate.length} ציוצים שויכו בהצלחה!\n\n${numTweetsWithoutOverlap} ציוצים משויכים ל-1 סטודנט\n${numTweetsWithOverlap} ציוצים משויכים ל-2 סטודנטים שונים (${overlapPercentage}% חפיפה)`
     );
   };
 
@@ -650,7 +700,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Tweet Text */}
               <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                <p className="text-lg leading-relaxed text-gray-800 font-medium">
+                <p className="text-lg leading-relaxed text-gray-800 font-medium whitespace-pre-wrap break-words">
                   "{editingTweet.text}"
                 </p>
               </div>
@@ -878,7 +928,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         </div>
                       </div>
 
-                      <p className="text-gray-900 font-medium mb-4 text-lg">
+                      <p className="text-gray-900 font-medium mb-4 text-lg whitespace-pre-wrap break-words">
                         "{tweet.text}"
                       </p>
 
@@ -1083,7 +1133,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           {idx + 1}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {draft.text}
+                          <div className="whitespace-pre-wrap break-words">
+                            {draft.text}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <div className="flex flex-wrap gap-2">
@@ -1604,7 +1656,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 max-w-xs align-top">
                             <div
-                              className="line-clamp-2 hover:line-clamp-none cursor-pointer transition-all"
+                              className="whitespace-pre-wrap break-words cursor-pointer"
                               title={tweet.text}
                             >
                               {tweet.text}
