@@ -231,6 +231,48 @@ def register_user():
         
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/users/change-password', methods=['POST'])
+def change_password():
+    """Change a user's password"""
+    try:
+        init_db()
+        data = request.json or {}
+        
+        username = data.get("username")
+        current_password = data.get("currentPassword")
+        new_password = data.get("newPassword")
+        
+        if not username or not current_password or not new_password:
+            return jsonify({"success": False, "error": "Missing required fields"}), 400
+        
+        if len(new_password) < 6:
+            return jsonify({"success": False, "error": "New password must be at least 6 characters"}), 400
+        
+        # Find user
+        user = users_collection.find_one({"username": username})
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        
+        # Verify current password
+        if user.get("password") != current_password:
+            return jsonify({"success": False, "error": "Current password is incorrect"}), 401
+        
+        # Prevent same password
+        if current_password == new_password:
+            return jsonify({"success": False, "error": "New password cannot be the same as current password"}), 400
+        
+        # Update password
+        users_collection.update_one(
+            {"username": username},
+            {"$set": {"password": new_password}}
+        )
+        
+        return jsonify({"success": True, "message": "Password changed successfully"})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""

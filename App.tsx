@@ -10,12 +10,18 @@ import {
 import { Login } from "./components/Login";
 import { StudentView } from "./components/StudentView";
 import { AdminView } from "./components/AdminView";
-import { LogOut, Database } from "lucide-react";
+import { LogOut, Database, Lock } from "lucide-react";
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
 
   // Load data on mount
   useEffect(() => {
@@ -284,6 +290,68 @@ const App: React.FC = () => {
     await addTweets(newTweets);
   };
 
+  const handleChangePassword = async () => {
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("כל השדות נדרשים");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError("הסיסמה החדשה חייבת להכיל לפחות 6 תווים");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("הסיסמאות החדשות לא תואמות");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordError("הסיסמה החדשה זהה לסיסמה הנוכחית");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/users/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: currentUser?.username || "",
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setPasswordSuccess("הסיסמה שונתה בהצלחה!");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setPasswordSuccess("");
+        }, 2000);
+      } else {
+        setPasswordError(data.error || "שגיאה בשינוי הסיסמה");
+      }
+    } catch (error) {
+      setPasswordError("שגיאה בתקשורת עם השרת");
+    }
+  };
+
+  const resetPasswordForm = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordError("");
+    setPasswordSuccess("");
+    setShowPasswordModal(false);
+  };
+
   if (!isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -330,6 +398,13 @@ const App: React.FC = () => {
                 </p>
               </div>
               <button
+                onClick={() => setShowPasswordModal(true)}
+                className="p-2 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                title="שינוי סיסמה"
+              >
+                <Lock className="w-5 h-5" />
+              </button>
+              <button
                 onClick={handleLogout}
                 className="p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                 title="התנתק"
@@ -363,6 +438,94 @@ const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Password Change Modal */}
+      {showPasswordModal && currentUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-blue-600" />
+                <h2 className="text-xl font-bold text-gray-900">שינוי סיסמה</h2>
+              </div>
+              <button
+                onClick={resetPasswordForm}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {passwordError && (
+                <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-200">
+                  {passwordError}
+                </div>
+              )}
+
+              {passwordSuccess && (
+                <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm border border-green-200">
+                  {passwordSuccess}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  סיסמה נוכחית
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="הזן סיסמה נוכחית"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  סיסמה חדשה
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="הזן סיסמה חדשה (לפחות 6 תווים)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  אישור סיסמה חדשה
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="אשר סיסמה חדשה"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={resetPasswordForm}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleChangePassword}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  שנה סיסמה
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
