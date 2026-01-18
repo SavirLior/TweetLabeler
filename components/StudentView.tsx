@@ -13,7 +13,6 @@ import {
   Search,
   ArrowUpDown,
   Calendar,
-  Lock,
   CheckSquare,
   X,
 } from "lucide-react";
@@ -49,22 +48,22 @@ export const StudentView: React.FC<StudentViewProps> = ({
 
   // Tweets that have NOT been labeled by this user
   const unlabeledTweets = useMemo(() => {
-    return myTweets.filter((t) => !t.annotations[user.username]);
+    return myTweets.filter((t: Tweet) => !t.annotations[user.username]);
   }, [myTweets, user.username]);
 
   // Tweets that HAVE been labeled by this user, filtered and sorted
   const labeledTweets = useMemo(() => {
-    let result = myTweets.filter((t) => t.annotations[user.username]);
+    let result = myTweets.filter((t: Tweet) => t.annotations[user.username]);
 
     // Filter by search term
     if (searchTerm) {
       result = result.filter(
-        (t) => t.text.includes(searchTerm) || t.id.includes(searchTerm)
+        (t: Tweet) => t.text.includes(searchTerm) || t.id.includes(searchTerm)
       );
     }
 
     // Sort by timestamp
-    result.sort((a, b) => {
+    result.sort((a: Tweet, b: Tweet) => {
       const timeA = a.annotationTimestamps?.[user.username] || 0;
       const timeB = b.annotationTimestamps?.[user.username] || 0;
       return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
@@ -78,7 +77,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
   const progress = useMemo(() => {
     if (myTweets.length === 0) return 0;
     const completedCount = myTweets.filter(
-      (t) => t.annotations[user.username]
+      (t: Tweet) => t.annotations[user.username]
     ).length;
     return Math.round((completedCount / myTweets.length) * 100);
   }, [myTweets.length, myTweets, user.username]);
@@ -135,7 +134,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
       <div className="max-w-4xl mx-auto p-6 text-center mt-10">
         <div className="bg-white p-10 rounded-xl shadow-sm border border-gray-200">
           <div className="bg-gray-100 p-4 rounded-full inline-flex mb-4">
-            <Lock className="w-8 h-8 text-gray-500" />
+            <CheckCircle className="w-8 h-8 text-gray-500" />
           </div>
           <h2 className="text-xl font-bold text-gray-900">
             אין ציוצים משויכים
@@ -238,11 +237,13 @@ export const StudentView: React.FC<StudentViewProps> = ({
 
       {/* Header & Stats */}
       <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              שלום, {user.username}
-            </h1>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex-1">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <h1 className="text-2xl font-bold text-gray-900">
+                שלום, {user.username}
+              </h1>
+            </div>
             <p className="text-gray-500">
               אנא סווג את הציוצים הבאים בהתאם להנחיות.
             </p>
@@ -449,7 +450,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {labeledTweets.map((tweet) => {
+                  {labeledTweets.map((tweet: Tweet) => {
                     const currentLabel = tweet.annotations[user.username];
                     const currentFeatures =
                       tweet.annotationFeatures?.[user.username] || [];
@@ -488,7 +489,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
                             {currentLabel}
                           </div>
                           <div className="flex flex-wrap gap-1">
-                            {currentFeatures.map((f) => (
+                            {currentFeatures.map((f: string) => (
                               <span
                                 key={f}
                                 className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200"
