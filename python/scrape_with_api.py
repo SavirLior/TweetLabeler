@@ -3,19 +3,22 @@ from apify_client import ApifyClient
 import re
 import datetime
 
+# ==========================================
+# 1. הגדרות
+# ==========================================
 
-APIFY_TOKEN = 'YOUR_APIFY_TOKEN_HERE'  # שים פה את הטוקן שלך
+# ⚠️ אבטחה: החלף את הטוקן הזה בחדש שיצרת (הקודם נחשף)
+APIFY_TOKEN = 'TOKEN'  
 
 USERNAMES = [
-    "elonmusk",
-    "BarakRavid",
-    "AMIRD1978"
-    # תוסיף עוד שמות...
+   "AbdullahJallow9"
 ]
 
 MAX_TWEETS_PER_USER = 20
 
-
+# ==========================================
+# 2. פונקציות עזר
+# ==========================================
 
 def clean_text(text):
     if not isinstance(text, str):
@@ -32,8 +35,7 @@ def format_date(date_str):
 
 def get_best_text(tweet_obj):
     """
-    הפונקציה שצדה את הטקסט הכי ארוך בתוך האובייקט,
-    לא משנה איפה הוא מסתתר (legacy, extended, fullText, retweet וכו')
+    הפונקציה שצדה את הטקסט הכי ארוך בתוך האובייקט
     """
     if not isinstance(tweet_obj, dict):
         return ""
@@ -62,7 +64,7 @@ def get_best_text(tweet_obj):
     return max(valid_texts, key=len)
 
 # ==========================================
-# 3. הפעלת הרובוט של Apify
+# 3. הפעלת הרובוט של Apify (החלק שתוקן)
 # ==========================================
 
 print("🚀 מתחיל בהרצת הרובוט של Apify... זה יקח זמן בהתאם לכמות.")
@@ -70,16 +72,24 @@ print("🚀 מתחיל בהרצת הרובוט של Apify... זה יקח זמן 
 try:
     client = ApifyClient(APIFY_TOKEN)
 
-    start_urls = [{"url": f"https://twitter.com/{user}"} for user in USERNAMES]
-
+    # ✅ התיקון: שימוש ב-twitterHandles כפי שמופיע בממשק שעבד לך
     run_input = {
-        "startUrls": start_urls,
+        "twitterHandles": USERNAMES,
         "maxItems": MAX_TWEETS_PER_USER * len(USERNAMES),
-        "sort": "Latest"
-        # הורדתי את הגבלת השפה ב-API כדי שנוכל לסנן בעצמנו בצורה חכמה יותר בקוד
+        "sort": "Latest",
+        "tweetLanguage": "en",  # עוזר לסנן מראש שפות לא רלוונטיות
+        "includeSearchTerms": False,
+        "onlyImage": False,
+        "onlyQuote": False,
+        "onlyTwitterBlue": False,
+        "onlyVerifiedUsers": False,
+        "onlyVideo": False,
+        "customMapFunction": "(object) => { return {...object} }"
     }
 
-    run = client.actor("apidojo/twitter-scraper").call(run_input=run_input)
+    print(f"📡 שולח בקשה עבור המשתמשים: {USERNAMES}")
+
+    run = client.actor("apidojo/tweet-scraper").call(run_input=run_input)
     
     print("✅ הסריקה הסתיימה! מוריד נתונים...")
     
@@ -90,7 +100,7 @@ except Exception as e:
     exit()
 
 # ==========================================
-# 4. עיבוד הנתונים (לוגיקה משופרת)
+# 4. עיבוד הנתונים (הלוגיקה שלך)
 # ==========================================
 
 processed_rows = []
@@ -108,7 +118,6 @@ for item in dataset_items:
         continue
 
     # --- זיהוי ריטוויט וטקסט ראשי ---
-    # מחפשים אובייקט ריטוויט בכל השמות האפשריים
     rt_obj = item.get('retweet') or item.get('retweetedStatus') or item.get('retweeted_status') or item.get('retweetedTweet')
 
     # --- פילטר שפה 2: תוכן הריטוויט ---
@@ -117,16 +126,14 @@ for item in dataset_items:
             skipped_arabic_count += 1
             continue
 
-    # שליפת הטקסט (באמצעות "הצייד")
+    # שליפת הטקסט
     final_user_text = ""
     is_retweet = False
 
     if rt_obj and isinstance(rt_obj, dict):
-        # לוקחים טקסט מלא מהריטוויט
         final_user_text = get_best_text(rt_obj)
         is_retweet = True
     else:
-        # לוקחים טקסט מלא מהציוץ הרגיל
         final_user_text = get_best_text(item)
         is_retweet = False
 
@@ -140,15 +147,12 @@ for item in dataset_items:
 
     if quote_obj:
         quote_content = get_best_text(quote_obj)
-        quote_author = quote_obj.get('author', {}).get('userName', 'Unknown')
         
-        # אופציונלי: סינון אם הציטוט עצמו בערבית (כרגע מכובה)
         if quote_obj.get('lang') == 'ar': continue
 
         if quote_content:
             is_quote = True
             combined_text = (
-                
                 f'""{quote_content}"\n"\n'
                 f'--------------\n\n'
                 f'{final_user_text}'
