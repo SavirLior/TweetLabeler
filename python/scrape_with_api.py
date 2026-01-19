@@ -11,7 +11,7 @@ import datetime
 APIFY_TOKEN = 'TOKEN'  
 
 USERNAMES = [
-   "AbdullahJallow9"
+   "MAkhtar59405"
 ]
 
 MAX_TWEETS_PER_USER = 20
@@ -195,7 +195,6 @@ else:
     # קובץ 2: טקסט בלבד לאתר
     file_text_only = "twitter_text_only_with_api.csv"
     df_text_only = df[['full_display_text']].rename(columns={'full_display_text': 'text'})
-    df_text_only.insert(0, 'id', range(1, len(df_text_only) + 1))
     
     df_text_only.to_csv(file_text_only, index=False, encoding='utf-8-sig')
     

@@ -95,6 +95,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // --- Edit Detail Modal State ---
   const [editingTweet, setEditingTweet] = useState<Tweet | null>(null);
 
+  // --- Unassign Modal State ---
+  const [showUnassignModal, setShowUnassignModal] = useState(false);
+  const [selectedStudentsToUnassign, setSelectedStudentsToUnassign] = useState<
+    string[]
+  >([]);
+  const [clearFinalLabelsOnUnassign, setClearFinalLabelsOnUnassign] =
+    useState(false);
+  const [unassignMode, setUnassignMode] = useState<"all" | "unlabeled">("all");
+
+  // --- Clear Final Labels Modal State ---
+  const [showClearFinalLabelsModal, setShowClearFinalLabelsModal] =
+    useState(false);
+
   useEffect(() => {
     // Fetch students list on mount or when tab changes to refresh list
     const loadStudents = async () => {
@@ -164,6 +177,110 @@ export const AdminView: React.FC<AdminViewProps> = ({
       if (editingTweet?.id === tweetId) {
         setEditingTweet(null);
       }
+    }
+  };
+
+  const handleUnassignAll = () => {
+    if (
+      window.confirm(
+        "האם אתה בטוח שברצונך לבטל את כל השיוכים? פעולה זו תסיר את כל הסטודנטים מכל הציוצים."
+      )
+    ) {
+      const updatedTweets = tweets.map((tweet) => ({
+        ...tweet,
+        assignedTo: [],
+        annotations: {},
+        annotationFeatures: {},
+        annotationTimestamps: {},
+      }));
+      onBulkUpdateTweets(updatedTweets);
+      setShowUnassignModal(false);
+      setSelectedStudentsToUnassign([]);
+    }
+  };
+
+  const handleUnassignSelected = () => {
+    if (selectedStudentsToUnassign.length === 0) {
+      alert("אנא בחר לפחות סטודנט אחד");
+      return;
+    }
+
+    const modeText = unassignMode === "all" ? "כל הציוצים" : "ציוצים שלא תויגו";
+    if (
+      window.confirm(
+        `האם אתה בטוח שברצונך להסיר ${selectedStudentsToUnassign.length} סטודנט/ים מ${modeText}?`
+      )
+    ) {
+      const updatedTweets = tweets.map((tweet) => {
+        // Check if any of the selected students are assigned
+        const hasSelectedStudents = selectedStudentsToUnassign.some((s) =>
+          tweet.assignedTo?.includes(s)
+        );
+
+        if (!hasSelectedStudents) {
+          return tweet;
+        }
+
+        // If unlabeled mode: only unassign if student hasn't labeled yet
+        if (unassignMode === "unlabeled") {
+          const selectedStudentsWithLabels = selectedStudentsToUnassign.filter(
+            (s) => tweet.annotations[s] !== undefined
+          );
+          // If all selected students have labels, don't modify
+          if (
+            selectedStudentsWithLabels.length ===
+            selectedStudentsToUnassign.length
+          ) {
+            return tweet;
+          }
+        }
+
+        // Remove selected students
+        const newAssignedTo = tweet.assignedTo?.filter(
+          (s) => !selectedStudentsToUnassign.includes(s)
+        );
+        const newAnnotations = { ...tweet.annotations };
+        const newAnnotationFeatures = { ...tweet.annotationFeatures };
+        const newAnnotationTimestamps = { ...tweet.annotationTimestamps };
+
+        selectedStudentsToUnassign.forEach((student) => {
+          delete newAnnotations[student];
+          delete newAnnotationFeatures[student];
+          delete newAnnotationTimestamps[student];
+        });
+
+        return {
+          ...tweet,
+          assignedTo: newAssignedTo,
+          annotations: newAnnotations,
+          annotationFeatures: newAnnotationFeatures,
+          annotationTimestamps: newAnnotationTimestamps,
+        };
+      });
+      onBulkUpdateTweets(updatedTweets);
+      setShowUnassignModal(false);
+      setSelectedStudentsToUnassign([]);
+      setUnassignMode("all");
+    }
+  };
+
+  const handleClearAllFinalLabels = () => {
+    if (
+      window.confirm(
+        "האם אתה בטוח שברצונך לבטל את כל הסיווגים הסופיים? פעולה זו תסיר את הערך הסופי מכל הציוצים."
+      )
+    ) {
+      const updatedTweets = tweets.map((tweet) => {
+        if (!tweet.finalLabel) {
+          return tweet;
+        }
+        return {
+          ...tweet,
+          finalLabel: undefined,
+        };
+      }) as any;
+      onBulkUpdateTweets(updatedTweets);
+      setShowClearFinalLabelsModal(false);
     }
   };
 
@@ -522,7 +639,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 flex-wrap">
         <Button
           onClick={() => {
             if (
@@ -538,6 +655,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
         >
           <Trash2 className="w-4 h-4" />
           מחק את כל הציוצים
+        </Button>
+        <Button
+          onClick={() => setShowClearFinalLabelsModal(true)}
+          variant="neutral"
+          className="flex items-center gap-2 bg-red-100 text-red-700 border border-red-200 hover:bg-red-200 text-sm"
+        >
+          <Trash2 className="w-4 h-4" />
+          בטל סיווגים סופיים
+        </Button>
+        <Button
+          onClick={() => setShowUnassignModal(true)}
+          variant="neutral"
+          className="flex items-center gap-2 bg-orange-100 text-orange-700 border border-orange-200 hover:bg-orange-200 text-sm"
+        >
+          <Shuffle className="w-4 h-4" />
+          בטל שיוכים
         </Button>
         <Button
           onClick={() => setShowAssignModal(true)}
@@ -582,48 +715,87 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <label className="block text-sm font-bold text-gray-700 mb-3">
                   בחר סטודנטים לשיוך:
                 </label>
-                <div className="space-y-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  {availableStudents.length > 0 ? (
-                    availableStudents.map((student) => (
-                      <label
-                        key={student}
-                        className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-white transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={assignmentConfig.selectedStudents.includes(
-                            student
-                          )}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setAssignmentConfig((prev) => ({
-                                ...prev,
-                                selectedStudents: [
-                                  ...prev.selectedStudents,
-                                  student,
-                                ],
-                              }));
-                            } else {
-                              setAssignmentConfig((prev) => ({
-                                ...prev,
-                                selectedStudents: prev.selectedStudents.filter(
-                                  (s) => s !== student
-                                ),
-                              }));
-                            }
-                          }}
-                          className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
-                        />
-                        <span className="text-gray-700 font-medium">
-                          {student}
-                        </span>
-                      </label>
-                    ))
-                  ) : (
-                    <p className="text-gray-500 text-sm italic">
-                      לא נמצאו סטודנטים במערכת
-                    </p>
-                  )}
+
+                {/* Select All / Clear Buttons */}
+                <div className="flex gap-3 mb-3">
+                  <button
+                    onClick={() =>
+                      setAssignmentConfig((prev) => ({
+                        ...prev,
+                        selectedStudents: [...availableStudents],
+                      }))
+                    }
+                    className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors font-medium text-sm"
+                  >
+                    סמן הכל
+                  </button>
+                  <button
+                    onClick={() =>
+                      setAssignmentConfig((prev) => ({
+                        ...prev,
+                        selectedStudents: [],
+                      }))
+                    }
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+                  >
+                    בטל סימון הכל
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm font-bold text-gray-700">
+                      בחר סטודנטים:
+                    </label>
+                    <span className="text-sm text-gray-600">
+                      ({assignmentConfig.selectedStudents.length} מתוך{" "}
+                      {availableStudents.length})
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    {availableStudents.length > 0 ? (
+                      availableStudents.map((student) => (
+                        <label
+                          key={student}
+                          className="flex items-center gap-3 cursor-pointer p-3 rounded hover:bg-white transition-colors border border-gray-200 hover:border-purple-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={assignmentConfig.selectedStudents.includes(
+                              student
+                            )}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setAssignmentConfig((prev) => ({
+                                  ...prev,
+                                  selectedStudents: [
+                                    ...prev.selectedStudents,
+                                    student,
+                                  ],
+                                }));
+                              } else {
+                                setAssignmentConfig((prev) => ({
+                                  ...prev,
+                                  selectedStudents:
+                                    prev.selectedStudents.filter(
+                                      (s) => s !== student
+                                    ),
+                                }));
+                              }
+                            }}
+                            className="w-4 h-4 text-purple-600 rounded cursor-pointer"
+                          />
+                          <span className="text-sm font-medium text-gray-700">
+                            {student}
+                          </span>
+                        </label>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 text-sm italic">
+                        לא נמצאו סטודנטים במערכת
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -676,6 +848,235 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
       )}
 
+      {/* Unassign Modal */}
+      {showUnassignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full flex flex-col">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50 rounded-t-xl">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Shuffle className="w-5 h-5 text-orange-600" />
+                בטל שיוכים
+              </h3>
+              <button
+                onClick={() => {
+                  setShowUnassignModal(false);
+                  setSelectedStudentsToUnassign([]);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+              {/* Description */}
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <p className="text-sm text-orange-800">
+                  <strong>בטל שיוכים</strong> יסיר את השיוכים של ציוצים
+                  מסטודנטים. בחר איזה סטודנטים להסיר מכל הציוצים.
+                </p>
+              </div>
+
+              {/* Mode Selection */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm font-bold text-blue-800 mb-3">
+                  בחר מצב ביטול שיוכים:
+                </p>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={unassignMode === "all"}
+                      onChange={() => setUnassignMode("all")}
+                      className="w-4 h-4 text-orange-600"
+                    />
+                    <span className="text-sm text-blue-900">
+                      בטל בכללי את השיוכים
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={unassignMode === "unlabeled"}
+                      onChange={() => setUnassignMode("unlabeled")}
+                      className="w-4 h-4 text-orange-600"
+                    />
+                    <span className="text-sm text-blue-900">
+                      בטל רק שיוכים שעדיין לא תויגו
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Select All / Clear Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() =>
+                    setSelectedStudentsToUnassign([...availableStudents])
+                  }
+                  className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors font-medium text-sm"
+                >
+                  סמן הכל
+                </button>
+                <button
+                  onClick={() => setSelectedStudentsToUnassign([])}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+                >
+                  בטל סימון הכל
+                </button>
+              </div>
+
+              {/* Checkboxes Grid */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-bold text-gray-700">
+                    בחר סטודנטים:
+                  </label>
+                  <span className="text-sm text-gray-600">
+                    ({selectedStudentsToUnassign.length} מתוך{" "}
+                    {availableStudents.length})
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {availableStudents.map((student) => (
+                    <label
+                      key={student}
+                      className="flex items-center gap-3 cursor-pointer p-3 rounded hover:bg-orange-50 transition-colors border border-gray-200 hover:border-orange-300"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedStudentsToUnassign.includes(student)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedStudentsToUnassign([
+                              ...selectedStudentsToUnassign,
+                              student,
+                            ]);
+                          } else {
+                            setSelectedStudentsToUnassign(
+                              selectedStudentsToUnassign.filter(
+                                (s) => s !== student
+                              )
+                            );
+                          }
+                        }}
+                        className="w-4 h-4 text-orange-600 rounded cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        {student}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 rounded-b-xl flex gap-3 justify-end">
+              <Button
+                onClick={() => {
+                  setShowUnassignModal(false);
+                  setSelectedStudentsToUnassign([]);
+                }}
+                variant="neutral"
+                className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+              >
+                ביטול
+              </Button>
+              <Button
+                onClick={handleUnassignSelected}
+                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                <Shuffle className="w-4 h-4" />
+                בטל שיוכים ({selectedStudentsToUnassign.length})
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Final Labels Modal */}
+      {showClearFinalLabelsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full flex flex-col">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50 rounded-t-xl">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-red-600" />
+                בטל סיווגים סופיים
+              </h3>
+              <button
+                onClick={() => setShowClearFinalLabelsModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+              {/* Description */}
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-800">
+                  <strong>בטל סיווגים סופיים</strong> יסיר את כל הסיווגים
+                  הסופיים (Final Labels) מכל הציוצים. פעולה זו לא ניתנת לביטול
+                  בקלות.
+                </p>
+              </div>
+
+              {/* Warning Box */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-yellow-800">אזהרה</p>
+                  <p className="text-xs text-yellow-700 mt-1">
+                    פעולה זו תסיר את כל הסיווגים הסופיים שהוגדרו עד כה. ודא שזה
+                    מה שאתה רוצה לעשות.
+                  </p>
+                </div>
+              </div>
+
+              {/* Statistics */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <p className="text-sm font-bold text-gray-700 mb-2">
+                  סטטיסטיקה:
+                </p>
+                <p className="text-sm text-gray-600">
+                  סה"כ ציוצים עם סיווג סופי:{" "}
+                  <span className="font-bold">
+                    {
+                      tweets.filter(
+                        (t) => t.finalLabel && t.finalLabel !== "CONFLICT"
+                      ).length
+                    }
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 rounded-b-xl flex gap-3 justify-end">
+              <Button
+                onClick={() => setShowClearFinalLabelsModal(false)}
+                variant="neutral"
+                className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+              >
+                ביטול
+              </Button>
+              <Button
+                onClick={handleClearAllFinalLabels}
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
+              >
+                <Trash2 className="w-4 h-4" />
+                אישור - בטל הכל
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tweet Detail / Edit Modal */}
       {editingTweet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
@@ -706,26 +1107,62 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
 
               {/* Final Label Status */}
-              <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <div>
-                  <span className="text-sm font-bold text-blue-800 block">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold text-blue-800">
                     סיווג סופי (Final Decision):
                   </span>
                   {editingTweet.finalLabel &&
                   editingTweet.finalLabel !== "CONFLICT" ? (
                     <span
-                      className={`text-sm px-2 py-0.5 rounded mt-1 inline-block ${getLabelColor(
+                      className={`text-sm px-2 py-0.5 rounded ${getLabelColor(
                         editingTweet.finalLabel
                       )}`}
                     >
                       {editingTweet.finalLabel}
                     </span>
                   ) : (
-                    <span className="text-sm text-red-600 font-bold mt-1 inline-block">
+                    <span className="text-sm text-red-600 font-bold">
                       {editingTweet.finalLabel === "CONFLICT"
                         ? "טרם נקבע / נדרשת הכרעה"
                         : "טרם נקבע"}
                     </span>
+                  )}
+                </div>
+
+                {/* Final Label Selection */}
+                <div className="flex gap-2 flex-wrap">
+                  {Object.values(LabelOption).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => {
+                        const updatedTweet = { ...editingTweet };
+                        updatedTweet.finalLabel = option;
+                        setEditingTweet(updatedTweet);
+                        onSetFinalLabel(editingTweet.id, option);
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded border font-medium transition-all ${
+                        editingTweet.finalLabel === option
+                          ? "ring-2 ring-offset-1 ring-blue-500 " +
+                            getConsensusButtonClass(option)
+                          : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                  {editingTweet.finalLabel && (
+                    <button
+                      onClick={() => {
+                        const updatedTweet: any = { ...editingTweet };
+                        updatedTweet.finalLabel = undefined;
+                        setEditingTweet(updatedTweet);
+                        onSetFinalLabel(editingTweet.id, "");
+                      }}
+                      className="text-xs px-3 py-1.5 rounded border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 font-medium transition-all"
+                    >
+                      ביטול
+                    </button>
                   )}
                 </div>
               </div>
@@ -1003,11 +1440,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div>
               <h4 className="font-bold text-blue-800 text-sm mb-1">
-                הנחיות לטעינת קובץ (CSV/TXT)
+                הנחיות להוסיף ציוצים
               </h4>
               <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                <li>המערכת תומכת בקבצי טקסט פשוטים.</li>
-                <li>כל שורה בקובץ תזוהה כציוץ חדש.</li>
+                <li>השתמש בשדה טקסט בלבד להדבקת הציוצים.</li>
+                <li>כל שורה בטקסט תזוהה כציוץ חדש.</li>
                 <li>
                   אין צורך בכותרות, אך אם השורה הראשונה היא 'text' או 'tweet',
                   המערכת תסנן אותה.
