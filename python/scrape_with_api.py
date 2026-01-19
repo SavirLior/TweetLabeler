@@ -8,20 +8,7 @@ import datetime
 APIFY_TOKEN = 'TOKEN'  
 
 USERNAMES = [
-   
-"AbuMaryamT",
-"AlhudaBolton",
-"AbuMuadhTaqweem",
-"AbuKhadeejahSP",
-"Athariyyah",
-"Imtiyazibnharun",
-"abdinur002",
-"AbdulrahmanJii",
-"Aboo_Tasneem",
-"UmaamahAbu",
-"TawfiqYurubawi"
-
-
+   "MAkhtar59405"
 ]
 
 MAX_TWEETS_PER_USER = 12

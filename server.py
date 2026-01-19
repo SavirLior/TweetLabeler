@@ -120,11 +120,23 @@ def save_tweet():
         if "id" not in tweet:
             return jsonify({"success": False, "error": "Missing tweet id"}), 400
         tweet_doc = {k: v for k, v in tweet.items() if k != "_id"}
-        tweets_collection.update_one(
-            {"id": tweet_doc["id"]},
-            {"$set": tweet_doc},
-            upsert=True,
-        )
+        
+        # Handle field deletion: if finalLabel is empty string, remove it
+        if "finalLabel" in tweet_doc and tweet_doc["finalLabel"] == "":
+            tweets_collection.update_one(
+                {"id": tweet_doc["id"]},
+                {
+                    "$set": {k: v for k, v in tweet_doc.items() if k != "finalLabel"},
+                    "$unset": {"finalLabel": ""}
+                },
+                upsert=True,
+            )
+        else:
+            tweets_collection.update_one(
+                {"id": tweet_doc["id"]},
+                {"$set": tweet_doc},
+                upsert=True,
+            )
         update_csv_snapshot()
         return jsonify({"success": True, "message": "Tweet saved successfully"})
     except Exception as e:
@@ -148,13 +160,26 @@ def update_tweets_bulk():
         operations = []
         for tweet in updated_tweets:
             tweet_doc = {k: v for k, v in tweet.items() if k != "_id"}
-            operations.append(
-                UpdateOne(
-                    {"id": tweet_doc["id"]},
-                    {"$set": tweet_doc},
-                    upsert=True,
+            # Handle field deletion: if finalLabel is empty string, remove it
+            if "finalLabel" in tweet_doc and tweet_doc["finalLabel"] == "":
+                operations.append(
+                    UpdateOne(
+                        {"id": tweet_doc["id"]},
+                        {
+                            "$set": {k: v for k, v in tweet_doc.items() if k != "finalLabel"},
+                            "$unset": {"finalLabel": ""}
+                        },
+                        upsert=True,
+                    )
                 )
-            )
+            else:
+                operations.append(
+                    UpdateOne(
+                        {"id": tweet_doc["id"]},
+                        {"$set": tweet_doc},
+                        upsert=True,
+                    )
+                )
         if operations:
             tweets_collection.bulk_write(operations, ordered=False)
         update_csv_snapshot()
