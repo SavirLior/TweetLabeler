@@ -3,18 +3,15 @@ from apify_client import ApifyClient
 import re
 import datetime
 
-# ==========================================
-# 1. הגדרות
-# ==========================================
 
-# ⚠️ אבטחה: החלף את הטוקן הזה בחדש שיצרת (הקודם נחשף)
+
 APIFY_TOKEN = 'TOKEN'  
 
 USERNAMES = [
    "MAkhtar59405"
 ]
 
-MAX_TWEETS_PER_USER = 20
+MAX_TWEETS_PER_USER = 12
 
 # ==========================================
 # 2. פונקציות עזר
