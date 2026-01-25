@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from pymongo import MongoClient, UpdateOne
 from pymongo.errors import PyMongoError
+from werkzeug.security import check_password_hash, generate_password_hash
 import json
 import os
 import csv
@@ -40,6 +41,7 @@ db = mongo_client[MONGO_DB_NAME]
 tweets_collection = db[MONGO_TWEETS_COLLECTION]
 users_collection = db[MONGO_USERS_COLLECTION]
 db_initialized = False
+HASH_PREFIXES = ("pbkdf2:", "scrypt:", "argon2:")
 
 # Helper functions
 def init_db():
@@ -64,6 +66,10 @@ def migrate_from_file():
             data = json.load(f)
         tweets = data.get("tweets", [])
         users = data.get("users", [])
+        for user in users:
+            password = user.get("password")
+            if password and not is_password_hash(password):
+                user["password"] = generate_password_hash(password)
         if tweets:
             tweets_collection.insert_many(tweets, ordered=False)
         if users:
@@ -71,6 +77,18 @@ def migrate_from_file():
         print("Migrated data.json into MongoDB.")
     except Exception as e:
         print(f"Error migrating data.json: {e}")
+
+def is_password_hash(value):
+    if not isinstance(value, str):
+        return False
+    return value.startswith(HASH_PREFIXES) and "$" in value
+
+def verify_password(stored_password, provided_password):
+    if stored_password is None:
+        return False
+    if is_password_hash(stored_password):
+        return check_password_hash(stored_password, provided_password)
+    return stored_password == provided_password
 
 def update_csv_snapshot():
     """Save tweets with final decisions to CSV file from MongoDB."""
@@ -104,7 +122,7 @@ def get_data():
     try:
         init_db()
         tweets = list(tweets_collection.find({}, {"_id": 0}))
-        users = list(users_collection.find({}, {"_id": 0}))
+        users = list(users_collection.find({}, {"_id": 0, "password": 0}))
         return jsonify({"tweets": tweets, "users": users})
     except PyMongoError as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -244,16 +262,51 @@ def register_user():
         
         if "username" not in new_user:
             return jsonify({"success": False, "error": "Missing username"}), 400
+        if not new_user.get("password"):
+            return jsonify({"success": False, "error": "Missing password"}), 400
             
         if users_collection.find_one({"username": new_user["username"]}):
             return jsonify({"success": False, "error": "Username already exists"}), 400
             
-        users_collection.insert_one(new_user)        
-        new_user["_id"] = str(new_user["_id"])
-        user_response = {k: v for k, v in new_user.items() if k != "password"}
+        user_doc = {k: v for k, v in new_user.items() if k != "_id"}
+        user_doc["password"] = generate_password_hash(new_user["password"])
+        users_collection.insert_one(user_doc)
+        user_response = {
+            k: v for k, v in user_doc.items() if k not in ("password", "_id")
+        }
         
         return jsonify(user_response)
         
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/users/login', methods=['POST'])
+def login_user():
+    """Authenticate a user"""
+    try:
+        init_db()
+        data = request.json or {}
+        username = data.get("username")
+        password = data.get("password")
+        if not username or not password:
+            return jsonify({"success": False, "error": "Missing credentials"}), 400
+
+        user = users_collection.find_one({"username": username})
+        if not user:
+            return jsonify({"success": False, "error": "Invalid credentials"}), 401
+
+        stored_password = user.get("password")
+        if not verify_password(stored_password, password):
+            return jsonify({"success": False, "error": "Invalid credentials"}), 401
+
+        if stored_password and not is_password_hash(stored_password):
+            users_collection.update_one(
+                {"username": username},
+                {"$set": {"password": generate_password_hash(password)}},
+            )
+
+        user_response = {k: v for k, v in user.items() if k not in ("password", "_id")}
+        return jsonify(user_response)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -280,17 +333,18 @@ def change_password():
             return jsonify({"success": False, "error": "User not found"}), 404
         
         # Verify current password
-        if user.get("password") != current_password:
+        stored_password = user.get("password")
+        if not verify_password(stored_password, current_password):
             return jsonify({"success": False, "error": "Current password is incorrect"}), 401
         
         # Prevent same password
-        if current_password == new_password:
+        if verify_password(stored_password, new_password):
             return jsonify({"success": False, "error": "New password cannot be the same as current password"}), 400
         
         # Update password
         users_collection.update_one(
             {"username": username},
-            {"$set": {"password": new_password}}
+            {"$set": {"password": generate_password_hash(new_password)}}
         )
         
         return jsonify({"success": True, "message": "Password changed successfully"})

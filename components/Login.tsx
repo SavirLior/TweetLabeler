@@ -42,8 +42,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     try {
       if (isRegistering) {
         const newUser: User = { username, password, role };
-        await registerUser(newUser);
-        onLogin(newUser);
+        const createdUser = await registerUser(newUser);
+        onLogin(createdUser);
       } else {
         const user = await authenticateUser(username, password);
         if (user) {

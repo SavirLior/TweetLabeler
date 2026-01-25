@@ -83,11 +83,23 @@ export const authenticateUser = async (
   username: string,
   password: string
 ): Promise<User | null> => {
-  const users = await getUsers();
-  const user = users.find(
-    (u) => u.username === username && u.password === password
-  );
-  return user || null;
+  try {
+    const response = await fetch(`${API_URL}/users/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (response.status === 401 || response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (e) {
+    console.error("Failed to authenticate user:", e);
+    throw e;
+  }
 };
 
 export const registerUser = async (user: User): Promise<User> => {
