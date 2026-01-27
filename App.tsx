@@ -72,7 +72,6 @@ const App: React.FC = () => {
       const hasDisagreement = !labels.every((l) => l === first);
 
       if (hasDisagreement) {
-        // Even if not everyone finished, if there's a disagreement, mark as CONFLICT
         return "CONFLICT";
       }
     }
@@ -86,9 +85,45 @@ const App: React.FC = () => {
     // If not everyone finished yet, don't resolve yet
     if (labels.length < assigned.length) return tweet.finalLabel;
 
-    // All finished and all agree on non-Skip label - return that label    }
-
     return first;
+  };
+
+  // --- פונקציה חדשה: מחיקת הצבעה של סטודנט על ידי מנהל ---
+  const handleAdminDeleteVote = async (tweetId: string, studentUsername: string) => {
+    let changedTweet: Tweet | undefined;
+    
+    const updatedTweets = tweets.map((tweet) => {
+      if (tweet.id === tweetId) {
+        const newAnnotations = { ...tweet.annotations };
+        const newFeatures = { ...(tweet.annotationFeatures || {}) };
+        const newTimestamps = { ...(tweet.annotationTimestamps || {}) };
+
+        // מחיקת המידע של הסטודנט
+        delete newAnnotations[studentUsername];
+        delete newFeatures[studentUsername];
+        delete newTimestamps[studentUsername];
+
+        // חישוב קונצנזוס מחדש
+        const newFinalLabel = calculateFinalLabel(tweet, newAnnotations);
+
+        const newTweet = {
+          ...tweet,
+          annotations: newAnnotations,
+          annotationFeatures: newFeatures,
+          annotationTimestamps: newTimestamps,
+          finalLabel: newFinalLabel,
+        };
+        changedTweet = newTweet;
+        return newTweet;
+      }
+      return tweet;
+    });
+
+    setTweets(updatedTweets);
+
+    if (changedTweet) {
+      await saveTweet(changedTweet);
+    }
   };
 
   const handleLabelTweet = async (
@@ -98,7 +133,6 @@ const App: React.FC = () => {
   ) => {
     if (!currentUser) return;
 
-    // 1. Optimistic Update (Update UI immediately)
     const updatedTweets = tweets.map((tweet) => {
       if (tweet.id === tweetId) {
         const newAnnotations = {
@@ -106,7 +140,6 @@ const App: React.FC = () => {
           [currentUser.username]: label,
         };
 
-        // Calculate auto-consensus
         const newFinalLabel = calculateFinalLabel(tweet, newAnnotations);
 
         return {
@@ -127,7 +160,6 @@ const App: React.FC = () => {
     });
     setTweets(updatedTweets);
 
-    // 2. Persist
     const changedTweet = updatedTweets.find((t) => t.id === tweetId);
     if (changedTweet) {
       await saveTweet(changedTweet);
@@ -137,7 +169,6 @@ const App: React.FC = () => {
   const handleResetLabel = async (tweetId: string) => {
     if (!currentUser) return;
 
-    // 1. Optimistic Update
     let changedTweet: Tweet | undefined;
     const updatedTweets = tweets.map((tweet) => {
       if (tweet.id === tweetId) {
@@ -165,7 +196,6 @@ const App: React.FC = () => {
 
     setTweets(updatedTweets);
 
-    // 2. Persist
     if (changedTweet) {
       await saveTweet(changedTweet);
     }
@@ -176,7 +206,6 @@ const App: React.FC = () => {
     studentUsername: string,
     newLabel: string
   ) => {
-    // 1. Optimistic
     let changedTweet: Tweet | undefined;
     const updatedTweets = tweets.map((tweet) => {
       if (tweet.id === tweetId) {
@@ -192,7 +221,6 @@ const App: React.FC = () => {
             ...(tweet.annotationTimestamps || {}),
             [studentUsername]: Date.now(),
           },
-          // Re-evaluate consensus based on admin change to student label
           finalLabel: calculateFinalLabel(tweet, newAnnotations),
         };
         changedTweet = newTweet;
@@ -202,13 +230,11 @@ const App: React.FC = () => {
     });
     setTweets(updatedTweets);
 
-    // 2. Persist
     if (changedTweet) {
       await saveTweet(changedTweet);
     }
   };
 
-  // NEW: Handle setting the Final Label directly (Admin Override / Resolution)
   const handleSetFinalLabel = async (tweetId: string, finalLabel: string) => {
     let changedTweet: Tweet | undefined;
     const updatedTweets = tweets.map((tweet) => {
@@ -230,11 +256,9 @@ const App: React.FC = () => {
     tweetId: string,
     assignedTo: string[]
   ) => {
-    // 1. Optimistic
     let changedTweet: Tweet | undefined;
     const updatedTweets = tweets.map((tweet) => {
       if (tweet.id === tweetId) {
-        // If assignment changes, reset final label to force re-check
         const newTweet = { ...tweet, assignedTo, finalLabel: undefined };
         changedTweet = newTweet;
         return newTweet;
@@ -243,26 +267,19 @@ const App: React.FC = () => {
     });
     setTweets(updatedTweets);
 
-    // 2. Persist
     if (changedTweet) {
       await saveTweet(changedTweet);
     }
   };
 
   const handleDeleteTweet = async (tweetId: string) => {
-    // 1. Optimistic
     const updatedTweets = tweets.filter((t) => t.id !== tweetId);
     setTweets(updatedTweets);
-
-    // 2. Persist
     await deleteTweet(tweetId);
   };
 
   const handleDeleteAllTweets = async () => {
-    // 1. Optimistic
     setTweets([]);
-
-    // 2. Persist - delete all tweets
     const allTweetIds = tweets.map((t) => t.id);
     for (const id of allTweetIds) {
       await deleteTweet(id);
@@ -270,26 +287,21 @@ const App: React.FC = () => {
   };
 
   const handleBulkUpdateTweets = async (updatedList: Tweet[]) => {
-    // 1. Optimistic
-    // Create a map for faster lookup
     const updatesMap = new Map(updatedList.map((t) => [t.id, t]));
     const newTweetsState = tweets.map((t) => {
       return updatesMap.has(t.id) ? updatesMap.get(t.id)! : t;
     });
     setTweets(newTweetsState);
-
-    // 2. Persist
     await updateTweets(updatedList);
   };
 
   const handleAddTweets = async (newTweets: Tweet[]) => {
-    // 1. Optimistic
     const updatedTweets = [...tweets, ...newTweets];
     setTweets(updatedTweets);
-    // 2. Persist
     await addTweets(newTweets);
   };
 
+  // ... (Password handling functions remain exactly the same as you sent)
   const handleChangePassword = async () => {
     setPasswordError("");
     setPasswordSuccess("");
@@ -298,17 +310,14 @@ const App: React.FC = () => {
       setPasswordError("כל השדות נדרשים");
       return;
     }
-
     if (newPassword.length < 6) {
       setPasswordError("הסיסמה החדשה חייבת להכיל לפחות 6 תווים");
       return;
     }
-
     if (newPassword !== confirmPassword) {
       setPasswordError("הסיסמאות החדשות לא תואמות");
       return;
     }
-
     if (currentPassword === newPassword) {
       setPasswordError("הסיסמה החדשה זהה לסיסמה הנוכחית");
       return;
@@ -366,7 +375,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans" dir="rtl">
-      {/* Navbar */}
+      {/* Navbar Code (Same as provided) */}
       <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -416,12 +425,12 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="py-6">
         {currentUser.role === UserRole.Admin ? (
           <AdminView
             tweets={tweets}
             onAdminLabelChange={handleAdminLabelChange}
+            onAdminDeleteVote={handleAdminDeleteVote} // <--- הוספנו את זה כאן!
             onAddTweets={handleAddTweets}
             onBulkUpdateTweets={handleBulkUpdateTweets}
             onDeleteTweet={handleDeleteTweet}
@@ -439,7 +448,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Password Change Modal */}
+      {/* Password Modal (Same as provided) */}
       {showPasswordModal && currentUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
@@ -462,13 +471,11 @@ const App: React.FC = () => {
                   {passwordError}
                 </div>
               )}
-
               {passwordSuccess && (
                 <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm border border-green-200">
                   {passwordSuccess}
                 </div>
               )}
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   סיסמה נוכחית
@@ -481,7 +488,6 @@ const App: React.FC = () => {
                   placeholder="הזן סיסמה נוכחית"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   סיסמה חדשה
@@ -494,7 +500,6 @@ const App: React.FC = () => {
                   placeholder="הזן סיסמה חדשה (לפחות 6 תווים)"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   אישור סיסמה חדשה
@@ -507,7 +512,6 @@ const App: React.FC = () => {
                   placeholder="אשר סיסמה חדשה"
                 />
               </div>
-
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={resetPasswordForm}

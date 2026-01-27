@@ -11,9 +11,8 @@ import {
   Download,
   Trash2,
   Search,
-  ArrowUpDown,
   Calendar,
-  CheckSquare,
+  Lock, // הוספנו אייקון מנעול
   X,
 } from "lucide-react";
 
@@ -97,12 +96,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
     }
   };
 
-  // --- Handlers ---
-
   const initiateLabel = (tweetId: string, label: string) => {
-    // If 'Skip' is selected, maybe we don't need features?
-    // But for research consistency, let's keep it or make it optional.
-    // For now, prompt for everything.
     setPendingLabel({ tweetId, label });
     setSelectedFeatures([]);
   };
@@ -149,7 +143,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
-      {/* Feature Selection Modal */}
+      {/* Modal ... (Same as before) */}
       {pendingLabel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fadeIn">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full flex flex-col max-h-[90vh]">
@@ -179,13 +173,11 @@ export const StudentView: React.FC<StudentViewProps> = ({
                 </span>
               </div>
 
-              {/* Show features only for Jihadist label */}
               {pendingLabel.label === LabelOption.Jihadist && (
                 <>
                   <p className="text-sm text-gray-500 mb-3">
                     אנא סמן את המאפיינים שהובילו להחלטה (ניתן לבחור יותר מאחד):
                   </p>
-
                   <div className="space-y-2">
                     {LABEL_REASONS.map((reason) => (
                       <label
@@ -204,7 +196,6 @@ export const StudentView: React.FC<StudentViewProps> = ({
                   </div>
                 </>
               )}
-
               {pendingLabel.label !== LabelOption.Jihadist && (
                 <p className="text-sm text-gray-600 text-center py-4">
                   האם אתה בטוח בסיווג זה?
@@ -235,15 +226,13 @@ export const StudentView: React.FC<StudentViewProps> = ({
         </div>
       )}
 
-      {/* Header & Stats */}
+      {/* Header (Same as before) */}
       <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex-1">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <h1 className="text-2xl font-bold text-gray-900">
-                שלום, {user.username}
-              </h1>
-            </div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              שלום, {user.username}
+            </h1>
             <p className="text-gray-500">
               אנא סווג את הציוצים הבאים בהתאם להנחיות.
             </p>
@@ -264,8 +253,6 @@ export const StudentView: React.FC<StudentViewProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Progress Bar */}
         <div className="mt-6">
           <div className="flex justify-between text-sm text-gray-600 mb-1">
             <span>התקדמות כללית</span>
@@ -280,7 +267,6 @@ export const StudentView: React.FC<StudentViewProps> = ({
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-4">
         <button
           onClick={() => setActiveTab("label")}
@@ -306,7 +292,6 @@ export const StudentView: React.FC<StudentViewProps> = ({
         </button>
       </div>
 
-      {/* Content Area */}
       {activeTab === "label" ? (
         <div className="space-y-6">
           {currentTweet ? (
@@ -319,13 +304,11 @@ export const StudentView: React.FC<StudentViewProps> = ({
                   ממתין לתיוג
                 </span>
               </div>
-
               <div className="p-8 min-h-fit bg-white">
                 <p className="text-lg sm:text-xl leading-relaxed text-gray-800 font-medium whitespace-pre-wrap break-words word-wrap">
                   "{currentTweet.text}"
                 </p>
               </div>
-
               <div className="bg-gray-50 px-6 py-6 border-t border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">
                   בחר סיווג:
@@ -388,8 +371,6 @@ export const StudentView: React.FC<StudentViewProps> = ({
               <h3 className="font-medium text-gray-700 whitespace-nowrap">
                 היסטוריית תיוגים
               </h3>
-
-              {/* Search Bar */}
               <div className="relative w-full max-w-xs">
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <Search className="h-4 w-4 text-gray-400" />
@@ -402,8 +383,6 @@ export const StudentView: React.FC<StudentViewProps> = ({
                   className="block w-full pr-10 pl-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
-
-              {/* Sort Filter */}
               <div className="relative">
                 <select
                   value={sortOrder}
@@ -417,7 +396,6 @@ export const StudentView: React.FC<StudentViewProps> = ({
                 </select>
               </div>
             </div>
-
             {labeledTweets.length > 0 && (
               <Button
                 onClick={() => exportToCSV(myTweets, [user.username])}
@@ -450,12 +428,15 @@ export const StudentView: React.FC<StudentViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {labeledTweets.map((tweet: Tweet) => {
+                  {labeledTweets.map((tweet: Tweet, index: number) => {
                     const currentLabel = tweet.annotations[user.username];
                     const currentFeatures =
                       tweet.annotationFeatures?.[user.username] || [];
                     const timestamp =
                       tweet.annotationTimestamps?.[user.username];
+
+                    // --- הלוגיקה החדשה לנעילה ---
+                    const isMostRecent = index === 0 && sortOrder === "newest";
 
                     return (
                       <tr key={tweet.id} className="hover:bg-gray-50">
@@ -479,8 +460,6 @@ export const StudentView: React.FC<StudentViewProps> = ({
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm font-medium align-top">
-                          {/* Only allow changing label via text for simplicity in history, or re-open modal. 
-                               For now, we display readonly with button to reset */}
                           <div
                             className={`inline-block px-2 py-1 rounded text-xs mb-2 ${getLabelColor(
                               currentLabel
@@ -500,14 +479,23 @@ export const StudentView: React.FC<StudentViewProps> = ({
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
-                          <Button
-                            variant="neutral"
-                            onClick={() => onResetLabel(tweet.id)}
-                            className="text-xs px-3 py-2 flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 w-full justify-center"
-                            title="החזר לתור (מחק תיוג)"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          {isMostRecent ? (
+                            <Button
+                              variant="neutral"
+                              onClick={() => onResetLabel(tweet.id)}
+                              className="text-xs px-3 py-2 flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 w-full justify-center"
+                              title="התחרטתי - החזר לתור"
+                            >
+                              <RotateCcw className="w-4 h-4" /> תיקון
+                            </Button>
+                          ) : (
+                            <div
+                              className="flex items-center gap-1 text-gray-400 text-xs px-3 py-2 cursor-not-allowed w-full justify-center"
+                              title="לא ניתן לשנות ציוצים ישנים"
+                            >
+                              <Lock className="w-4 h-4" /> נעול
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
