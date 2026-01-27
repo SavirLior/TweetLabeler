@@ -6,6 +6,7 @@ import {
   addTweets,
   updateTweets,
   deleteTweet,
+  saveAnnotation
 } from "./services/dataService";
 import { Login } from "./components/Login";
 import { StudentView } from "./components/StudentView";
@@ -88,7 +89,7 @@ const App: React.FC = () => {
     return first;
   };
 
-  // --- פונקציה חדשה: מחיקת הצבעה של סטודנט על ידי מנהל ---
+
   const handleAdminDeleteVote = async (tweetId: string, studentUsername: string) => {
     let changedTweet: Tweet | undefined;
     
@@ -98,12 +99,10 @@ const App: React.FC = () => {
         const newFeatures = { ...(tweet.annotationFeatures || {}) };
         const newTimestamps = { ...(tweet.annotationTimestamps || {}) };
 
-        // מחיקת המידע של הסטודנט
         delete newAnnotations[studentUsername];
         delete newFeatures[studentUsername];
         delete newTimestamps[studentUsername];
 
-        // חישוב קונצנזוס מחדש
         const newFinalLabel = calculateFinalLabel(tweet, newAnnotations);
 
         const newTweet = {
@@ -160,9 +159,22 @@ const App: React.FC = () => {
     });
     setTweets(updatedTweets);
 
+    
     const changedTweet = updatedTweets.find((t) => t.id === tweetId);
     if (changedTweet) {
-      await saveTweet(changedTweet);
+      try {
+          
+          await saveAnnotation(
+              tweetId, 
+              currentUser.username, 
+              label, 
+              features, 
+              changedTweet.finalLabel
+          );
+      } catch (error) {
+          console.error("Failed to save annotation", error);
+         
+      }
     }
   };
 

@@ -249,6 +249,47 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
     setPasteText("");
   };
 
+  // --- פונקציית עזר חדשה לפירוק CSV (להוסיף לפני handleFileUpload) ---
+  const parseCSV = (text: string) => {
+    const results: string[] = [];
+    let currentLine = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const nextChar = text[i + 1];
+
+      // טיפול במירכאות
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          // מירכאות כפולות בתוך טקסט נשמרות כאחת ("")
+          currentLine += '"';
+          i++; 
+        } else {
+          // כניסה או יציאה ממצב ציטוט
+          inQuotes = !inQuotes;
+        }
+      } 
+      // טיפול בירידת שורה (רק אם אנחנו לא בתוך ציטוט)
+      else if ((char === '\n' || char === '\r') && !inQuotes) {
+        if (currentLine.trim()) {
+          results.push(currentLine);
+        }
+        currentLine = "";
+        // דילוג על \r\n אם קיים
+        if (char === '\r' && nextChar === '\n') i++;
+      } 
+      else {
+        currentLine += char;
+      }
+    }
+    // הוספת השורה האחרונה
+    if (currentLine.trim()) results.push(currentLine);
+    
+    return results;
+  };
+
+  // --- הפונקציה המעודכנת ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -256,15 +297,18 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
-        const lines = content
-          .split(/\r?\n/)
-          .filter((line) => line.trim().length > 0);
+        // שימוש בפונקציה החדשה במקום split רגיל
+        const lines = parseCSV(content);
+        
         const newDrafts: DraftTweet[] = lines
           .map((line) => {
             let text = line.trim();
+            // ניקוי מירכאות חיצוניות של CSV
             if (text.startsWith('"') && text.endsWith('"')) {
-              text = text.slice(1, -1).replace(/""/g, '"');
+               // הסרת מירכאות עוטפות והחזרת מירכאות כפולות לרגילות
+               text = text.slice(1, -1).replace(/""/g, '"'); 
             }
+            
             return {
               tempId: Math.random().toString(36).substr(2, 9),
               text: text,
@@ -274,7 +318,8 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
           .filter(
             (d) =>
               d.text.toLowerCase() !== "text" &&
-              d.text.toLowerCase() !== "tweet"
+              d.text.toLowerCase() !== "tweet" &&
+              d.text.length > 0
           );
         setDraftTweets((prev) => [...prev, ...newDrafts]);
       }

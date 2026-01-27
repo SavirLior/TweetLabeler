@@ -174,3 +174,21 @@ export const exportToCSV = (tweets: Tweet[], users: string[]) => {
   link.click();
   document.body.removeChild(link);
 };
+
+export const saveAnnotation = async (
+  tweetId: string, 
+  username: string, 
+  label: string, 
+  features: string[],
+  finalLabel?: string 
+): Promise<void> => {
+    const payload = {
+        tweetId,
+        username,
+        label,
+        features,
+        timestamp: Date.now(),
+        finalLabel
+    };
+    await apiRequest('/tweet/annotate', 'POST', payload);
+};
