@@ -121,7 +121,17 @@ const App: React.FC = () => {
     setTweets(updatedTweets);
 
     if (changedTweet) {
-      await saveTweet(changedTweet);
+      try {
+        await saveAnnotation(
+            tweetId,
+            studentUsername,
+            "",
+            [],
+            changedTweet.finalLabel
+        );
+      } catch (error) {
+        console.error("Failed to delete vote atomically", error);
+      }
     }
   };
 
@@ -242,8 +252,23 @@ const App: React.FC = () => {
     });
     setTweets(updatedTweets);
 
+    
     if (changedTweet) {
-      await saveTweet(changedTweet);
+      try {
+        
+        const currentFeatures = changedTweet.annotationFeatures?.[studentUsername] || [];
+        
+        await saveAnnotation(
+          tweetId,
+          studentUsername,
+          newLabel,
+          currentFeatures,
+          changedTweet.finalLabel
+        );
+      } catch (error) {
+        console.error("Failed to save admin annotation", error);
+        alert("שגיאה בשמירת השינוי בשרת");
+      }
     }
   };
 
