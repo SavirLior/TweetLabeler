@@ -34,7 +34,7 @@ interface AdminViewProps {
   onAdminLabelChange: (
     tweetId: string,
     studentUsername: string,
-    newLabel: string
+    newLabel: string,
   ) => void;
   // --- חדש: פונקציה למחיקת תיוג ---
   onAdminDeleteVote: (tweetId: string, studentUsername: string) => void;
@@ -126,8 +126,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const distribution: Record<string, Record<string, number>> = {};
     const students = new Set<string>();
 
-   // סופר כמה ציוצים הוקצו ליותר מסטודנט אחד (כלומר, הם בבקרת איכות/חפיפה)
-const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
+    // סופר כמה ציוצים הוקצו ליותר מסטודנט אחד (כלומר, הם בבקרת איכות/חפיפה)
+    const duplicates = tweets.filter(
+      (t) => (t.assignedTo?.length || 0) > 1,
+    ).length;
 
     tweets.forEach((tweet) => {
       Object.entries(tweet.annotations).forEach(([username, label]) => {
@@ -148,7 +150,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
       totalDuplicates: duplicates, // החזרת הנתון החדש
       studentStats: studentList.map((student) => {
         const totalAssigned = tweets.filter((t) =>
-          t.assignedTo?.includes(student)
+          t.assignedTo?.includes(student),
         ).length;
         return {
           name: student,
@@ -207,10 +209,12 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
     return tweets.filter((tweet) => {
       // 1. Conflict Filter
       if (showConflictsOnly && !needsResolution(tweet)) return false;
-      
+
       // 2. Student Filter (NEW FIX)
       if (selectedStudentFilter !== "all") {
-        const isAssignedToStudent = tweet.assignedTo?.includes(selectedStudentFilter);
+        const isAssignedToStudent = tweet.assignedTo?.includes(
+          selectedStudentFilter,
+        );
         // אם הסטודנט לא משויך לציוץ הזה, נסנן אותו החוצה
         if (!isAssignedToStudent) return false;
       }
@@ -264,28 +268,27 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
         if (inQuotes && nextChar === '"') {
           // מירכאות כפולות בתוך טקסט נשמרות כאחת ("")
           currentLine += '"';
-          i++; 
+          i++;
         } else {
           // כניסה או יציאה ממצב ציטוט
           inQuotes = !inQuotes;
         }
-      } 
+      }
       // טיפול בירידת שורה (רק אם אנחנו לא בתוך ציטוט)
-      else if ((char === '\n' || char === '\r') && !inQuotes) {
+      else if ((char === "\n" || char === "\r") && !inQuotes) {
         if (currentLine.trim()) {
           results.push(currentLine);
         }
         currentLine = "";
         // דילוג על \r\n אם קיים
-        if (char === '\r' && nextChar === '\n') i++;
-      } 
-      else {
+        if (char === "\r" && nextChar === "\n") i++;
+      } else {
         currentLine += char;
       }
     }
     // הוספת השורה האחרונה
     if (currentLine.trim()) results.push(currentLine);
-    
+
     return results;
   };
 
@@ -299,16 +302,16 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
       if (content) {
         // שימוש בפונקציה החדשה במקום split רגיל
         const lines = parseCSV(content);
-        
+
         const newDrafts: DraftTweet[] = lines
           .map((line) => {
             let text = line.trim();
             // ניקוי מירכאות חיצוניות של CSV
             if (text.startsWith('"') && text.endsWith('"')) {
-               // הסרת מירכאות עוטפות והחזרת מירכאות כפולות לרגילות
-               text = text.slice(1, -1).replace(/""/g, '"'); 
+              // הסרת מירכאות עוטפות והחזרת מירכאות כפולות לרגילות
+              text = text.slice(1, -1).replace(/""/g, '"');
             }
-            
+
             return {
               tempId: Math.random().toString(36).substr(2, 9),
               text: text,
@@ -319,7 +322,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
             (d) =>
               d.text.toLowerCase() !== "text" &&
               d.text.toLowerCase() !== "tweet" &&
-              d.text.length > 0
+              d.text.length > 0,
           );
         setDraftTweets((prev) => [...prev, ...newDrafts]);
       }
@@ -347,7 +350,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
           ? current.filter((s) => s !== student)
           : [...current, student];
         return { ...t, assignedTo: updated };
-      })
+      }),
     );
   };
 
@@ -359,7 +362,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
           return { ...t, assignedTo: [...current, student] };
         }
         return t;
-      })
+      }),
     );
   };
 
@@ -384,7 +387,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
       return;
     }
     const unassignedTweets = tweets.filter(
-      (t) => !t.assignedTo || t.assignedTo.length === 0
+      (t) => !t.assignedTo || t.assignedTo.length === 0,
     );
     if (unassignedTweets.length === 0) {
       alert("לא נמצאו ציוצים ללא שיוך.");
@@ -399,7 +402,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
     // overlapPercentage = 50% means each tweet gets assigned to 50% of students
     const numStudentsPerTweet = Math.max(
       1,
-      Math.round((numStudents * overlapPercentage) / 100)
+      Math.round((numStudents * overlapPercentage) / 100),
     );
 
     const tweetsToUpdate: Tweet[] = [];
@@ -432,7 +435,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
     onBulkUpdateTweets(tweetsToUpdate);
     setShowAssignModal(false);
     alert(
-      `${tweetsToUpdate.length} ציוצים שויכו בהצלחה!\n\nכל ציוץ משויך ל-${numStudentsPerTweet} סטודנט(ים) (${overlapPercentage}% מ-${numStudents} סטודנטים).`
+      `${tweetsToUpdate.length} ציוצים שויכו בהצלחה!\n\nכל ציוץ משויך ל-${numStudentsPerTweet} סטודנט(ים) (${overlapPercentage}% מ-${numStudents} סטודנטים).`,
     );
   };
 
@@ -540,7 +543,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
           onClick={() => {
             if (
               window.confirm(
-                "האם אתה בטוח שברצונך למחוק את כל הציוצים? פעולה זו לא ניתנת לביטול!"
+                "האם אתה בטוח שברצונך למחוק את כל הציוצים? פעולה זו לא ניתנת לביטול!",
               )
             ) {
               onDeleteAllTweets();
@@ -605,7 +608,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                         <input
                           type="checkbox"
                           checked={assignmentConfig.selectedStudents.includes(
-                            student
+                            student,
                           )}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -620,7 +623,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                               setAssignmentConfig((prev) => ({
                                 ...prev,
                                 selectedStudents: prev.selectedStudents.filter(
-                                  (s) => s !== student
+                                  (s) => s !== student,
                                 ),
                               }));
                             }
@@ -718,28 +721,49 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                 </p>
               </div>
 
-              {/* Final Label Status */}
-              <div className="flex items-center justify-between bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <div>
-                  <span className="text-sm font-bold text-blue-800 block">
+              {/* Final Label Selection */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <div className="mb-3">
+                  <span className="text-sm font-bold text-blue-800 block mb-2">
                     סיווג סופי (Final Decision):
                   </span>
                   {editingTweet.finalLabel &&
                   editingTweet.finalLabel !== "CONFLICT" ? (
                     <span
-                      className={`text-sm px-2 py-0.5 rounded mt-1 inline-block ${getLabelColor(
-                        editingTweet.finalLabel
+                      className={`text-sm px-3 py-1 rounded inline-block ${getLabelColor(
+                        editingTweet.finalLabel,
                       )}`}
                     >
-                      {editingTweet.finalLabel}
+                      ✓ {editingTweet.finalLabel}
                     </span>
                   ) : (
-                    <span className="text-sm text-red-600 font-bold mt-1 inline-block">
+                    <span className="text-sm text-red-600 font-bold inline-block">
                       {editingTweet.finalLabel === "CONFLICT"
-                        ? "טרם נקבע / נדרשת הכרעה"
-                        : "טרם נקבע"}
+                        ? "⚠️ טרם נקבע - נדרשת הכרעה"
+                        : "⚠️ טרם נקבע"}
                     </span>
                   )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {Object.values(LabelOption).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => {
+                        handleDecideFinal(editingTweet, option);
+                        setEditingTweet({
+                          ...editingTweet,
+                          finalLabel: option,
+                        });
+                      }}
+                      className={`text-xs font-medium px-4 py-2 rounded-md border transition-all ${
+                        editingTweet.finalLabel === option
+                          ? `ring-2 ring-offset-2 ring-blue-500 ${getLabelColor(option)}`
+                          : "bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -815,15 +839,20 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                                     // מחיקת תיוג
                                     onAdminDeleteVote(editingTweet.id, student);
                                     // עדכון מקומי מהיר כדי שהממשק יגיב
-                                    const newAnnotations = {...editingTweet.annotations};
+                                    const newAnnotations = {
+                                      ...editingTweet.annotations,
+                                    };
                                     delete newAnnotations[student];
-                                    setEditingTweet({...editingTweet, annotations: newAnnotations});
+                                    setEditingTweet({
+                                      ...editingTweet,
+                                      annotations: newAnnotations,
+                                    });
                                   } else {
                                     // שינוי תיוג רגיל
                                     onAdminLabelChange(
                                       editingTweet.id,
                                       student,
-                                      e.target.value
+                                      e.target.value,
                                     );
                                     setEditingTweet({
                                       ...editingTweet,
@@ -836,7 +865,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                                 }}
                                 disabled={!isAssigned}
                                 className={`block w-full text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${getLabelColor(
-                                  currentLabel
+                                  currentLabel,
                                 )} disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200`}
                               >
                                 <option
@@ -970,7 +999,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                                   </span>
                                   <span
                                     className={`text-xs px-2 py-0.5 rounded ${getLabelColor(
-                                      label
+                                      label,
                                     )}`}
                                   >
                                     {label}
@@ -979,12 +1008,12 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                                 {tweet.annotationFeatures?.[student] && (
                                   <div className="text-[10px] text-gray-500 border-t pt-1 mt-1">
                                     {tweet.annotationFeatures[student].join(
-                                      ", "
+                                      ", ",
                                     )}
                                   </div>
                                 )}
                               </div>
-                            )
+                            ),
                           )}
                         </div>
                       </div>
@@ -1262,7 +1291,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                 <p className="text-2xl font-bold text-gray-900">
                   {studentStats.reduce(
                     (acc, curr) => acc + curr.labeledCount,
-                    0
+                    0,
                   )}
                 </p>
               </div>
@@ -1338,7 +1367,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                               {stat.totalAssigned > 0
                                 ? Math.round(
                                     (stat.labeledCount / stat.totalAssigned) *
-                                      100
+                                      100,
                                   )
                                 : 0}
                               %
@@ -1351,7 +1380,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                               {Object.entries(stat.distribution).map(
                                 ([label, count]) => {
                                   const pct = Math.round(
-                                    (count / stat.labeledCount) * 100
+                                    (count / stat.labeledCount) * 100,
                                   );
                                   if (pct === 0) return null;
                                   return (
@@ -1372,7 +1401,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                                       )}
                                     </div>
                                   );
-                                }
+                                },
                               )}
                             </div>
                           ) : (
@@ -1434,7 +1463,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                             .sort(([, a], [, b]) => b - a)
                             .map(([label, count]) => {
                               const percentage = Math.round(
-                                (count / totalWithFinalLabel) * 100
+                                (count / totalWithFinalLabel) * 100,
                               );
                               return (
                                 <div
@@ -1497,7 +1526,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                                   tweets.filter(
                                     (t) =>
                                       !t.finalLabel ||
-                                      t.finalLabel === "CONFLICT"
+                                      t.finalLabel === "CONFLICT",
                                   ).length
                                 }
                               </p>
@@ -1510,7 +1539,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                                 {tweets.length > 0
                                   ? Math.round(
                                       (totalWithFinalLabel / tweets.length) *
-                                        100
+                                        100,
                                     )
                                   : 0}
                                 %
@@ -1647,7 +1676,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                         tweet.finalLabel === LabelOption.Skip;
                       const assignedCount = tweet.assignedTo?.length || 0;
                       const labeledCount = Object.keys(
-                        tweet.annotations
+                        tweet.annotations,
                       ).filter((k) => tweet.assignedTo?.includes(k)).length;
 
                       // Prepare conflict tooltip details
@@ -1657,12 +1686,15 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
 
                       // Prepare Label Distribution for summary column
                       const labelsDistribution = Object.entries(
-                        tweet.annotations
-                      ).reduce((acc, [student, label]) => {
-                        if (!acc[label]) acc[label] = [];
-                        acc[label].push(student);
-                        return acc;
-                      }, {} as Record<string, string[]>);
+                        tweet.annotations,
+                      ).reduce(
+                        (acc, [student, label]) => {
+                          if (!acc[label]) acc[label] = [];
+                          acc[label].push(student);
+                          return acc;
+                        },
+                        {} as Record<string, string[]>,
+                      );
 
                       return (
                         <tr
@@ -1698,7 +1730,7 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                             tweet.finalLabel !== "CONFLICT" ? (
                               <span
                                 className={`text-xs px-2 py-0.5 rounded border ${getLabelColor(
-                                  tweet.finalLabel
+                                  tweet.finalLabel,
                                 )}`}
                               >
                                 {tweet.finalLabel}
@@ -1740,15 +1772,15 @@ const duplicates = tweets.filter(t => (t.assignedTo?.length || 0) > 1).length;
                                     <span
                                       key={label}
                                       title={`סומן על ידי: ${students.join(
-                                        ", "
+                                        ", ",
                                       )}`}
                                       className={`text-[10px] px-2 py-0.5 rounded border shadow-sm cursor-help whitespace-nowrap ${getLabelColor(
-                                        label
+                                        label,
                                       )}`}
                                     >
                                       {label} ({students.length})
                                     </span>
-                                  )
+                                  ),
                                 )
                               ) : (
                                 <span className="text-xs text-gray-400">
