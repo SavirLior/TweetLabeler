@@ -398,44 +398,54 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const numTweets = unassignedTweets.length;
     const numStudents = selectedStudents.length;
 
-    // Calculate how many students should be assigned to each tweet
-    // overlapPercentage = 50% means each tweet gets assigned to 50% of students
-    const numStudentsPerTweet = Math.max(
-      1,
-      Math.round((numStudents * overlapPercentage) / 100),
+    const totalAssignmentsRequested = Math.round(
+      numTweets * (1 + overlapPercentage / 100),
+    );
+    const maxPossibleAssignments = numTweets * numStudents;
+    const totalAssignments = Math.min(
+      Math.max(numTweets, totalAssignmentsRequested),
+      maxPossibleAssignments,
     );
 
-    const tweetsToUpdate: Tweet[] = [];
+    const assignmentStudents: string[] = [];
+    for (let i = 0; i < totalAssignments; i++) {
+      assignmentStudents.push(selectedStudents[i % numStudents]);
+    }
 
-    // To ensure equal distribution, we use a "student pool" approach
-    // Create an array of student assignments that cycles through students
-    // This ensures each student gets roughly the same number of assignments
+    const assignedByTweet: string[][] = unassignedTweets.map(() => []);
 
-    let studentIndex = 0;
+    for (let i = 0; i < numTweets; i++) {
+      assignedByTweet[i].push(assignmentStudents[i]);
+    }
 
-    unassignedTweets.forEach((tweet) => {
-      const newAssigned: string[] = [];
-
-      // Assign numStudentsPerTweet students to this tweet
-      // Use round-robin to ensure equal distribution
-      for (let i = 0; i < numStudentsPerTweet; i++) {
-        newAssigned.push(selectedStudents[studentIndex % numStudents]);
-        studentIndex++;
+    let tweetCursor = 0;
+    for (let i = numTweets; i < assignmentStudents.length; i++) {
+      const student = assignmentStudents[i];
+      let placed = false;
+      for (let attempts = 0; attempts < numTweets; attempts++) {
+        const idx = (tweetCursor + attempts) % numTweets;
+        const assigned = assignedByTweet[idx];
+        if (assigned.length >= numStudents) continue;
+        if (assigned.includes(student)) continue;
+        assigned.push(student);
+        tweetCursor = (idx + 1) % numTweets;
+        placed = true;
+        break;
       }
+      if (!placed) {
+        continue;
+      }
+    }
 
-      // Shuffle the selected students for this tweet to add randomness
-      newAssigned.sort(() => Math.random() - 0.5);
-
-      tweetsToUpdate.push({
-        ...tweet,
-        assignedTo: newAssigned,
-      });
-    });
+    const tweetsToUpdate: Tweet[] = unassignedTweets.map((tweet, index) => ({
+      ...tweet,
+      assignedTo: assignedByTweet[index],
+    }));
 
     onBulkUpdateTweets(tweetsToUpdate);
     setShowAssignModal(false);
     alert(
-      `${tweetsToUpdate.length} ציוצים שויכו בהצלחה!\n\nכל ציוץ משויך ל-${numStudentsPerTweet} סטודנט(ים) (${overlapPercentage}% מ-${numStudents} סטודנטים).`,
+      `${tweetsToUpdate.length} ציוצים שויכו בהצלחה!\nסה"כ הוקצו ${totalAssignments} משימות תיוג בין ${numStudents} סטודנטים.`,
     );
   };
 
@@ -587,10 +597,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
               {/* Description */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  <strong>שיוך אוטומטי</strong> יחלק את הציוצים הלא משויכים
-                  בצורה אקראית בין הסטודנטים שתבחר, עם אפשרות לחפיפה (overlap).
-                </p>
+              <p className="text-sm text-blue-800">
+      <strong>שיוך אוטומטי</strong> יחלק את הציוצים שווה בשווה. אחוז החפיפה מגדיר כמה משימות תיוג כפולות יתווספו בסך הכל.
+    </p>
               </div>
 
               {/* Select Students */}
