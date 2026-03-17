@@ -10,10 +10,10 @@ export interface User {
 }
 
 export enum LabelOption {
-  Jihadist = "סלפי ג'יהאדיסטי",
-  Quietist = "סלפי תקלידי",
-  Neither = "לא זה ולא זה",
-  Skip = "לא בטוח / דלג"
+  Jihadist = "Salafi jihadi",
+  Quietist = "Salafi taklidi",
+  Neither = "Irrelevant",
+  Skip = "Skip"
 }
 
 export const LABEL_REASONS = [

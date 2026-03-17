@@ -8,10 +8,18 @@ import datetime
 APIFY_TOKEN = 'TOKEN'  
 
 USERNAMES = [
-   "MAkhtar59405"
+
+"@InviteToIslam",
+"@Imtiyazibnharun",
+"clickdeen360@",
+"@AlDonFodio",
+"@rashadzali1"
+"@abdinur002",
+"@ESandzaki85074",
+
 ]
 
-MAX_TWEETS_PER_USER = 12
+MAX_TWEETS_PER_USER = 25
 
 # ==========================================
 # 2. פונקציות עזר
@@ -20,8 +28,17 @@ MAX_TWEETS_PER_USER = 12
 def clean_text(text):
     if not isinstance(text, str):
         return ""
+    
+    # Remove URLs
     text = re.sub(r'http\S+', '', text).strip()
-    return text
+    
+    # Remove [Retweeted] tag
+    text = re.sub(r'\[Retweeted\]', '', text, flags=re.IGNORECASE)
+    
+    # Remove emojis and non-English characters (keep only ASCII)
+    text = text.encode('ascii', 'ignore').decode('ascii')
+    
+    return text.strip()
 
 def format_date(date_str):
     try:
@@ -185,12 +202,12 @@ if df.empty:
     print("⚠️ לא נמצאו נתונים (או שהכל סונן).")
 else:
     # קובץ 1: מלא
-    file_full = "twitter_data_full.csv"
+    file_full = "twitter_data_full_ALL.csv"
     df.to_csv(file_full, index=False, encoding='utf-8-sig')
     print(f"✅ נוצר קובץ מלא: {file_full}")
 
     # קובץ 2: טקסט בלבד לאתר
-    file_text_only = "twitter_text_only_with_api.csv"
+    file_text_only = "twitter_text_only_ALL.csv"
     df_text_only = df[['full_display_text']].rename(columns={'full_display_text': 'text'})
     
     df_text_only.to_csv(file_text_only, index=False, encoding='utf-8-sig')
