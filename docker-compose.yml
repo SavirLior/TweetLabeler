@@ -4,7 +4,7 @@ services:
   app:
     build: .
     ports:
-      - "8080:8080"
+      - "80:80"
     environment:
       - MONGO_URI=mongodb+srv://ofekmazor2121dbUser:4ZvTINrC6KAxmooT@fusion-tweets.9pn4kn4.mongodb.net/?appName=fusion-tweets
       - MONGO_DB_NAME=tweetlabeler 
