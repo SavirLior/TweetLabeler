@@ -997,32 +997,47 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {Object.entries(tweet.annotations).map(
-                            ([student, label]) => (
-                              <div
-                                key={student}
-                                className="flex flex-col gap-1 bg-white p-2 rounded border shadow-sm"
-                              >
-                                <div className="flex justify-between items-center">
-                                  <span className="text-xs font-bold text-gray-500">
-                                    {student}:
-                                  </span>
-                                  <span
-                                    className={`text-xs px-2 py-0.5 rounded ${getLabelColor(
-                                      label,
-                                    )}`}
-                                  >
-                                    {label}
-                                  </span>
-                                </div>
-                                {tweet.annotationFeatures?.[student] && (
-                                  <div className="text-[10px] text-gray-500 border-t pt-1 mt-1">
-                                    {tweet.annotationFeatures[student].join(
-                                      ", ",
-                                    )}
+                            ([student, label]) => {
+                              const studentFeatures =
+                                tweet.annotationFeatures?.[student] || [];
+                              const skipReason =
+                                label === LabelOption.Skip
+                                  ? studentFeatures[0]?.trim() || ""
+                                  : "";
+
+                              return (
+                                <div
+                                  key={student}
+                                  className="flex flex-col gap-1 bg-white p-2 rounded border shadow-sm"
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-gray-500">
+                                      {student}:
+                                    </span>
+                                    <span
+                                      className={`text-xs px-2 py-0.5 rounded ${getLabelColor(
+                                        label,
+                                      )}`}
+                                    >
+                                      {label}
+                                    </span>
                                   </div>
-                                )}
-                              </div>
-                            ),
+
+                                  {label === LabelOption.Skip && (
+                                    <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+                                      סיבת דילוג: {skipReason || "לא הוזנה סיבה"}
+                                    </div>
+                                  )}
+
+                                  {label !== LabelOption.Skip &&
+                                    studentFeatures.length > 0 && (
+                                      <div className="text-[10px] text-gray-500 border-t pt-1 mt-1">
+                                        {studentFeatures.join(", ")}
+                                      </div>
+                                    )}
+                                </div>
+                              );
+                            },
                           )}
                         </div>
                       </div>

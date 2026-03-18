@@ -12,7 +12,6 @@ import {
   Trash2,
   Search,
   Calendar,
-  Lock, // הוספנו אייקון מנעול
   X,
 } from "lucide-react";
 
@@ -39,6 +38,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
     label: string;
   } | null>(null);
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
+  const [skipReason, setSkipReason] = useState("");
 
   // Filter tweets specifically assigned to this user
   const myTweets = useMemo(() => {
@@ -99,6 +99,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
   const initiateLabel = (tweetId: string, label: string) => {
     setPendingLabel({ tweetId, label });
     setSelectedFeatures([]);
+    setSkipReason("");
   };
 
   const toggleFeature = (feature: string) => {
@@ -111,14 +112,23 @@ export const StudentView: React.FC<StudentViewProps> = ({
 
   const confirmLabel = () => {
     if (!pendingLabel) return;
-    onLabelTweet(pendingLabel.tweetId, pendingLabel.label, selectedFeatures);
+    const trimmedSkipReason = skipReason.trim();
+    const featuresToSave =
+      pendingLabel.label === LabelOption.Skip
+        ? [trimmedSkipReason]
+        : pendingLabel.label === LabelOption.Jihadist
+          ? selectedFeatures
+          : [];
+    onLabelTweet(pendingLabel.tweetId, pendingLabel.label, featuresToSave);
     setPendingLabel(null);
     setSelectedFeatures([]);
+    setSkipReason("");
   };
 
   const cancelLabel = () => {
     setPendingLabel(null);
     setSelectedFeatures([]);
+    setSkipReason("");
   };
 
   // --- Render ---
@@ -196,11 +206,26 @@ export const StudentView: React.FC<StudentViewProps> = ({
                   </div>
                 </>
               )}
-              {pendingLabel.label !== LabelOption.Jihadist && (
+              {pendingLabel.label === LabelOption.Skip && (
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-600 block">
+                    מה הסיבה לדילוג?
+                  </label>
+                  <textarea
+                    value={skipReason}
+                    onChange={(e) => setSkipReason(e.target.value)}
+                    placeholder="כתוב/כתבי כאן את הסיבה לדילוג..."
+                    rows={4}
+                    className="w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-yellow-400"
+                  />
+                </div>
+              )}
+              {pendingLabel.label !== LabelOption.Jihadist &&
+                pendingLabel.label !== LabelOption.Skip && (
                 <p className="text-sm text-gray-600 text-center py-4">
                   האם אתה בטוח בסיווג זה?
                 </p>
-              )}
+                )}
             </div>
 
             <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-between gap-3">
@@ -214,8 +239,10 @@ export const StudentView: React.FC<StudentViewProps> = ({
               <Button
                 onClick={confirmLabel}
                 disabled={
-                  pendingLabel.label === LabelOption.Jihadist &&
-                  selectedFeatures.length === 0
+                  (pendingLabel.label === LabelOption.Jihadist &&
+                    selectedFeatures.length === 0) ||
+                  (pendingLabel.label === LabelOption.Skip &&
+                    skipReason.trim().length === 0)
                 }
                 className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -428,15 +455,12 @@ export const StudentView: React.FC<StudentViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {labeledTweets.map((tweet: Tweet, index: number) => {
+                  {labeledTweets.map((tweet: Tweet) => {
                     const currentLabel = tweet.annotations[user.username];
                     const currentFeatures =
                       tweet.annotationFeatures?.[user.username] || [];
                     const timestamp =
                       tweet.annotationTimestamps?.[user.username];
-
-                    // --- הלוגיקה החדשה לנעילה ---
-                    const isMostRecent = index === 0 && sortOrder === "newest";
 
                     return (
                       <tr key={tweet.id} className="hover:bg-gray-50">
@@ -479,23 +503,15 @@ export const StudentView: React.FC<StudentViewProps> = ({
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
-                          {isMostRecent ? (
-                            <Button
-                              variant="neutral"
-                              onClick={() => onResetLabel(tweet.id)}
-                              className="text-xs px-3 py-2 flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 w-full justify-center"
-                              title="התחרטתי - החזר לתור"
-                            >
-                              <RotateCcw className="w-4 h-4" /> תיקון
-                            </Button>
-                          ) : (
-                            <div
-                              className="flex items-center gap-1 text-gray-400 text-xs px-3 py-2 cursor-not-allowed w-full justify-center"
-                              title="לא ניתן לשנות ציוצים ישנים"
-                            >
-                              <Lock className="w-4 h-4" /> נעול
-                            </div>
-                          )}
+                          {/* Allow reset for any past annotation. */}
+                          <Button
+                            variant="neutral"
+                            onClick={() => onResetLabel(tweet.id)}
+                            className="text-xs px-3 py-2 flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 w-full justify-center"
+                            title="התחרטתי - החזר לתור"
+                          >
+                            <RotateCcw className="w-4 h-4" /> תיקון
+                          </Button>
                         </td>
                       </tr>
                     );
