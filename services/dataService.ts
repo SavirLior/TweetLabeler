@@ -2,27 +2,44 @@ import { Tweet, AppData, User, UserRole } from "../types";
 
 const API_URL = "/api";
 
-// --- Helper for fetch with error handling ---
+// --- Helper for fetch with error handling and timeout ---
 const apiRequest = async (
   endpoint: string,
   method: string = "GET",
   body?: any
 ) => {
+  // Create a controller to handle the 5-second timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
   try {
     const options: RequestInit = {
       method,
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal, // Pass the abort signal to fetch
     };
     if (body) {
       options.body = JSON.stringify(body);
     }
 
     const response = await fetch(`${API_URL}${endpoint}`, options);
+    
+    // Clear the timer if the request succeeded before 5 seconds
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       throw new Error(`API Error: ${response.statusText}`);
     }
     return await response.json();
-  } catch (error) {
+  } catch (error: any) {
+    // Clear the timer on error to prevent memory leaks
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      console.error(`Request to ${endpoint} timed out after 5 seconds.`);
+      throw new Error("Server took too long to respond");
+    }
+    
     console.error(`Failed to request ${endpoint}:`, error);
     throw error;
   }
@@ -36,8 +53,7 @@ export const getTweets = async (): Promise<Tweet[]> => {
     return data.tweets || [];
   } catch (error) {
     console.error("Could not connect to backend, ensure server.py is running.");
- 
-    // throw the error so App.tsx knows the initial load failed and can lock the UI
+    // Throw the error so App.tsx knows the initial load failed and can lock the UI
     throw error;
   }
 };
@@ -85,12 +101,19 @@ export const authenticateUser = async (
   username: string,
   password: string
 ): Promise<User | null> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
   try {
     const response = await fetch(`${API_URL}/users/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
+
     if (response.status === 401 || response.status === 404) {
       // Return null for invalid credentials
       return null;
@@ -99,7 +122,14 @@ export const authenticateUser = async (
       throw new Error(`API Error: ${response.statusText}`);
     }
     return await response.json();
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      console.error("Authentication timed out after 5 seconds.");
+      throw new Error("Server took too long to respond");
+    }
+    
     console.error("Failed to authenticate user:", error);
     throw error;
   }

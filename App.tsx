@@ -11,7 +11,7 @@ import {
 import { Login } from "./components/Login";
 import { StudentView } from "./components/StudentView";
 import { AdminView } from "./components/AdminView";
-import { LogOut, Database, Lock, AlertTriangle } from "lucide-react";
+import { LogOut, Database, Lock, AlertTriangle, Copy } from "lucide-react"; // הוספנו את האייקון Copy
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -444,6 +444,13 @@ const App: React.FC = () => {
 
   // Render critical error fallback UI
   if (hasCriticalError) {
+    const errorDetails = JSON.stringify(lastFailedAction || "Unknown Error", null, 2);
+
+    const handleCopyError = () => {
+      navigator.clipboard.writeText(errorDetails);
+      alert("פרטי השגיאה הועתקו ללוח!");
+    };
+
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6 text-white" dir="rtl">
         <div className="bg-red-900/20 border-2 border-red-500 p-8 rounded-2xl max-w-2xl w-full shadow-2xl backdrop-blur-md">
@@ -453,13 +460,22 @@ const App: React.FC = () => {
           </div>
           
           <p className="text-lg mb-6 text-gray-300">
-            זוהתה תקלה בתקשורת מול השרת. כדי לוודא שאף תיוג לא ילך לאיבוד, עצרנו את האפשרות להמשיך לעבוד.
+           בבקשה תפנו לצוות מדעי המחשב. זוהתה תקלה בתקשורת מול השרת. כדי לוודא שאף תיוג לא ילך לאיבוד, עצרנו את האפשרות להמשיך לעבוד.
           </p>
 
           <div className="bg-black/40 p-4 rounded-lg mb-6 font-mono text-sm border border-red-800/50">
-            <p className="text-red-400 mb-2">// פרטי השגיאה האחרונה לצוות הפיתוח:</p>
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-red-400">// פרטי השגיאה האחרונה לצוות הפיתוח:</p>
+              <button 
+                onClick={handleCopyError}
+                className="flex items-center gap-1 text-xs bg-red-500/20 hover:bg-red-500/40 text-red-200 px-3 py-1.5 rounded border border-red-500/30 transition-all"
+              >
+                <Copy className="w-3 h-3" />
+                העתק שגיאה
+              </button>
+            </div>
             <pre className="overflow-auto max-h-40 text-left" dir="ltr">
-              {JSON.stringify(lastFailedAction || "Unknown Error", null, 2)}
+              {errorDetails}
             </pre>
           </div>
 
@@ -469,12 +485,6 @@ const App: React.FC = () => {
               className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-all"
             >
               רענן עמוד (נסה להתחבר מחדש)
-            </button>
-            <button 
-              onClick={() => window.print()} 
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl transition-all"
-            >
-              הדפס/שמור דף זה (לתיעוד)
             </button>
           </div>
           <p className="mt-6 text-sm text-gray-400 text-center">
