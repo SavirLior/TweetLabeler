@@ -34,10 +34,11 @@ export const getTweets = async (): Promise<Tweet[]> => {
   try {
     const data = await apiRequest("/data");
     return data.tweets || [];
-  } catch (e) {
+  } catch (error) {
     console.error("Could not connect to backend, ensure server.py is running.");
-    // Fallback for UI if server is down, though it won't persist
-    return [];
+ 
+    // throw the error so App.tsx knows the initial load failed and can lock the UI
+    throw error;
   }
 };
 
@@ -67,8 +68,9 @@ export const getUsers = async (): Promise<User[]> => {
   try {
     const data = await apiRequest("/data");
     return data.users || [];
-  } catch (e) {
-    return [];
+  } catch (error) {
+    // Throw error to prevent silent failures
+    throw error;
   }
 };
 
@@ -90,22 +92,23 @@ export const authenticateUser = async (
       body: JSON.stringify({ username, password }),
     });
     if (response.status === 401 || response.status === 404) {
+      // Return null for invalid credentials
       return null;
     }
     if (!response.ok) {
       throw new Error(`API Error: ${response.statusText}`);
     }
     return await response.json();
-  } catch (e) {
-    console.error("Failed to authenticate user:", e);
-    throw e;
+  } catch (error) {
+    console.error("Failed to authenticate user:", error);
+    throw error;
   }
 };
 
 export const registerUser = async (user: User): Promise<User> => {
   try {
     return await apiRequest("/users/register", "POST", user);
-  } catch (e) {
+  } catch (error) {
     throw new Error("שם המשתמש כבר קיים או שיש בעיית תקשורת");
   }
 };
@@ -121,7 +124,7 @@ export const changePassword = async (
       currentPassword,
       newPassword,
     });
-  } catch (e) {
+  } catch (error) {
     throw new Error("שגיאה בשינוי הסיסמה");
   }
 };
@@ -190,5 +193,6 @@ export const saveAnnotation = async (
         timestamp: Date.now(),
         finalLabel
     };
+    
     await apiRequest('/tweet/annotate', 'POST', payload);
 };
