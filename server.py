@@ -43,6 +43,14 @@ tweets_collection = db[MONGO_TWEETS_COLLECTION]
 users_collection = db[MONGO_USERS_COLLECTION]
 db_initialized = False
 HASH_PREFIXES = ("pbkdf2:", "scrypt:", "argon2:")
+UNRESOLVED_FINAL_LABELS = {
+    "",
+    "pending",
+    "not determined",
+    "not_determined",
+    "conflict",
+    "conflict (unresolved)",
+}
 
 # Helper functions
 def init_db():
@@ -92,6 +100,113 @@ def verify_password(stored_password, provided_password):
     if is_password_hash(stored_password):
         return check_password_hash(stored_password, provided_password)
     return stored_password == provided_password
+
+
+def normalize_label(value):
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def is_unresolved_final_label(value):
+    return normalize_label(value).lower() in UNRESOLVED_FINAL_LABELS
+
+
+def derive_final_label(tweet_doc):
+    annotations = tweet_doc.get("annotations", {})
+    if not isinstance(annotations, dict):
+        annotations = {}
+
+    normalized_annotations = {}
+    for username, raw_label in annotations.items():
+        clean_label = normalize_label(raw_label)
+        if clean_label:
+            normalized_annotations[username] = clean_label
+
+    existing_final_label = normalize_label(
+        tweet_doc.get("finalLabel", tweet_doc.get("final_label", ""))
+    )
+    if existing_final_label and not is_unresolved_final_label(existing_final_label):
+        return existing_final_label
+
+    assigned_to = tweet_doc.get("assignedTo", [])
+    labels = []
+    expected_count = 0
+
+    if isinstance(assigned_to, list) and assigned_to:
+        expected_count = len(assigned_to)
+        labels = [
+            normalized_annotations.get(username, "")
+            for username in assigned_to
+            if normalized_annotations.get(username, "")
+        ]
+    else:
+        labels = list(normalized_annotations.values())
+        expected_count = len(labels)
+
+    if not labels:
+        return None
+
+    first_label = labels[0]
+    if any(label != first_label for label in labels[1:]):
+        return "CONFLICT"
+
+    if first_label.lower() == "skip":
+        return "CONFLICT"
+
+    if len(labels) < expected_count:
+        return None
+
+    return first_label
+
+
+def update_final_label_with_retry(tweet_id, max_retries=5):
+    for _ in range(max_retries):
+        current_tweet = tweets_collection.find_one(
+            {"id": tweet_id},
+            {
+                "_id": 0,
+                "annotations": 1,
+                "annotationTimestamps": 1,
+                "assignedTo": 1,
+                "finalLabel": 1,
+                "final_label": 1,
+            },
+        )
+
+        if not current_tweet:
+            return None
+
+        calculated_final_label = derive_final_label(current_tweet)
+
+        optimistic_filter = {
+            "id": tweet_id,
+            "annotations": current_tweet.get("annotations", {}),
+            "annotationTimestamps": current_tweet.get("annotationTimestamps", {}),
+        }
+        if "finalLabel" in current_tweet:
+            optimistic_filter["finalLabel"] = current_tweet["finalLabel"]
+        else:
+            optimistic_filter["finalLabel"] = {"$exists": False}
+
+        if calculated_final_label:
+            result = tweets_collection.update_one(
+                optimistic_filter,
+                {"$set": {"finalLabel": calculated_final_label}},
+            )
+        else:
+            result = tweets_collection.update_one(
+                optimistic_filter,
+                {"$unset": {"finalLabel": ""}},
+            )
+
+        if result.matched_count == 1:
+            return calculated_final_label
+
+    latest_tweet = tweets_collection.find_one({"id": tweet_id}, {"_id": 0, "finalLabel": 1})
+    if not latest_tweet:
+        return None
+    return latest_tweet.get("finalLabel")
 
 def update_csv_snapshot():
     """Save tweets with final decisions to CSV file from MongoDB."""
@@ -447,16 +562,19 @@ def annotate_tweet():
     """Atomic update for a single annotation"""
     try:
         init_db()
-        data = request.json
+        data = request.json or {}
         tweet_id = data.get("tweetId")
         username = data.get("username")
-        label = data.get("label")
+        label = normalize_label(data.get("label"))
         features = data.get("features", [])
         timestamp = data.get("timestamp")
-        final_label = data.get("finalLabel") 
 
         if not all([tweet_id, username, label]):
              return jsonify({"success": False, "error": "Missing fields"}), 400
+
+        if not isinstance(features, list):
+            features = []
+        features = [str(feature).strip() for feature in features if str(feature).strip()]
 
        
         update_fields = {
@@ -464,18 +582,23 @@ def annotate_tweet():
             f"annotationFeatures.{username}": features,
             f"annotationTimestamps.{username}": timestamp
         }
-        
-        if final_label:
-            update_fields["finalLabel"] = final_label
 
         
         tweets_collection.update_one(
             {"id": tweet_id},
             {"$set": update_fields}
         )
+
+        calculated_final_label = update_final_label_with_retry(tweet_id)
         
         update_csv_snapshot()
-        return jsonify({"success": True, "message": "Annotation saved atomically"})
+        return jsonify(
+            {
+                "success": True,
+                "message": "Annotation saved atomically",
+                "finalLabel": calculated_final_label,
+            }
+        )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
