@@ -11,12 +11,18 @@ import {
 import { Login } from "./components/Login";
 import { StudentView } from "./components/StudentView";
 import { AdminView } from "./components/AdminView";
-import { LogOut, Database, Lock } from "lucide-react";
+import { LogOut, Database, Lock, AlertTriangle, Copy } from "lucide-react"; // הוספנו את האייקון Copy
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  
+  // System lock states to prevent data loss
+  const [hasCriticalError, setHasCriticalError] = useState(false); 
+  const [lastFailedAction, setLastFailedAction] = useState<any>(null);
+
+  // Password modal states
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -32,6 +38,7 @@ const App: React.FC = () => {
         setTweets(loadedTweets);
       } catch (error) {
         console.error("Failed to load tweets", error);
+        setHasCriticalError(true);
       } finally {
         setIsInitialized(true);
       }
@@ -40,13 +47,8 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-  };
+  const handleLogin = (user: User) => setCurrentUser(user);
+  const handleLogout = () => setCurrentUser(null);
 
   // Helper to check consensus
   const calculateFinalLabel = (
@@ -89,8 +91,150 @@ const App: React.FC = () => {
     return first;
   };
 
+  /**
+   * Centralized safe request handler to prevent data loss.
+   * Locks the UI and rolls back state if the API call fails.
+   */
+  const executeSafeRequest = async (
+    apiCall: () => Promise<any>,
+    rollbackState: Tweet[],
+    actionData: any
+  ) => {
+    // Prevent execution if system is already locked
+    if (hasCriticalError) return;
+
+    try {
+      // Temporary local backup in case the browser closes during a server failure
+      localStorage.setItem("pending_action_backup", JSON.stringify({
+        timestamp: new Date().toISOString(),
+        user: currentUser?.username,
+        ...actionData
+      }));
+
+      await apiCall();
+      
+      // Clear backup on success
+      localStorage.removeItem("pending_action_backup");
+    } catch (error) {
+      console.error("CRITICAL API FAILURE - SYSTEM LOCKED", error);
+
+      // Save failed action details for debugging
+      setLastFailedAction(actionData);
+      
+      // Rollback UI to the previous stable state
+      setTweets(rollbackState); 
+      
+      // Lock the entire application
+      setHasCriticalError(true); 
+    }
+  };
+
+  const handleLabelTweet = async (tweetId: string, label: string, features: string[] = []) => {
+    if (!currentUser || hasCriticalError) return;
+
+    // Snapshot of current state for potential rollback
+    const previousTweets = [...tweets];
+    const changedTweetRef = { finalLabel: "" as string | undefined };
+
+    // Optimistic UI update
+    const updatedTweets = tweets.map((tweet) => {
+      if (tweet.id === tweetId) {
+        const newAnnotations = { ...tweet.annotations, [currentUser.username]: label };
+        const newFinalLabel = calculateFinalLabel(tweet, newAnnotations);
+        changedTweetRef.finalLabel = newFinalLabel;
+        
+        return {
+          ...tweet,
+          annotations: newAnnotations,
+          annotationFeatures: { ...(tweet.annotationFeatures || {}), [currentUser.username]: features },
+          annotationTimestamps: { ...(tweet.annotationTimestamps || {}), [currentUser.username]: Date.now() },
+          finalLabel: newFinalLabel,
+        };
+      }
+      return tweet;
+    });
+
+    setTweets(updatedTweets);
+
+    // Execute the API call safely
+    await executeSafeRequest(
+      () => saveAnnotation(tweetId, currentUser.username, label, features, changedTweetRef.finalLabel),
+      previousTweets,
+      { type: "LABEL_TWEET", tweetId, label, username: currentUser.username }
+    );
+  };
+
+  const handleResetLabel = async (tweetId: string) => {
+    if (!currentUser || hasCriticalError) return;
+
+    const previousTweets = [...tweets];
+    let changedTweet: Tweet | undefined;
+
+    const updatedTweets = tweets.map((tweet) => {
+      if (tweet.id === tweetId) {
+        const newTweet = {
+          ...tweet,
+          annotations: { ...tweet.annotations },
+          annotationFeatures: { ...tweet.annotationFeatures },
+          annotationTimestamps: { ...tweet.annotationTimestamps },
+          finalLabel: undefined,
+        };
+        delete newTweet.annotations[currentUser.username];
+        delete newTweet.annotationFeatures![currentUser.username];
+        delete newTweet.annotationTimestamps![currentUser.username];
+        changedTweet = newTweet;
+        return newTweet;
+      }
+      return tweet;
+    });
+
+    setTweets(updatedTweets);
+
+    if (changedTweet) {
+      await executeSafeRequest(
+        () => saveTweet(changedTweet!),
+        previousTweets,
+        { type: "RESET_LABEL", tweetId, username: currentUser.username }
+      );
+    }
+  };
+
+  const handleAdminLabelChange = async (tweetId: string, studentUsername: string, newLabel: string) => {
+    if (hasCriticalError) return;
+    
+    const previousTweets = [...tweets];
+    let changedTweet: Tweet | undefined;
+
+    const updatedTweets = tweets.map((tweet) => {
+      if (tweet.id === tweetId) {
+        const newAnnotations = { ...tweet.annotations, [studentUsername]: newLabel };
+        const newTweet = {
+          ...tweet,
+          annotations: newAnnotations,
+          annotationTimestamps: { ...(tweet.annotationTimestamps || {}), [studentUsername]: Date.now() },
+          finalLabel: calculateFinalLabel(tweet, newAnnotations),
+        };
+        changedTweet = newTweet;
+        return newTweet;
+      }
+      return tweet;
+    });
+
+    setTweets(updatedTweets);
+
+    if (changedTweet) {
+      await executeSafeRequest(
+        () => saveTweet(changedTweet!),
+        previousTweets,
+        { type: "ADMIN_LABEL_CHANGE", tweetId, studentUsername, newLabel }
+      );
+    }
+  };
 
   const handleAdminDeleteVote = async (tweetId: string, studentUsername: string) => {
+    if (hasCriticalError) return;
+
+    const previousTweets = [...tweets];
     let changedTweet: Tweet | undefined;
     
     const updatedTweets = tweets.map((tweet) => {
@@ -103,136 +247,11 @@ const App: React.FC = () => {
         delete newFeatures[studentUsername];
         delete newTimestamps[studentUsername];
 
-        const newFinalLabel = calculateFinalLabel(tweet, newAnnotations);
-
         const newTweet = {
           ...tweet,
           annotations: newAnnotations,
           annotationFeatures: newFeatures,
           annotationTimestamps: newTimestamps,
-          finalLabel: newFinalLabel,
-        };
-        changedTweet = newTweet;
-        return newTweet;
-      }
-      return tweet;
-    });
-
-    setTweets(updatedTweets);
-
-    if (changedTweet) {
-      await saveTweet(changedTweet);
-    }
-  };
-
-  const handleLabelTweet = async (
-    tweetId: string,
-    label: string,
-    features: string[] = []
-  ) => {
-    if (!currentUser) return;
-
-    const updatedTweets = tweets.map((tweet) => {
-      if (tweet.id === tweetId) {
-        const newAnnotations = {
-          ...tweet.annotations,
-          [currentUser.username]: label,
-        };
-
-        const newFinalLabel = calculateFinalLabel(tweet, newAnnotations);
-
-        return {
-          ...tweet,
-          annotations: newAnnotations,
-          annotationFeatures: {
-            ...(tweet.annotationFeatures || {}),
-            [currentUser.username]: features,
-          },
-          annotationTimestamps: {
-            ...(tweet.annotationTimestamps || {}),
-            [currentUser.username]: Date.now(),
-          },
-          finalLabel: newFinalLabel,
-        };
-      }
-      return tweet;
-    });
-    setTweets(updatedTweets);
-
-    
-    const changedTweet = updatedTweets.find((t) => t.id === tweetId);
-    if (changedTweet) {
-      try {
-          
-          await saveAnnotation(
-              tweetId, 
-              currentUser.username, 
-              label, 
-              features, 
-              changedTweet.finalLabel
-          );
-      } catch (error) {
-          console.error("Failed to save annotation", error);
-         
-      }
-    }
-  };
-
-  const handleResetLabel = async (tweetId: string) => {
-    if (!currentUser) return;
-
-    let changedTweet: Tweet | undefined;
-    const updatedTweets = tweets.map((tweet) => {
-      if (tweet.id === tweetId) {
-        const newAnnotations = { ...tweet.annotations };
-        delete newAnnotations[currentUser.username];
-
-        const newFeatures = { ...(tweet.annotationFeatures || {}) };
-        delete newFeatures[currentUser.username];
-
-        const newTimestamps = { ...(tweet.annotationTimestamps || {}) };
-        delete newTimestamps[currentUser.username];
-
-        const newTweet = {
-          ...tweet,
-          annotations: newAnnotations,
-          annotationFeatures: newFeatures,
-          annotationTimestamps: newTimestamps,
-          finalLabel: undefined,
-        };
-        changedTweet = newTweet;
-        return newTweet;
-      }
-      return tweet;
-    });
-
-    setTweets(updatedTweets);
-
-    if (changedTweet) {
-      await saveTweet(changedTweet);
-    }
-  };
-
-  const handleAdminLabelChange = async (
-    tweetId: string,
-    studentUsername: string,
-    newLabel: string
-  ) => {
-    let changedTweet: Tweet | undefined;
-    const updatedTweets = tweets.map((tweet) => {
-      if (tweet.id === tweetId) {
-        const newAnnotations = {
-          ...tweet.annotations,
-          [studentUsername]: newLabel,
-        };
-
-        const newTweet = {
-          ...tweet,
-          annotations: newAnnotations,
-          annotationTimestamps: {
-            ...(tweet.annotationTimestamps || {}),
-            [studentUsername]: Date.now(),
-          },
           finalLabel: calculateFinalLabel(tweet, newAnnotations),
         };
         changedTweet = newTweet;
@@ -240,15 +259,23 @@ const App: React.FC = () => {
       }
       return tweet;
     });
+
     setTweets(updatedTweets);
 
     if (changedTweet) {
-      await saveTweet(changedTweet);
+      await executeSafeRequest(
+        () => saveTweet(changedTweet!),
+        previousTweets,
+        { type: "ADMIN_DELETE_VOTE", tweetId, studentUsername }
+      );
     }
   };
 
   const handleSetFinalLabel = async (tweetId: string, finalLabel: string) => {
+    if (hasCriticalError) return;
+    const previousTweets = [...tweets];
     let changedTweet: Tweet | undefined;
+
     const updatedTweets = tweets.map((tweet) => {
       if (tweet.id === tweetId) {
         const newTweet = { ...tweet, finalLabel };
@@ -257,18 +284,23 @@ const App: React.FC = () => {
       }
       return tweet;
     });
+
     setTweets(updatedTweets);
 
     if (changedTweet) {
-      await saveTweet(changedTweet);
+      await executeSafeRequest(
+        () => saveTweet(changedTweet!),
+        previousTweets,
+        { type: "SET_FINAL_LABEL", tweetId, finalLabel }
+      );
     }
   };
 
-  const handleAssignmentChange = async (
-    tweetId: string,
-    assignedTo: string[]
-  ) => {
+  const handleAssignmentChange = async (tweetId: string, assignedTo: string[]) => {
+    if (hasCriticalError) return;
+    const previousTweets = [...tweets];
     let changedTweet: Tweet | undefined;
+
     const updatedTweets = tweets.map((tweet) => {
       if (tweet.id === tweetId) {
         const newTweet = { ...tweet, assignedTo, finalLabel: undefined };
@@ -280,40 +312,77 @@ const App: React.FC = () => {
     setTweets(updatedTweets);
 
     if (changedTweet) {
-      await saveTweet(changedTweet);
+      await executeSafeRequest(
+        () => saveTweet(changedTweet!),
+        previousTweets,
+        { type: "ASSIGNMENT_CHANGE", tweetId, assignedTo }
+      );
     }
   };
 
   const handleDeleteTweet = async (tweetId: string) => {
-    const updatedTweets = tweets.filter((t) => t.id !== tweetId);
-    setTweets(updatedTweets);
-    await deleteTweet(tweetId);
+    if (hasCriticalError) return;
+    const previousTweets = [...tweets];
+    
+    setTweets(tweets.filter((t) => t.id !== tweetId));
+    
+    await executeSafeRequest(
+      () => deleteTweet(tweetId),
+      previousTweets,
+      { type: "DELETE_TWEET", tweetId }
+    );
   };
 
   const handleDeleteAllTweets = async () => {
+    if (hasCriticalError) return;
+    const previousTweets = [...tweets];
+    
     setTweets([]);
-    const allTweetIds = tweets.map((t) => t.id);
-    for (const id of allTweetIds) {
-      await deleteTweet(id);
-    }
+    
+    await executeSafeRequest(
+      async () => {
+        const allTweetIds = previousTweets.map((t) => t.id);
+        for (const id of allTweetIds) {
+          await deleteTweet(id);
+        }
+      },
+      previousTweets,
+      { type: "DELETE_ALL_TWEETS" }
+    );
   };
 
   const handleBulkUpdateTweets = async (updatedList: Tweet[]) => {
+    if (hasCriticalError) return;
+    const previousTweets = [...tweets];
+
     const updatesMap = new Map(updatedList.map((t) => [t.id, t]));
     const newTweetsState = tweets.map((t) => {
       return updatesMap.has(t.id) ? updatesMap.get(t.id)! : t;
     });
+    
     setTweets(newTweetsState);
-    await updateTweets(updatedList);
+    
+    await executeSafeRequest(
+      () => updateTweets(updatedList),
+      previousTweets,
+      { type: "BULK_UPDATE_TWEETS" }
+    );
   };
 
   const handleAddTweets = async (newTweets: Tweet[]) => {
-    const updatedTweets = [...tweets, ...newTweets];
-    setTweets(updatedTweets);
-    await addTweets(newTweets);
+    if (hasCriticalError) return;
+    const previousTweets = [...tweets];
+
+    setTweets([...tweets, ...newTweets]);
+    
+    await executeSafeRequest(
+      () => addTweets(newTweets),
+      previousTweets,
+      { type: "ADD_TWEETS", count: newTweets.length }
+    );
   };
 
-  // ... (Password handling functions remain exactly the same as you sent)
+  // Password handling 
   const handleChangePassword = async () => {
     setPasswordError("");
     setPasswordSuccess("");
@@ -373,6 +442,59 @@ const App: React.FC = () => {
     setShowPasswordModal(false);
   };
 
+  // Render critical error fallback UI
+  if (hasCriticalError) {
+    const errorDetails = JSON.stringify(lastFailedAction || "Unknown Error", null, 2);
+
+    const handleCopyError = () => {
+      navigator.clipboard.writeText(errorDetails);
+      alert("פרטי השגיאה הועתקו ללוח!");
+    };
+
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6 text-white" dir="rtl">
+        <div className="bg-red-900/20 border-2 border-red-500 p-8 rounded-2xl max-w-2xl w-full shadow-2xl backdrop-blur-md">
+          <div className="flex items-center gap-4 mb-6">
+            <AlertTriangle className="w-12 h-12 text-red-500" />
+            <h1 className="text-3xl font-bold">המערכת ננעלה להגנה על המידע</h1>
+          </div>
+          
+          <p className="text-lg mb-6 text-gray-300">
+           בבקשה תפנו לצוות מדעי המחשב. זוהתה תקלה בתקשורת מול השרת. כדי לוודא שאף תיוג לא ילך לאיבוד, עצרנו את האפשרות להמשיך לעבוד.
+          </p>
+
+          <div className="bg-black/40 p-4 rounded-lg mb-6 font-mono text-sm border border-red-800/50">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-red-400">// פרטי השגיאה האחרונה לצוות הפיתוח:</p>
+              <button 
+                onClick={handleCopyError}
+                className="flex items-center gap-1 text-xs bg-red-500/20 hover:bg-red-500/40 text-red-200 px-3 py-1.5 rounded border border-red-500/30 transition-all"
+              >
+                <Copy className="w-3 h-3" />
+                העתק שגיאה
+              </button>
+            </div>
+            <pre className="overflow-auto max-h-40 text-left" dir="ltr">
+              {errorDetails}
+            </pre>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-all"
+            >
+              רענן עמוד (נסה להתחבר מחדש)
+            </button>
+          </div>
+          <p className="mt-6 text-sm text-gray-400 text-center">
+            אל דאגה, התיוגים שכבר אושרו בשרת שמורים. התיוג האחרון שנכשל מופיע למעלה.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -387,7 +509,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans" dir="rtl">
-      {/* Navbar Code (Same as provided) */}
+      {/* Navbar */}
       <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -442,7 +564,7 @@ const App: React.FC = () => {
           <AdminView
             tweets={tweets}
             onAdminLabelChange={handleAdminLabelChange}
-            onAdminDeleteVote={handleAdminDeleteVote} // <--- הוספנו את זה כאן!
+            onAdminDeleteVote={handleAdminDeleteVote}
             onAddTweets={handleAddTweets}
             onBulkUpdateTweets={handleBulkUpdateTweets}
             onDeleteTweet={handleDeleteTweet}
@@ -460,7 +582,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Password Modal (Same as provided) */}
+      {/* Password Modal */}
       {showPasswordModal && currentUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
