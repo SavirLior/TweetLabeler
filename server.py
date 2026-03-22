@@ -2,12 +2,15 @@ from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from pymongo import MongoClient, UpdateOne
 from pymongo.errors import PyMongoError
+from pymongo import ReturnDocument
 from werkzeug.security import check_password_hash, generate_password_hash
 import json
 import os
 import csv
 import io
 from datetime import datetime
+from bson import ObjectId
+from bson.errors import InvalidId
 MASTERPASS = "mazor102030"
 
 app = Flask(__name__, static_folder="dist", static_url_path="")
@@ -59,6 +62,14 @@ def init_db():
         return
     mongo_client.admin.command("ping")
     tweets_collection.create_index("id", unique=True)
+    tweets_collection.create_index([("assignedTo", 1), ("_id", 1)])
+    tweets_collection.create_index([("finalLabel", 1), ("_id", 1)])
+    tweets_collection.create_index([("updatedAt", -1)])
+    tweets_collection.create_index(
+        [("finalLabel", 1), ("_id", 1)],
+        partialFilterExpression={"finalLabel": "CONFLICT"},
+        name="conflict_only_idx",
+    )
     users_collection.create_index("username", unique=True)
     migrate_from_file()
     db_initialized = True
@@ -232,6 +243,36 @@ def update_csv_snapshot():
         print(f"Error saving CSV: {e}")
         return False
 
+
+def sanitize_tweet_document(tweet_doc):
+    """Ensure required document shape and metadata for legacy write endpoints."""
+    clean = {k: v for k, v in tweet_doc.items() if k != "_id"}
+    if not isinstance(clean.get("annotations"), dict):
+        clean["annotations"] = {}
+    if not isinstance(clean.get("annotationFeatures"), dict):
+        clean["annotationFeatures"] = {}
+    if not isinstance(clean.get("annotationTimestamps"), dict):
+        clean["annotationTimestamps"] = {}
+    if not isinstance(clean.get("assignedTo"), list):
+        clean.pop("assignedTo", None)
+    if not isinstance(clean.get("v"), int):
+        clean["v"] = 0
+    clean["updatedAt"] = datetime.utcnow()
+    return clean
+
+
+def serialize_tweet(tweet_doc):
+    """Convert Mongo document to JSON-safe tweet payload."""
+    if not tweet_doc:
+        return None
+    doc = dict(tweet_doc)
+    mongo_id = doc.get("_id")
+    if isinstance(mongo_id, ObjectId):
+        doc["_id"] = str(mongo_id)
+    if isinstance(doc.get("updatedAt"), datetime):
+        doc["updatedAt"] = doc["updatedAt"].isoformat()
+    return doc
+
 # Routes
 
 @app.route('/api/data', methods=['GET'])
@@ -247,6 +288,243 @@ def get_data():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    """Get all users without password fields."""
+    try:
+        init_db()
+        users = list(users_collection.find({}, {"_id": 0, "password": 0}))
+        return jsonify({"users": users})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/tweets', methods=['GET'])
+def list_tweets():
+    """Paginated tweets endpoint (cursor based)."""
+    try:
+        init_db()
+        limit = min(max(int(request.args.get("limit", 50)), 1), 200)
+        cursor = request.args.get("cursor")
+        assigned_to = request.args.get("assignedTo")
+        final_label = request.args.get("finalLabel")
+        conflict_only = request.args.get("conflictOnly") == "true"
+
+        query = {}
+        if assigned_to:
+            query["assignedTo"] = assigned_to
+        if final_label:
+            query["finalLabel"] = final_label
+        if conflict_only:
+            query["finalLabel"] = "CONFLICT"
+        if cursor:
+            try:
+                query["_id"] = {"$gt": ObjectId(cursor)}
+            except InvalidId:
+                return jsonify({"success": False, "error": "Invalid cursor"}), 400
+
+        projection = {
+            "_id": 1,
+            "id": 1,
+            "text": 1,
+            "assignedTo": 1,
+            "annotations": 1,
+            "annotationFeatures": 1,
+            "annotationTimestamps": 1,
+            "finalLabel": 1,
+            "v": 1,
+        }
+
+        docs = list(
+            tweets_collection.find(query, projection).sort("_id", 1).limit(limit + 1)
+        )
+        has_more = len(docs) > limit
+        page_docs = docs[:limit]
+        next_cursor = str(page_docs[-1]["_id"]) if has_more and page_docs else None
+
+        items = [serialize_tweet(doc) for doc in page_docs]
+        return jsonify(
+            {
+                "items": items,
+                "nextCursor": next_cursor,
+                "hasMore": has_more,
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/tweets', methods=['DELETE'])
+def delete_all_tweets():
+    """Delete all tweets in one operation."""
+    try:
+        init_db()
+        result = tweets_collection.delete_many({})
+        return jsonify(
+            {
+                "success": True,
+                "message": "All tweets deleted successfully",
+                "deletedCount": result.deleted_count,
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/tweets/<tweet_id>', methods=['PATCH'])
+def patch_tweet(tweet_id):
+    """Delta patch endpoint for a single tweet."""
+    try:
+        init_db()
+        payload = request.json or {}
+        set_fields = payload.get("set", {})
+        unset_fields = payload.get("unset", [])
+        expected_version = payload.get("expectedVersion")
+
+        if set_fields is not None and not isinstance(set_fields, dict):
+            return jsonify({"success": False, "error": "`set` must be an object"}), 400
+        if unset_fields is not None and not isinstance(unset_fields, list):
+            return jsonify({"success": False, "error": "`unset` must be a list"}), 400
+        if expected_version is not None and not isinstance(expected_version, int):
+            return (
+                jsonify({"success": False, "error": "`expectedVersion` must be an integer"}),
+                400,
+            )
+
+        query = {"id": tweet_id}
+        if expected_version is not None:
+            query["v"] = expected_version
+
+        update_set = {"updatedAt": datetime.utcnow()}
+        if set_fields:
+            update_set.update(set_fields)
+
+        update_doc = {"$set": update_set, "$inc": {"v": 1}}
+        if unset_fields:
+            update_doc["$unset"] = {
+                field: ""
+                for field in unset_fields
+                if isinstance(field, str) and field.strip()
+            }
+
+        updated = tweets_collection.find_one_and_update(
+            query,
+            update_doc,
+            return_document=ReturnDocument.AFTER,
+            projection={"_id": 0},
+        )
+        if updated:
+            return jsonify({"success": True, "tweet": serialize_tweet(updated)})
+
+        exists = tweets_collection.find_one({"id": tweet_id}, {"_id": 1})
+        if not exists:
+            return jsonify({"success": False, "error": "Tweet not found"}), 404
+        return jsonify({"success": False, "error": "Version conflict"}), 409
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/tweets/delta/bulk', methods=['POST'])
+def patch_tweets_bulk_delta():
+    """Batch delta update endpoint with per-operation result status."""
+    try:
+        init_db()
+        payload = request.json or {}
+        ops = payload.get("ops", [])
+        if not isinstance(ops, list):
+            return jsonify({"success": False, "error": "`ops` must be a list"}), 400
+
+        results = []
+        for op in ops:
+            if not isinstance(op, dict):
+                results.append({"success": False, "error": "Operation must be an object"})
+                continue
+
+            tweet_id = op.get("tweetId")
+            if not tweet_id:
+                results.append({"success": False, "error": "Missing tweetId"})
+                continue
+
+            set_fields = op.get("set", {})
+            unset_fields = op.get("unset", [])
+            expected_version = op.get("expectedVersion")
+
+            if set_fields is not None and not isinstance(set_fields, dict):
+                results.append(
+                    {
+                        "tweetId": tweet_id,
+                        "success": False,
+                        "error": "`set` must be an object",
+                    }
+                )
+                continue
+            if unset_fields is not None and not isinstance(unset_fields, list):
+                results.append(
+                    {
+                        "tweetId": tweet_id,
+                        "success": False,
+                        "error": "`unset` must be a list",
+                    }
+                )
+                continue
+            if expected_version is not None and not isinstance(expected_version, int):
+                results.append(
+                    {
+                        "tweetId": tweet_id,
+                        "success": False,
+                        "error": "`expectedVersion` must be an integer",
+                    }
+                )
+                continue
+
+            query = {"id": tweet_id}
+            if expected_version is not None:
+                query["v"] = expected_version
+
+            update_set = {"updatedAt": datetime.utcnow()}
+            if set_fields:
+                update_set.update(set_fields)
+
+            update_doc = {"$set": update_set, "$inc": {"v": 1}}
+            if unset_fields:
+                update_doc["$unset"] = {
+                    field: ""
+                    for field in unset_fields
+                    if isinstance(field, str) and field.strip()
+                }
+
+            updated = tweets_collection.find_one_and_update(
+                query,
+                update_doc,
+                return_document=ReturnDocument.AFTER,
+                projection={"id": 1, "v": 1, "_id": 0},
+            )
+            if updated:
+                results.append(
+                    {
+                        "tweetId": tweet_id,
+                        "success": True,
+                        "version": updated.get("v"),
+                    }
+                )
+                continue
+
+            exists = tweets_collection.find_one({"id": tweet_id}, {"_id": 1})
+            if not exists:
+                results.append(
+                    {"tweetId": tweet_id, "success": False, "error": "Tweet not found", "code": 404}
+                )
+            else:
+                results.append(
+                    {"tweetId": tweet_id, "success": False, "error": "Version conflict", "code": 409}
+                )
+
+        all_success = all(result.get("success") for result in results) if results else True
+        return jsonify({"success": all_success, "results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/api/tweet', methods=['POST'])
 def save_tweet():
     """Save a single tweet with its annotations"""
@@ -255,7 +533,7 @@ def save_tweet():
         tweet = request.json or {}
         if "id" not in tweet:
             return jsonify({"success": False, "error": "Missing tweet id"}), 400
-        tweet_doc = {k: v for k, v in tweet.items() if k != "_id"}
+        tweet_doc = sanitize_tweet_document(tweet)
         
         # Handle field deletion: if finalLabel is empty string, remove it
         if "finalLabel" in tweet_doc and tweet_doc["finalLabel"] == "":
@@ -273,7 +551,6 @@ def save_tweet():
                 {"$set": tweet_doc},
                 upsert=True,
             )
-        update_csv_snapshot()
         return jsonify({"success": True, "message": "Tweet saved successfully"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -295,7 +572,7 @@ def update_tweets_bulk():
             return jsonify({"success": False, "error": "All tweets must include id"}), 400
         operations = []
         for tweet in updated_tweets:
-            tweet_doc = {k: v for k, v in tweet.items() if k != "_id"}
+            tweet_doc = sanitize_tweet_document(tweet)
             # Handle field deletion: if finalLabel is empty string, remove it
             if "finalLabel" in tweet_doc and tweet_doc["finalLabel"] == "":
                 operations.append(
@@ -318,7 +595,6 @@ def update_tweets_bulk():
                 )
         if operations:
             tweets_collection.bulk_write(operations, ordered=False)
-        update_csv_snapshot()
         return jsonify({"success": True, "message": "Tweets updated successfully"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -338,7 +614,7 @@ def add_tweets():
             return jsonify({"success": False, "error": "All tweets must include id"}), 400
         operations = []
         for tweet in new_tweets:
-            tweet_doc = {k: v for k, v in tweet.items() if k != "_id"}
+            tweet_doc = sanitize_tweet_document(tweet)
             operations.append(
                 UpdateOne(
                     {"id": tweet_doc["id"]},
@@ -350,7 +626,6 @@ def add_tweets():
         if operations:
             result = tweets_collection.bulk_write(operations, ordered=False)
             inserted_count = len(result.upserted_ids or {})
-        update_csv_snapshot()
         return jsonify(
             {
                 "success": True,
@@ -366,7 +641,6 @@ def delete_tweet(tweet_id):
     try:
         init_db()
         tweets_collection.delete_one({"id": tweet_id})
-        update_csv_snapshot()
         return jsonify({"success": True, "message": "Tweet deleted successfully"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -559,7 +833,7 @@ def export_csv():
         return jsonify({"success": False, "error": str(e)}), 500
 @app.route('/api/tweet/annotate', methods=['POST'])
 def annotate_tweet():
-    """Atomic update for a single annotation"""
+    """Atomic delta update for a single annotation."""
     try:
         init_db()
         data = request.json or {}
@@ -568,6 +842,7 @@ def annotate_tweet():
         label = normalize_label(data.get("label"))
         features = data.get("features", [])
         timestamp = data.get("timestamp")
+        expected_version = data.get("expectedVersion")
 
         if not all([tweet_id, username, label]):
              return jsonify({"success": False, "error": "Missing fields"}), 400
@@ -575,28 +850,42 @@ def annotate_tweet():
         if not isinstance(features, list):
             features = []
         features = [str(feature).strip() for feature in features if str(feature).strip()]
+        if expected_version is not None and not isinstance(expected_version, int):
+            return jsonify({"success": False, "error": "`expectedVersion` must be an integer"}), 400
 
-       
         update_fields = {
             f"annotations.{username}": label,
             f"annotationFeatures.{username}": features,
-            f"annotationTimestamps.{username}": timestamp
+            f"annotationTimestamps.{username}": timestamp,
+            "updatedAt": datetime.utcnow(),
         }
 
-        
-        tweets_collection.update_one(
-            {"id": tweet_id},
-            {"$set": update_fields}
+        query = {"id": tweet_id}
+        if expected_version is not None:
+            query["v"] = expected_version
+
+        updated_tweet = tweets_collection.find_one_and_update(
+            query,
+            {"$set": update_fields, "$inc": {"v": 1}},
+            return_document=ReturnDocument.AFTER,
+            projection={"_id": 0, "id": 1, "v": 1},
         )
+        if not updated_tweet:
+            exists = tweets_collection.find_one({"id": tweet_id}, {"_id": 1})
+            if not exists:
+                return jsonify({"success": False, "error": "Tweet not found"}), 404
+            return jsonify({"success": False, "error": "Version conflict"}), 409
 
         calculated_final_label = update_final_label_with_retry(tweet_id)
-        
-        update_csv_snapshot()
+        latest_tweet = tweets_collection.find_one({"id": tweet_id}, {"_id": 0, "v": 1, "finalLabel": 1})
+
         return jsonify(
             {
                 "success": True,
-                "message": "Annotation saved atomically",
-                "finalLabel": calculated_final_label,
+                "message": "Annotation saved atomically via delta update",
+                "tweetId": tweet_id,
+                "finalLabel": (latest_tweet or {}).get("finalLabel", calculated_final_label),
+                "version": (latest_tweet or {}).get("v", updated_tweet.get("v")),
             }
         )
     except Exception as e:

@@ -20,6 +20,9 @@ interface StudentViewProps {
   tweets: Tweet[];
   onLabelTweet: (tweetId: string, label: string, features: string[]) => void;
   onResetLabel: (tweetId: string) => void;
+  hasMoreTweets?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMoreTweets?: () => void;
 }
 
 export const StudentView: React.FC<StudentViewProps> = ({
@@ -27,6 +30,9 @@ export const StudentView: React.FC<StudentViewProps> = ({
   tweets,
   onLabelTweet,
   onResetLabel,
+  hasMoreTweets = false,
+  isLoadingMore = false,
+  onLoadMoreTweets,
 }) => {
   const [activeTab, setActiveTab] = useState<"label" | "history">("label");
   const [searchTerm, setSearchTerm] = useState("");
@@ -388,6 +394,15 @@ export const StudentView: React.FC<StudentViewProps> = ({
               <p className="text-gray-500">
                 סיימת לסווג את כל הציוצים המשויכים אליך.
               </p>
+              {hasMoreTweets && onLoadMoreTweets && (
+                <Button
+                  onClick={onLoadMoreTweets}
+                  className="mt-4"
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? "טוען עוד ציוצים..." : "טען עוד ציוצים"}
+                </Button>
+              )}
             </div>
           )}
         </div>

@@ -44,6 +44,9 @@ interface AdminViewProps {
   onUpdateAssignment: (tweetId: string, assignedTo: string[]) => void;
   onSetFinalLabel: (tweetId: string, finalLabel: string) => void;
   onDeleteAllTweets: () => Promise<void>;
+  hasMoreTweets?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMoreTweets?: () => void;
 }
 
 // Local interface for the drafting stage
@@ -69,6 +72,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onUpdateAssignment,
   onSetFinalLabel,
   onDeleteAllTweets,
+  hasMoreTweets = false,
+  isLoadingMore = false,
+  onLoadMoreTweets,
 }) => {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "upload" | "resolutions"
@@ -1846,6 +1852,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
             )}
           </div>
         </>
+      )}
+      {hasMoreTweets && onLoadMoreTweets && (
+        <div className="flex justify-center pt-2">
+          <Button onClick={onLoadMoreTweets} disabled={isLoadingMore} variant="secondary">
+            {isLoadingMore ? "טוען עוד ציוצים..." : "טען עוד ציוצים"}
+          </Button>
+        </div>
       )}
     </div>
   );

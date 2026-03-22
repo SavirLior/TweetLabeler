@@ -1,93 +1,230 @@
-import { Tweet, AppData, User, UserRole } from "../types";
+import { Tweet, User, UserRole } from "../types";
 
 const API_URL = "/api";
+const DEFAULT_TIMEOUT_MS = 5000;
 
-// --- Helper for fetch with error handling and timeout ---
+export type TweetPageQuery = {
+  limit?: number;
+  cursor?: string;
+  assignedTo?: string;
+  finalLabel?: string;
+  conflictOnly?: boolean;
+};
+
+export type TweetPageResponse = {
+  items: Tweet[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  total?: number;
+};
+
+export type TweetDelta = {
+  set?: Record<string, unknown>;
+  unset?: string[];
+  expectedVersion?: number;
+};
+
+export type PatchTweetResponse = {
+  success: boolean;
+  tweet: Tweet;
+};
+
+export type BulkDeltaOperation = {
+  tweetId: string;
+  set?: Record<string, unknown>;
+  unset?: string[];
+  expectedVersion?: number;
+};
+
+export type BulkDeltaResponse = {
+  success: boolean;
+  results: Array<{
+    tweetId?: string;
+    success: boolean;
+    version?: number;
+    code?: number;
+    error?: string;
+  }>;
+};
+
+export type SaveAnnotationResponse = {
+  success: boolean;
+  message?: string;
+  tweetId: string;
+  finalLabel?: string | null;
+  version?: number;
+};
+
 const apiRequest = async (
   endpoint: string,
   method: string = "GET",
-  body?: any
+  body?: unknown,
+  signal?: AbortSignal
 ) => {
-  // Create a controller to handle the 5-second timeout
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, DEFAULT_TIMEOUT_MS);
+
+  const abortByParent = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener("abort", abortByParent);
+    }
+  }
 
   try {
     const options: RequestInit = {
       method,
       headers: { "Content-Type": "application/json" },
-      signal: controller.signal, // Pass the abort signal to fetch
+      signal: controller.signal,
     };
-    if (body) {
+
+    if (body !== undefined) {
       options.body = JSON.stringify(body);
     }
 
     const response = await fetch(`${API_URL}${endpoint}`, options);
-    
-    // Clear the timer if the request succeeded before 5 seconds
-    clearTimeout(timeoutId);
-
     if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`);
+      let errorPayload: any = undefined;
+      try {
+        errorPayload = await response.json();
+      } catch {
+        // no-op: keep generic error
+      }
+      const err: any = new Error(errorPayload?.error || `API Error: ${response.statusText}`);
+      err.status = response.status;
+      throw err;
     }
+
     return await response.json();
   } catch (error: any) {
-    // Clear the timer on error to prevent memory leaks
-    clearTimeout(timeoutId);
-    
-    if (error.name === 'AbortError') {
-      console.error(`Request to ${endpoint} timed out after 5 seconds.`);
-      throw new Error("Server took too long to respond");
+    if (error.name === "AbortError") {
+      if (timedOut) {
+        throw new Error("Server took too long to respond");
+      }
+      throw error;
     }
-    
     console.error(`Failed to request ${endpoint}:`, error);
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    if (signal) {
+      signal.removeEventListener("abort", abortByParent);
+    }
   }
 };
 
-// --- Data Fetching ---
+export const getTweetPage = async (
+  q: TweetPageQuery,
+  signal?: AbortSignal
+): Promise<TweetPageResponse> => {
+  const params = new URLSearchParams();
+  if (q.limit) params.set("limit", String(q.limit));
+  if (q.cursor) params.set("cursor", q.cursor);
+  if (q.assignedTo) params.set("assignedTo", q.assignedTo);
+  if (q.finalLabel) params.set("finalLabel", q.finalLabel);
+  if (q.conflictOnly) params.set("conflictOnly", "true");
 
+  const query = params.toString();
+  const data = await apiRequest(`/tweets${query ? `?${query}` : ""}`, "GET", undefined, signal);
+  return {
+    items: data.items || [],
+    nextCursor: data.nextCursor ?? null,
+    hasMore: Boolean(data.hasMore),
+    total: data.total,
+  };
+};
+
+// Backward compatibility helper (deprecated for large datasets)
 export const getTweets = async (): Promise<Tweet[]> => {
-  try {
-    const data = await apiRequest("/data");
-    return data.tweets || [];
-  } catch (error) {
-    console.error("Could not connect to backend, ensure server.py is running.");
-    // Throw the error so App.tsx knows the initial load failed and can lock the UI
-    throw error;
-  }
+  const page = await getTweetPage({ limit: 100 });
+  return page.items;
 };
 
-// --- Data Saving ---
+export const patchTweetDelta = async (
+  tweetId: string,
+  delta: TweetDelta
+): Promise<PatchTweetResponse> => {
+  return await apiRequest(`/tweets/${tweetId}`, "PATCH", delta);
+};
 
-export const saveTweet = async (tweet: Tweet): Promise<void> => {
-  await apiRequest("/tweet", "POST", tweet);
+export const patchTweetsBulkDelta = async (
+  ops: BulkDeltaOperation[]
+): Promise<BulkDeltaResponse> => {
+  return await apiRequest("/tweets/delta/bulk", "POST", { ops });
+};
+
+const tweetToDelta = (tweet: Tweet): TweetDelta => {
+  const set: Record<string, unknown> = {
+    text: tweet.text,
+    annotations: tweet.annotations,
+    annotationFeatures: tweet.annotationFeatures || {},
+    annotationTimestamps: tweet.annotationTimestamps || {},
+  };
+
+  const unset: string[] = [];
+  if (tweet.assignedTo !== undefined) {
+    set.assignedTo = tweet.assignedTo;
+  } else {
+    unset.push("assignedTo");
+  }
+
+  if (tweet.finalLabel !== undefined) {
+    set.finalLabel = tweet.finalLabel;
+  } else {
+    unset.push("finalLabel");
+  }
+
+  return {
+    set,
+    unset,
+    expectedVersion: tweet.v,
+  };
+};
+
+// Legacy API wrappers routed through delta endpoints
+export const saveTweet = async (tweet: Tweet): Promise<PatchTweetResponse> => {
+  return patchTweetDelta(tweet.id, tweetToDelta(tweet));
 };
 
 export const updateTweets = async (
   updatedTweetsList: Tweet[]
-): Promise<void> => {
-  await apiRequest("/tweets/bulk", "POST", updatedTweetsList);
+): Promise<BulkDeltaResponse> => {
+  const ops: BulkDeltaOperation[] = updatedTweetsList.map((tweet) => ({
+    tweetId: tweet.id,
+    ...tweetToDelta(tweet),
+  }));
+  const response = await patchTweetsBulkDelta(ops);
+  if (!response.success) {
+    const error: any = new Error("Bulk delta update failed");
+    error.results = response.results;
+    throw error;
+  }
+  return response;
 };
 
-export const addTweets = async (newTweets: Tweet[]): Promise<void> => {
-  await apiRequest("/tweets/add", "POST", newTweets);
+export const addTweets = async (
+  newTweets: Tweet[]
+): Promise<{ success: boolean; message?: string; insertedCount?: number }> => {
+  return await apiRequest("/tweets/add", "POST", newTweets);
 };
 
 export const deleteTweet = async (tweetId: string): Promise<void> => {
   await apiRequest(`/tweet/${tweetId}`, "DELETE");
 };
 
-// --- User Management ---
+export const deleteAllTweets = async (): Promise<{ success: boolean; deletedCount: number }> => {
+  return await apiRequest("/tweets", "DELETE");
+};
 
 export const getUsers = async (): Promise<User[]> => {
-  try {
-    const data = await apiRequest("/data");
-    return data.users || [];
-  } catch (error) {
-    // Throw error to prevent silent failures
-    throw error;
-  }
+  const data = await apiRequest("/users");
+  return data.users || [];
 };
 
 export const getAllStudents = async (): Promise<string[]> => {
@@ -102,7 +239,7 @@ export const authenticateUser = async (
   password: string
 ): Promise<User | null> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
   try {
     const response = await fetch(`${API_URL}/users/login`, {
@@ -111,11 +248,8 @@ export const authenticateUser = async (
       body: JSON.stringify({ username, password }),
       signal: controller.signal,
     });
-    
-    clearTimeout(timeoutId);
 
     if (response.status === 401 || response.status === 404) {
-      // Return null for invalid credentials
       return null;
     }
     if (!response.ok) {
@@ -123,22 +257,20 @@ export const authenticateUser = async (
     }
     return await response.json();
   } catch (error: any) {
-    clearTimeout(timeoutId);
-    
-    if (error.name === 'AbortError') {
-      console.error("Authentication timed out after 5 seconds.");
+    if (error.name === "AbortError") {
       throw new Error("Server took too long to respond");
     }
-    
     console.error("Failed to authenticate user:", error);
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
 export const registerUser = async (user: User): Promise<User> => {
   try {
     return await apiRequest("/users/register", "POST", user);
-  } catch (error) {
+  } catch {
     throw new Error("שם המשתמש כבר קיים או שיש בעיית תקשורת");
   }
 };
@@ -154,15 +286,12 @@ export const changePassword = async (
       currentPassword,
       newPassword,
     });
-  } catch (error) {
+  } catch {
     throw new Error("שגיאה בשינוי הסיסמה");
   }
 };
 
-// --- Export ---
-
 export const exportToCSV = (tweets: Tweet[], users: string[]) => {
-  // Build header: ID, Text, AssignedTo, Final Decision, then for each user [Label, Features]
   const header = ["Tweet ID", "Text", "Final Decision", "Assigned To"];
   users.forEach((u) => {
     header.push(`Label_${u}`);
@@ -209,20 +338,18 @@ export const exportToCSV = (tweets: Tweet[], users: string[]) => {
 };
 
 export const saveAnnotation = async (
-  tweetId: string, 
-  username: string, 
-  label: string, 
+  tweetId: string,
+  username: string,
+  label: string,
   features: string[],
-  finalLabel?: string 
-): Promise<void> => {
-    const payload = {
-        tweetId,
-        username,
-        label,
-        features,
-        timestamp: Date.now(),
-        finalLabel
-    };
-    
-    await apiRequest('/tweet/annotate', 'POST', payload);
+  expectedVersion?: number
+): Promise<SaveAnnotationResponse> => {
+  return await apiRequest("/tweet/annotate", "POST", {
+    tweetId,
+    username,
+    label,
+    features,
+    timestamp: Date.now(),
+    expectedVersion,
+  });
 };
