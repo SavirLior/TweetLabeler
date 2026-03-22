@@ -32,6 +32,7 @@ export const LABEL_REASONS = [
 export interface Tweet {
   id: string;
   text: string;
+  _id?: string;
   // List of usernames who are assigned to label this tweet
   assignedTo?: string[];
   // Map username to the annotation they chose
@@ -42,7 +43,10 @@ export interface Tweet {
   annotationTimestamps?: Record<string, number>;
   
   // The final resolved label (Automatic consensus or Admin override)
-  finalLabel?: string; 
+  finalLabel?: string;
+  // Optimistic concurrency version (server-side source of truth)
+  v?: number;
+  updatedAt?: string;
 }
 
 export interface AppData {
