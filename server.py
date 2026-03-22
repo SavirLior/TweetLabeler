@@ -273,7 +273,6 @@ def save_tweet():
                 {"$set": tweet_doc},
                 upsert=True,
             )
-        update_csv_snapshot()
         return jsonify({"success": True, "message": "Tweet saved successfully"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -318,7 +317,6 @@ def update_tweets_bulk():
                 )
         if operations:
             tweets_collection.bulk_write(operations, ordered=False)
-        update_csv_snapshot()
         return jsonify({"success": True, "message": "Tweets updated successfully"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -350,7 +348,6 @@ def add_tweets():
         if operations:
             result = tweets_collection.bulk_write(operations, ordered=False)
             inserted_count = len(result.upserted_ids or {})
-        update_csv_snapshot()
         return jsonify(
             {
                 "success": True,
@@ -366,7 +363,6 @@ def delete_tweet(tweet_id):
     try:
         init_db()
         tweets_collection.delete_one({"id": tweet_id})
-        update_csv_snapshot()
         return jsonify({"success": True, "message": "Tweet deleted successfully"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -499,6 +495,8 @@ def export_csv():
     """Export tweets with classifications to CSV file"""
     try:
         init_db()
+        # Generate fresh CSV snapshot before export
+        update_csv_snapshot()
         tweets = list(tweets_collection.find({}, {"_id": 0}))
         users = list(users_collection.find({}, {"_id": 0}))
 
@@ -590,8 +588,6 @@ def annotate_tweet():
         )
 
         calculated_final_label = update_final_label_with_retry(tweet_id)
-        
-        update_csv_snapshot()
         return jsonify(
             {
                 "success": True,
