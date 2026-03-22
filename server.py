@@ -58,8 +58,22 @@ def init_db():
     if db_initialized:
         return
     mongo_client.admin.command("ping")
+    
+    # Create indexes on tweets collection
     tweets_collection.create_index("id", unique=True)
+    
+    # Compound index for student queue pagination (assignedTo + _id for sort stability)
+    tweets_collection.create_index([("assignedTo", 1), ("_id", 1)])
+    
+    # Compound index for admin filters and conflict resolution
+    tweets_collection.create_index([("finalLabel", 1), ("_id", 1)])
+    
+    # Index for sorting by recency (descending update timestamp)
+    tweets_collection.create_index([("updatedAt", -1)])
+    
+    # Create indexes on users collection
     users_collection.create_index("username", unique=True)
+    
     migrate_from_file()
     db_initialized = True
 
@@ -256,6 +270,7 @@ def save_tweet():
         if "id" not in tweet:
             return jsonify({"success": False, "error": "Missing tweet id"}), 400
         tweet_doc = {k: v for k, v in tweet.items() if k != "_id"}
+        tweet_doc["updatedAt"] = datetime.now()
         
         # Handle field deletion: if finalLabel is empty string, remove it
         if "finalLabel" in tweet_doc and tweet_doc["finalLabel"] == "":
@@ -293,8 +308,10 @@ def update_tweets_bulk():
         if invalid:
             return jsonify({"success": False, "error": "All tweets must include id"}), 400
         operations = []
+        now = datetime.now()
         for tweet in updated_tweets:
             tweet_doc = {k: v for k, v in tweet.items() if k != "_id"}
+            tweet_doc["updatedAt"] = now
             # Handle field deletion: if finalLabel is empty string, remove it
             if "finalLabel" in tweet_doc and tweet_doc["finalLabel"] == "":
                 operations.append(
@@ -335,8 +352,10 @@ def add_tweets():
         if invalid:
             return jsonify({"success": False, "error": "All tweets must include id"}), 400
         operations = []
+        now = datetime.now()
         for tweet in new_tweets:
             tweet_doc = {k: v for k, v in tweet.items() if k != "_id"}
+            tweet_doc["updatedAt"] = now
             operations.append(
                 UpdateOne(
                     {"id": tweet_doc["id"]},
@@ -362,7 +381,10 @@ def delete_tweet(tweet_id):
     """Delete a tweet by ID"""
     try:
         init_db()
-        tweets_collection.delete_one({"id": tweet_id})
+        tweets_collection.update_one(
+            {"id": tweet_id},
+            {"$set": {"deletedAt": datetime.now(), "isDeleted": True}}
+        )
         return jsonify({"success": True, "message": "Tweet deleted successfully"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -578,7 +600,8 @@ def annotate_tweet():
         update_fields = {
             f"annotations.{username}": label,
             f"annotationFeatures.{username}": features,
-            f"annotationTimestamps.{username}": timestamp
+            f"annotationTimestamps.{username}": timestamp,
+            "updatedAt": datetime.now()
         }
 
         
