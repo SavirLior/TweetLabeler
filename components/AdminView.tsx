@@ -597,9 +597,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
               {/* Description */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-      <strong>שיוך אוטומטי</strong> יחלק את הציוצים שווה בשווה. אחוז החפיפה מגדיר כמה משימות תיוג כפולות יתווספו בסך הכל.
-    </p>
+                <p className="text-sm text-blue-800">
+                  <strong>שיוך אוטומטי</strong> יחלק את הציוצים שווה בשווה. אחוז
+                  החפיפה מגדיר כמה משימות תיוג כפולות יתווספו בסך הכל.
+                </p>
               </div>
 
               {/* Select Students */}
@@ -1025,7 +1026,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
                                   {label === LabelOption.Skip && (
                                     <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
-                                      סיבת דילוג: {skipReason || "לא הוזנה סיבה"}
+                                      סיבת דילוג:{" "}
+                                      {skipReason || "לא הוזנה סיבה"}
                                     </div>
                                   )}
 
