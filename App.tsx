@@ -185,6 +185,41 @@ const App: React.FC = () => {
     return first;
   };
 
+  const isConflictLikeFinalLabel = (value?: string) =>
+    value === "CONFLICT" || value === LabelOption.Skip;
+
+  const isResolvedFinalLabel = (value?: string) =>
+    Boolean(value && value !== "CONFLICT" && value !== LabelOption.Skip);
+
+  const withConflictLifecycle = (
+    previousTweet: Tweet,
+    nextTweet: Tweet,
+    nextFinalLabel: string | undefined,
+  ): Tweet => {
+    const wasConflictAlready =
+      previousTweet.wasInConflict || isConflictLikeFinalLabel(previousTweet.finalLabel);
+
+    if (isConflictLikeFinalLabel(nextFinalLabel)) {
+      return {
+        ...nextTweet,
+        wasInConflict: true,
+        conflictHistoryDismissed: false,
+        conflictDetectedAt: previousTweet.conflictDetectedAt ?? Date.now(),
+        conflictResolvedAt: undefined,
+      };
+    }
+
+    if (wasConflictAlready && isResolvedFinalLabel(nextFinalLabel)) {
+      return {
+        ...nextTweet,
+        wasInConflict: true,
+        conflictResolvedAt: previousTweet.conflictResolvedAt ?? Date.now(),
+      };
+    }
+
+    return nextTweet;
+  };
+
   useEffect(() => {
     if (!currentUser) {
       return;
@@ -260,7 +295,7 @@ const App: React.FC = () => {
       ...currentTweet.annotations,
       [currentUser.username]: label,
     };
-    const optimisticTweet: Tweet = {
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       annotations: newAnnotations,
       annotationFeatures: {
@@ -273,6 +308,11 @@ const App: React.FC = () => {
       },
       finalLabel: calculateFinalLabel(currentTweet, newAnnotations),
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      rawOptimisticTweet.finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -316,13 +356,18 @@ const App: React.FC = () => {
     delete newFeatures[currentUser.username];
     delete newTimestamps[currentUser.username];
 
-    const optimisticTweet: Tweet = {
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       annotations: newAnnotations,
       annotationFeatures: newFeatures,
       annotationTimestamps: newTimestamps,
       finalLabel: calculateFinalLabel(currentTweet, newAnnotations),
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      rawOptimisticTweet.finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -350,7 +395,7 @@ const App: React.FC = () => {
       ...currentTweet.annotations,
       [studentUsername]: newLabel,
     };
-    const optimisticTweet: Tweet = {
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       annotations: newAnnotations,
       annotationTimestamps: {
@@ -359,6 +404,11 @@ const App: React.FC = () => {
       },
       finalLabel: calculateFinalLabel(currentTweet, newAnnotations),
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      rawOptimisticTweet.finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -388,13 +438,18 @@ const App: React.FC = () => {
     delete newFeatures[studentUsername];
     delete newTimestamps[studentUsername];
 
-    const optimisticTweet: Tweet = {
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       annotations: newAnnotations,
       annotationFeatures: newFeatures,
       annotationTimestamps: newTimestamps,
       finalLabel: calculateFinalLabel(currentTweet, newAnnotations),
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      rawOptimisticTweet.finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -414,10 +469,15 @@ const App: React.FC = () => {
     const currentTweet = tweetsById[tweetId];
     if (!currentTweet) return;
 
-    const optimisticTweet: Tweet = {
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       finalLabel,
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -452,6 +512,32 @@ const App: React.FC = () => {
       },
       { tweetsById: snapshotTweets([tweetId]) },
       { type: "ASSIGNMENT_CHANGE", tweetId, assignedTo },
+    );
+  };
+
+  const handleRemoveFromConflictArchive = async (tweetId: string) => {
+    if (hasCriticalError) return;
+
+    const currentTweet = tweetsById[tweetId];
+    if (!currentTweet) return;
+
+    const optimisticTweet: Tweet = {
+      ...currentTweet,
+      wasInConflict: false,
+      conflictHistoryDismissed: true,
+      conflictDetectedAt: undefined,
+      conflictResolvedAt: undefined,
+    };
+
+    setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
+
+    await executeSafeRequest(
+      async () => {
+        const savedTweet = await saveTweet(optimisticTweet);
+        setTweetsById((prev) => ({ ...prev, [tweetId]: savedTweet }));
+      },
+      { tweetsById: snapshotTweets([tweetId]) },
+      { type: "REMOVE_CONFLICT_ARCHIVE", tweetId },
     );
   };
 
@@ -722,6 +808,7 @@ const App: React.FC = () => {
             onDeleteTweet={handleDeleteTweet}
             onUpdateAssignment={handleAssignmentChange}
             onSetFinalLabel={handleSetFinalLabel}
+            onRemoveResolvedConflict={handleRemoveFromConflictArchive}
             onDeleteAllTweets={handleDeleteAllTweets}
           />
         ) : (

@@ -68,6 +68,7 @@ def init_db():
     
     # Compound index for admin filters and conflict resolution
     tweets_collection.create_index([("finalLabel", 1), ("_id", 1)])
+    tweets_collection.create_index([("wasInConflict", 1), ("_id", 1)])
     
     # Index for sorting by recency (descending update timestamp)
     tweets_collection.create_index([("updatedAt", -1)])
@@ -77,6 +78,7 @@ def init_db():
     
     migrate_from_file()
     tweets_collection.update_many({"v": {"$exists": False}}, {"$set": {"v": 0}})
+    backfill_conflict_history()
     db_initialized = True
 
 def migrate_from_file():
@@ -129,6 +131,98 @@ def normalize_label(value):
 
 def is_unresolved_final_label(value):
     return normalize_label(value).lower() in UNRESOLVED_FINAL_LABELS
+
+
+def is_conflict_final_label(value):
+    return normalize_label(value).lower() in {"conflict", "conflict (unresolved)", "skip"}
+
+
+def is_resolved_final_label(value):
+    normalized = normalize_label(value)
+    return bool(normalized) and not is_conflict_final_label(normalized)
+
+
+def extract_annotation_labels(tweet_doc):
+    annotations = tweet_doc.get("annotations", {})
+    if not isinstance(annotations, dict):
+        return []
+
+    normalized_annotations = {
+        username: normalize_label(label)
+        for username, label in annotations.items()
+        if normalize_label(label)
+    }
+
+    assigned_to = tweet_doc.get("assignedTo", [])
+    if isinstance(assigned_to, list) and assigned_to:
+        participant_order = assigned_to
+    else:
+        participant_order = list(normalized_annotations.keys())
+
+    return [
+        normalized_annotations.get(username, "")
+        for username in participant_order
+        if normalized_annotations.get(username, "")
+    ]
+
+
+def has_annotation_conflict(tweet_doc):
+    labels = extract_annotation_labels(tweet_doc)
+    if len(labels) < 2:
+        return False
+    first = labels[0]
+    return any(label != first for label in labels[1:])
+
+
+def backfill_conflict_history():
+    now_ms = int(datetime.utcnow().timestamp() * 1000)
+    projection = {
+        "_id": 1,
+        "annotations": 1,
+        "assignedTo": 1,
+        "finalLabel": 1,
+        "wasInConflict": 1,
+        "conflictHistoryDismissed": 1,
+        "conflictDetectedAt": 1,
+        "conflictResolvedAt": 1,
+    }
+    ops = []
+
+    for tweet in tweets_collection.find({}, projection):
+        final_label = tweet.get("finalLabel")
+        inferred_conflict = has_annotation_conflict(tweet) or is_conflict_final_label(
+            final_label
+        )
+        conflict_dismissed = bool(tweet.get("conflictHistoryDismissed"))
+        should_mark_conflict = bool(
+            (tweet.get("wasInConflict") or inferred_conflict) and not conflict_dismissed
+        )
+
+        set_fields = {}
+        unset_fields = {}
+
+        if should_mark_conflict and not tweet.get("wasInConflict"):
+            set_fields["wasInConflict"] = True
+
+        if should_mark_conflict and not tweet.get("conflictDetectedAt"):
+            set_fields["conflictDetectedAt"] = now_ms
+
+        if should_mark_conflict and is_resolved_final_label(final_label):
+            if not tweet.get("conflictResolvedAt"):
+                set_fields["conflictResolvedAt"] = now_ms
+        elif tweet.get("conflictResolvedAt"):
+            unset_fields["conflictResolvedAt"] = ""
+
+        if set_fields or unset_fields:
+            update = {}
+            if set_fields:
+                update["$set"] = set_fields
+            if unset_fields:
+                update["$unset"] = unset_fields
+            ops.append(UpdateOne({"_id": tweet["_id"]}, update))
+
+    if ops:
+        tweets_collection.bulk_write(ops, ordered=False)
 
 
 def derive_final_label(tweet_doc):
@@ -293,6 +387,16 @@ def build_delta_update(payload):
     set_payload.pop("v", None)
     unset_payload = [field for field in unset_payload if field != "v"]
 
+    final_label = set_payload.get("finalLabel")
+    if final_label is not None and is_conflict_final_label(final_label):
+        now_ms = int(datetime.utcnow().timestamp() * 1000)
+        set_payload["wasInConflict"] = True
+        set_payload["conflictHistoryDismissed"] = False
+        set_payload.setdefault("conflictDetectedAt", now_ms)
+        if "conflictResolvedAt" in set_payload and not set_payload.get("conflictResolvedAt"):
+            set_payload.pop("conflictResolvedAt", None)
+            unset_payload.append("conflictResolvedAt")
+
     if set_payload:
         update["$set"].update(set_payload)
     if unset_payload:
@@ -357,6 +461,10 @@ def list_tweets():
             "annotationFeatures": 1,
             "annotationTimestamps": 1,
             "finalLabel": 1,
+            "wasInConflict": 1,
+            "conflictHistoryDismissed": 1,
+            "conflictDetectedAt": 1,
+            "conflictResolvedAt": 1,
             "updatedAt": 1,
             "v": 1,
         }
@@ -788,6 +896,9 @@ def annotate_tweet():
                 "annotationFeatures": 1,
                 "annotationTimestamps": 1,
                 "finalLabel": 1,
+                "wasInConflict": 1,
+                "conflictHistoryDismissed": 1,
+                "conflictDetectedAt": 1,
             },
         )
         if not tweet_doc:
@@ -815,6 +926,12 @@ def annotate_tweet():
         unset_fields = []
         if calculated_final_label:
             set_payload["finalLabel"] = calculated_final_label
+            if is_conflict_final_label(calculated_final_label):
+                set_payload["wasInConflict"] = True
+                set_payload["conflictHistoryDismissed"] = False
+                set_payload["conflictDetectedAt"] = tweet_doc.get(
+                    "conflictDetectedAt", int(datetime.utcnow().timestamp() * 1000)
+                )
         else:
             unset_fields.append("finalLabel")
 

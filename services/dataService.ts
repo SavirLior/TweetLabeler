@@ -95,13 +95,20 @@ type AnnotateResponse = {
 const buildTweetDelta = (tweet: Tweet): TweetDelta => {
   const set: Record<string, unknown> = {};
   const unset: string[] = [];
+  const unsettableFields = new Set([
+    "finalLabel",
+    "wasInConflict",
+    "conflictHistoryDismissed",
+    "conflictDetectedAt",
+    "conflictResolvedAt",
+  ]);
 
   Object.entries(tweet).forEach(([key, value]) => {
     if (key === "_id" || key === "v") {
       return;
     }
     if (value === undefined || value === null || value === "") {
-      if (key === "finalLabel") {
+      if (unsettableFields.has(key)) {
         unset.push(key);
       }
       return;
