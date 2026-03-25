@@ -9,15 +9,17 @@ import {
   History,
   RotateCcw,
   Download,
-  Trash2,
   Search,
   Calendar,
   X,
+  AlertTriangle,
 } from "lucide-react";
 
 interface StudentViewProps {
   user: User;
   tweets: Tweet[];
+  activeTab: "label" | "history" | "mistakes";
+  onActiveTabChange: (tab: "label" | "history" | "mistakes") => void;
   onLabelTweet: (tweetId: string, label: string, features: string[]) => void;
   onResetLabel: (tweetId: string) => void;
 }
@@ -25,10 +27,11 @@ interface StudentViewProps {
 export const StudentView: React.FC<StudentViewProps> = ({
   user,
   tweets,
+  activeTab,
+  onActiveTabChange,
   onLabelTweet,
   onResetLabel,
 }) => {
-  const [activeTab, setActiveTab] = useState<"label" | "history">("label");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
@@ -70,6 +73,20 @@ export const StudentView: React.FC<StudentViewProps> = ({
 
     return result;
   }, [myTweets, user.username, searchTerm, sortOrder]);
+
+  // Mistakes tab receives a dedicated backend query, but we keep a defensive
+  // frontend filter to ensure card data remains consistent.
+  const mistakesTweets = useMemo(() => {
+    return tweets.filter((tweet) => {
+      const myLabel = tweet.annotations?.[user.username];
+      const finalLabel = tweet.finalLabel;
+      if (!myLabel) return false;
+      if (!finalLabel || finalLabel === "CONFLICT" || finalLabel === LabelOption.Skip) {
+        return false;
+      }
+      return myLabel !== finalLabel;
+    });
+  }, [tweets, user.username]);
 
   const currentTweet = unlabeledTweets.length > 0 ? unlabeledTweets[0] : null;
 
@@ -261,7 +278,9 @@ export const StudentView: React.FC<StudentViewProps> = ({
               שלום, {user.username}
             </h1>
             <p className="text-gray-500">
-              אנא סווג את הציוצים הבאים בהתאם להנחיות.
+              {activeTab === "mistakes"
+                ? "סקירת ציוצים שבהם ההכרעה הסופית הייתה שונה מהתיוג שלך."
+                : "אנא סווג את הציוצים הבאים בהתאם להנחיות."}
             </p>
           </div>
           <div className="flex items-center gap-4 bg-blue-50 px-4 py-2 rounded-lg">
@@ -296,7 +315,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
 
       <div className="flex border-b border-gray-200 mb-4">
         <button
-          onClick={() => setActiveTab("label")}
+          onClick={() => onActiveTabChange("label")}
           className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
             activeTab === "label"
               ? "border-blue-600 text-blue-600"
@@ -307,7 +326,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
           ממשק תיוג
         </button>
         <button
-          onClick={() => setActiveTab("history")}
+          onClick={() => onActiveTabChange("history")}
           className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
             activeTab === "history"
               ? "border-blue-600 text-blue-600"
@@ -316,6 +335,17 @@ export const StudentView: React.FC<StudentViewProps> = ({
         >
           <History className="w-4 h-4" />
           היסטוריה ({labeledTweets.length})
+        </button>
+        <button
+          onClick={() => onActiveTabChange("mistakes")}
+          className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 ${
+            activeTab === "mistakes"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4" />
+          הטעויות שלי ({mistakesTweets.length})
         </button>
       </div>
 
@@ -391,7 +421,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
             </div>
           )}
         </div>
-      ) : (
+      ) : activeTab === "history" ? (
         <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
           <div className="flex flex-col sm:flex-row justify-between items-center px-6 py-4 bg-gray-50 border-b border-gray-200 gap-4">
             <div className="flex items-center gap-4 w-full sm:w-auto flex-1">
@@ -532,6 +562,62 @@ export const StudentView: React.FC<StudentViewProps> = ({
                   <p>עדיין לא בוצעו סיווגים</p>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {mistakesTweets.length > 0 ? (
+            mistakesTweets.map((tweet) => {
+              const myLabel = tweet.annotations[user.username];
+              return (
+                <div
+                  key={tweet.id}
+                  className="bg-white rounded-xl border border-red-100 shadow-sm p-5"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                      #{tweet.id}
+                    </span>
+                    <span className="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded">
+                      אי התאמה
+                    </span>
+                  </div>
+
+                  <p className="text-gray-900 leading-relaxed mb-4 whitespace-pre-wrap">
+                    "{tweet.text}"
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs text-gray-500 mb-1">התיוג שלך</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {myLabel || "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                      <p className="text-xs text-green-700 mb-1">הכרעת מנהל</p>
+                      <p className="text-sm font-semibold text-green-800">
+                        {tweet.finalLabel || "-"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 p-3">
+                    <p className="text-xs text-blue-700 mb-1">סיבת ההכרעה</p>
+                    <p className="text-sm text-blue-900">
+                      {tweet.resolutionReason?.trim()
+                        ? tweet.resolutionReason
+                        : "לא הוזנה סיבת הכרעה"}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-12 bg-white rounded-lg border border-gray-200 shadow-sm text-gray-500">
+              <AlertTriangle className="w-12 h-12 mx-auto mb-2 opacity-20" />
+              <p>אין כרגע טעויות להצגה</p>
             </div>
           )}
         </div>

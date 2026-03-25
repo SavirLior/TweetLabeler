@@ -42,7 +42,11 @@ interface AdminViewProps {
   onBulkUpdateTweets: (tweets: Tweet[]) => void;
   onDeleteTweet: (tweetId: string) => void;
   onUpdateAssignment: (tweetId: string, assignedTo: string[]) => void;
-  onSetFinalLabel: (tweetId: string, finalLabel: string) => void;
+  onSetFinalLabel: (
+    tweetId: string,
+    finalLabel: string,
+    resolutionReason?: string,
+  ) => void;
   onRemoveResolvedConflict: (tweetId: string) => void;
   onDeleteAllTweets: () => Promise<void>;
 }
@@ -99,6 +103,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // --- Edit Detail Modal State ---
   const [editingTweet, setEditingTweet] = useState<Tweet | null>(null);
+  const [resolutionReasonDrafts, setResolutionReasonDrafts] = useState<
+    Record<string, string>
+  >({});
 
   useEffect(() => {
     // Fetch students list on mount or when tab changes to refresh list
@@ -175,10 +182,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const {
     resolvedConflictTweets,
-    unresolvedConflictTweets,
-    totalHistoricalConflictTweets,
-    totalCorrectConflictLabels,
-    totalWrongConflictLabels,
     studentConflictStats,
   } = useMemo(() => {
     const students = new Set<string>(availableStudents);
@@ -200,12 +203,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const resolved = historicalConflictTweets.filter((tweet) =>
       isResolvedFinalLabel(tweet.finalLabel),
     );
-    const unresolved = historicalConflictTweets.filter((tweet) =>
-      !isResolvedFinalLabel(tweet.finalLabel),
-    );
-
-    let correct = 0;
-    let wrong = 0;
 
     historicalConflictTweets.forEach((tweet) => {
       const baseParticipants =
@@ -228,20 +225,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
         if (tweet.annotations[student] === tweet.finalLabel) {
           initialStats[student].won += 1;
-          correct += 1;
         } else {
           initialStats[student].lost += 1;
-          wrong += 1;
         }
       });
     });
 
     return {
       resolvedConflictTweets: resolved,
-      unresolvedConflictTweets: unresolved,
-      totalHistoricalConflictTweets: historicalConflictTweets.length,
-      totalCorrectConflictLabels: correct,
-      totalWrongConflictLabels: wrong,
       studentConflictStats: initialStats,
     };
   }, [tweets, availableStudents]);
@@ -283,8 +274,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // Handle forcing a consensus on a tweet (Resolution Tab)
   // NOW: This updates the FINAL LABEL, it does NOT overwrite student labels.
+  const getResolutionReasonInput = (tweet: Tweet) => {
+    const draft = resolutionReasonDrafts[tweet.id];
+    return draft !== undefined ? draft : tweet.resolutionReason || "";
+  };
+
+  const handleResolutionReasonChange = (tweetId: string, value: string) => {
+    setResolutionReasonDrafts((prev) => ({ ...prev, [tweetId]: value }));
+  };
+
   const handleDecideFinal = (tweet: Tweet, chosenLabel: string) => {
-    onSetFinalLabel(tweet.id, chosenLabel);
+    const normalizedReason = getResolutionReasonInput(tweet).trim() || undefined;
+    onSetFinalLabel(tweet.id, chosenLabel, normalizedReason);
   };
 
   // --- Helper: Filtering Logic ---
@@ -857,10 +858,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <button
                       key={option}
                       onClick={() => {
+                        const normalizedReason =
+                          getResolutionReasonInput(editingTweet).trim() || undefined;
                         handleDecideFinal(editingTweet, option);
                         setEditingTweet({
                           ...editingTweet,
                           finalLabel: option,
+                          resolutionReason: normalizedReason,
                         });
                       }}
                       className={`text-xs font-medium px-4 py-2 rounded-md border transition-all ${
@@ -872,6 +876,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       {option}
                     </button>
                   ))}
+                </div>
+                <div className="mt-4">
+                  <textarea
+                    value={getResolutionReasonInput(editingTweet)}
+                    onChange={(e) =>
+                      handleResolutionReasonChange(editingTweet.id, e.target.value)
+                    }
+                    placeholder="הוסף סיבת הכרעה (רשות)"
+                    rows={3}
+                    className="w-full rounded-lg border border-blue-200 bg-white p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
+                  />
+                  {editingTweet.resolutionReason?.trim() && (
+                    <p className="text-xs text-blue-800 mt-2">
+                      סיבה שמורה נוכחית: {editingTweet.resolutionReason}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1159,6 +1179,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             {option}
                           </button>
                         ))}
+                        <div className="w-full mt-2">
+                          <textarea
+                            value={getResolutionReasonInput(tweet)}
+                            onChange={(e) =>
+                              handleResolutionReasonChange(tweet.id, e.target.value)
+                            }
+                            placeholder="הוסף סיבת הכרעה (רשות)"
+                            rows={2}
+                            className="w-full rounded-lg border border-blue-200 bg-white p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
+                          />
+                          {tweet.resolutionReason?.trim() && (
+                            <p className="text-xs text-blue-800 mt-2">
+                              סיבה שמורה נוכחית: {tweet.resolutionReason}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -1254,6 +1290,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <p className="text-gray-900 font-medium mb-4 text-lg">
                       "{tweet.text}"
                     </p>
+
+                    {tweet.resolutionReason?.trim() && (
+                      <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
+                        <p className="text-xs text-blue-700 mb-1">סיבת ההכרעה</p>
+                        <p className="text-sm text-blue-900">{tweet.resolutionReason}</p>
+                      </div>
+                    )}
 
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                       <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">
@@ -1574,39 +1617,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   )}
                 </p>
               </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-              <p className="text-xs text-gray-500">סה"כ קונפליקטים בהיסטוריה</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {totalHistoricalConflictTweets}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-              <p className="text-xs text-gray-500">קונפליקטים פתוחים</p>
-              <p className="text-2xl font-bold text-red-600">
-                {unresolvedConflictTweets.length}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-              <p className="text-xs text-gray-500">קונפליקטים שנפתרו</p>
-              <p className="text-2xl font-bold text-green-600">
-                {resolvedConflictTweets.length}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-              <p className="text-xs text-gray-500">תיוגים נכונים בקונפליקטים</p>
-              <p className="text-2xl font-bold text-green-700">
-                {totalCorrectConflictLabels}
-              </p>
-            </div>
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-              <p className="text-xs text-gray-500">תיוגים שגויים בקונפליקטים</p>
-              <p className="text-2xl font-bold text-red-700">
-                {totalWrongConflictLabels}
-              </p>
             </div>
           </div>
 

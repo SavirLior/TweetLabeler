@@ -362,9 +362,40 @@ def serialize_tweet(tweet_doc):
 def build_tweet_list_query(args):
     query = base_tweet_query()
     assigned_to = args.get("assignedTo")
+    mistakes_for = args.get("mistakesFor")
     final_label = args.get("finalLabel")
     conflict_only = args.get("conflictOnly") == "true"
     cursor = args.get("cursor")
+
+    if mistakes_for:
+        # Student mistakes query:
+        # 1) Tweet is assigned to the student.
+        # 2) Final label exists and is resolved (not unresolved conflict states).
+        # 3) Student annotation exists and differs from the final label.
+        query["assignedTo"] = mistakes_for
+        query["finalLabel"] = {
+            "$exists": True,
+            "$nin": [
+                "",
+                None,
+                "pending",
+                "Pending",
+                "not determined",
+                "Not determined",
+                "not_determined",
+                "CONFLICT",
+                "conflict",
+                "CONFLICT (Unresolved)",
+                "conflict (unresolved)",
+                "Skip",
+                "skip",
+            ],
+        }
+        query[f"annotations.{mistakes_for}"] = {"$exists": True, "$nin": ["", None]}
+        query["$expr"] = {"$ne": [f"$annotations.{mistakes_for}", "$finalLabel"]}
+        if cursor:
+            query["_id"] = {"$gt": ObjectId(cursor)}
+        return query
 
     if assigned_to:
         query["assignedTo"] = assigned_to
@@ -396,6 +427,15 @@ def build_delta_update(payload):
         if "conflictResolvedAt" in set_payload and not set_payload.get("conflictResolvedAt"):
             set_payload.pop("conflictResolvedAt", None)
             unset_payload.append("conflictResolvedAt")
+
+    if "resolutionReason" in set_payload:
+        # Normalize admin notes so the stored field is always a clean string.
+        normalized_reason = str(set_payload.get("resolutionReason", "")).strip()
+        if normalized_reason:
+            set_payload["resolutionReason"] = normalized_reason
+        else:
+            set_payload.pop("resolutionReason", None)
+            unset_payload.append("resolutionReason")
 
     if set_payload:
         update["$set"].update(set_payload)
@@ -461,6 +501,7 @@ def list_tweets():
             "annotationFeatures": 1,
             "annotationTimestamps": 1,
             "finalLabel": 1,
+            "resolutionReason": 1,
             "wasInConflict": 1,
             "conflictHistoryDismissed": 1,
             "conflictDetectedAt": 1,

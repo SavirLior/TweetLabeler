@@ -51,6 +51,7 @@ export type TweetPageQuery = {
   limit?: number;
   cursor?: string;
   assignedTo?: string;
+  mistakesFor?: string;
   finalLabel?: string;
   conflictOnly?: boolean;
 };
@@ -97,6 +98,7 @@ const buildTweetDelta = (tweet: Tweet): TweetDelta => {
   const unset: string[] = [];
   const unsettableFields = new Set([
     "finalLabel",
+    "resolutionReason",
     "wasInConflict",
     "conflictHistoryDismissed",
     "conflictDetectedAt",
@@ -131,6 +133,7 @@ export const getTweetPage = async (
   if (q.limit) params.set("limit", String(q.limit));
   if (q.cursor) params.set("cursor", q.cursor);
   if (q.assignedTo) params.set("assignedTo", q.assignedTo);
+  if (q.mistakesFor) params.set("mistakesFor", q.mistakesFor);
   if (q.finalLabel) params.set("finalLabel", q.finalLabel);
   if (q.conflictOnly) params.set("conflictOnly", "true");
 
