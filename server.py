@@ -33,7 +33,7 @@ DATA_FILE = "data.json"
 CSV_FILE = "tweet_classifications.csv"
 
 # MongoDB configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://ofekmazor2121dbUser:4ZvTINrC6KAxmooT@fusion-tweets.9pn4kn4.mongodb.net/?appName=fusion-tweets")
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "tweetlabeler")
 MONGO_TWEETS_COLLECTION = os.getenv("MONGO_TWEETS_COLLECTION", "tweets")
 MONGO_USERS_COLLECTION = os.getenv("MONGO_USERS_COLLECTION", "users")
@@ -366,6 +366,7 @@ def build_tweet_list_query(args):
     final_label = args.get("finalLabel")
     conflict_only = args.get("conflictOnly") == "true"
     cursor = args.get("cursor")
+    round_value = args.get("round")
 
     if mistakes_for:
         # Student mistakes query:
@@ -399,6 +400,8 @@ def build_tweet_list_query(args):
 
     if assigned_to:
         query["assignedTo"] = assigned_to
+    if round_value not in (None, ""):
+        query["round"] = max(1, int(round_value))
     if final_label:
         query["finalLabel"] = final_label
     if conflict_only:
@@ -496,6 +499,7 @@ def list_tweets():
             "_id": 1,
             "id": 1,
             "text": 1,
+            "round": 1,
             "assignedTo": 1,
             "annotations": 1,
             "annotationFeatures": 1,

@@ -18,15 +18,17 @@ import {
 interface StudentViewProps {
   user: User;
   tweets: Tweet[];
+  currentAppRound: number;
   activeTab: "label" | "history" | "mistakes";
   onActiveTabChange: (tab: "label" | "history" | "mistakes") => void;
-  onLabelTweet: (tweetId: string, label: string, features: string[]) => void;
+  onLabelTweet: (tweetId: string, label: string, features: string[]) => void;   
   onResetLabel: (tweetId: string) => void;
 }
 
 export const StudentView: React.FC<StudentViewProps> = ({
   user,
   tweets,
+  currentAppRound,
   activeTab,
   onActiveTabChange,
   onLabelTweet,
@@ -354,9 +356,14 @@ export const StudentView: React.FC<StudentViewProps> = ({
           {currentTweet ? (
             <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
               <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-500">
-                  מזהה ציוץ: {currentTweet.id}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-500">
+                    מזהה ציוץ: {currentTweet.id}
+                  </span>
+                  <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-full">
+                    סבב {currentTweet.round || 1}
+                  </span>
+                </div>
                 <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
                   ממתין לתיוג
                 </span>
@@ -473,6 +480,9 @@ export const StudentView: React.FC<StudentViewProps> = ({
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                       מזהה
                     </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                      סבב
+                    </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       תוכן הציוץ
                     </th>
@@ -508,6 +518,11 @@ export const StudentView: React.FC<StudentViewProps> = ({
                             </div>
                           )}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 align-top">
+                          <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-full">
+                            {tweet.round || 1}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-900 max-w-md align-top">
                           <div className="line-clamp-3 hover:line-clamp-none transition-all">
                             {tweet.text}
@@ -533,15 +548,24 @@ export const StudentView: React.FC<StudentViewProps> = ({
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
-                          {/* Allow reset for any past annotation. */}
-                          <Button
-                            variant="neutral"
-                            onClick={() => onResetLabel(tweet.id)}
-                            className="text-xs px-3 py-2 flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 w-full justify-center"
-                            title="התחרטתי - החזר לתור"
-                          >
-                            <RotateCcw className="w-4 h-4" /> תיקון
-                          </Button>
+                          {/* Allow reset for any past annotation matching current round. */}
+                          {(tweet.round || 1) === currentAppRound ? (
+                            <Button
+                              variant="neutral"
+                              onClick={() => onResetLabel(tweet.id)}
+                              className="text-xs px-3 py-2 flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 w-full justify-center"
+                              title="התחרטתי - החזר לתור"
+                            >
+                              <RotateCcw className="w-4 h-4" /> תיקון
+                            </Button>
+                          ) : (
+                            <span 
+                              className="text-xs text-gray-400 flex items-center justify-center pt-2"
+                              title={`ניתן לתקן רק סיווגים מהסבב הנוכחי (${currentAppRound})`}
+                            >
+                              ננעל (סבב {tweet.round || 1})
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -576,9 +600,14 @@ export const StudentView: React.FC<StudentViewProps> = ({
                   className="bg-white rounded-xl border border-red-100 shadow-sm p-5"
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      #{tweet.id}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                        #{tweet.id}
+                      </span>
+                      <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded">
+                        סבב {tweet.round || 1}
+                      </span>
+                    </div>
                     <span className="text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded">
                       אי התאמה
                     </span>

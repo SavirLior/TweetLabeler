@@ -12,7 +12,7 @@ import {
 import { Login } from "./components/Login";
 import { StudentView } from "./components/StudentView";
 import { AdminView } from "./components/AdminView";
-import { LogOut, Database, Lock, AlertTriangle, Copy } from "lucide-react";
+import { LogOut, Database, Lock, AlertTriangle, Copy, RefreshCw } from "lucide-react";
 
 const PAGE_SIZE = 50;
 type StudentTab = "label" | "history" | "mistakes";
@@ -51,6 +51,11 @@ const App: React.FC = () => {
         .filter((tweet): tweet is Tweet => Boolean(tweet)),
     [tweetsById, visibleIds],
   );
+
+  const currentAppRound = useMemo(() => {
+    if (tweets.length === 0) return 1;
+    return Math.max(...tweets.map((t) => t.round || 1));
+  }, [tweets]);
 
   const mergePage = (items: Tweet[], mode: "replace" | "append") => {
     setTweetsById((prev) => {
@@ -224,65 +229,98 @@ const App: React.FC = () => {
     return nextTweet;
   };
 
+  const buildTweetsQuery = () => {
+    if (!currentUser) {
+      return { limit: PAGE_SIZE };
+    }
+
+    if (currentUser.role === UserRole.Student) {
+      return studentActiveTab === "mistakes"
+        ? { limit: PAGE_SIZE, mistakesFor: currentUser.username }
+        : { limit: PAGE_SIZE, assignedTo: currentUser.username };
+    }
+
+    return { limit: PAGE_SIZE };
+  };
+
+  const loadTweetsFromApi = async (
+    options: {
+      signal?: AbortSignal;
+      blocking?: boolean;
+      lockOnError?: boolean;
+    } = {},
+  ) => {
+    if (!currentUser) {
+      return;
+    }
+
+    const { signal, blocking = true, lockOnError = true } = options;
+    const query = buildTweetsQuery();
+
+    if (blocking) {
+      setIsInitialized(false);
+      setTweetsById({});
+      setVisibleIds([]);
+      setNextCursor(null);
+      setHasMore(false);
+    }
+
+    setIsFetching(true);
+
+    try {
+      const firstPage = await getTweetPage(query, signal);
+      if (signal?.aborted) return;
+
+      mergePage(firstPage.items, "replace");
+      setNextCursor(firstPage.nextCursor);
+      setHasMore(firstPage.hasMore);
+      if (blocking) {
+        setIsInitialized(true);
+      }
+
+      let cursor = firstPage.nextCursor ?? undefined;
+      let more = firstPage.hasMore;
+      while (more && cursor && !signal?.aborted) {
+        const nextPage = await getTweetPage(
+          { ...query, cursor, limit: PAGE_SIZE },
+          signal,
+        );
+        if (signal?.aborted) return;
+        mergePage(nextPage.items, "append");
+        cursor = nextPage.nextCursor ?? undefined;
+        more = nextPage.hasMore;
+        setNextCursor(nextPage.nextCursor);
+        setHasMore(nextPage.hasMore);
+      }
+    } catch (error) {
+      if (!signal?.aborted) {
+        console.error("Failed to load tweets", error);
+        if (lockOnError) {
+          setHasCriticalError(true);
+        }
+        if (blocking) {
+          setIsInitialized(true);
+        }
+      }
+      return;
+    }
+
+    if (!signal?.aborted) {
+      setIsFetching(false);
+    }
+  };
+
+  const handleRefreshTweets = async () => {
+    await loadTweetsFromApi({ blocking: false, lockOnError: false });
+  };
+
   useEffect(() => {
     if (!currentUser) {
       return;
     }
 
     const controller = new AbortController();
-    const query =
-      currentUser.role === UserRole.Student
-        ? studentActiveTab === "mistakes"
-          ? { limit: PAGE_SIZE, mistakesFor: currentUser.username }
-          : { limit: PAGE_SIZE, assignedTo: currentUser.username }
-        : { limit: PAGE_SIZE };
-
-    const loadTweets = async () => {
-      setIsInitialized(false);
-      setIsFetching(true);
-      setTweetsById({});
-      setVisibleIds([]);
-      setNextCursor(null);
-      setHasMore(false);
-
-      try {
-        const firstPage = await getTweetPage(query, controller.signal);
-        if (controller.signal.aborted) return;
-
-        mergePage(firstPage.items, "replace");
-        setNextCursor(firstPage.nextCursor);
-        setHasMore(firstPage.hasMore);
-        setIsInitialized(true);
-        setIsFetching(false);
-
-        let cursor = firstPage.nextCursor ?? undefined;
-        let more = firstPage.hasMore;
-        while (more && cursor && !controller.signal.aborted) {
-          const nextPage = await getTweetPage(
-            { ...query, cursor, limit: PAGE_SIZE },
-            controller.signal,
-          );
-          if (controller.signal.aborted) return;
-          mergePage(nextPage.items, "append");
-          cursor = nextPage.nextCursor ?? undefined;
-          more = nextPage.hasMore;
-          setNextCursor(nextPage.nextCursor);
-          setHasMore(nextPage.hasMore);
-        }
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.error("Failed to load tweets", error);
-          setHasCriticalError(true);
-          setIsInitialized(true);
-          setIsFetching(false);
-        }
-        return;
-      }
-
-      setIsFetching(false);
-    };
-
-    loadTweets();
+    loadTweetsFromApi({ signal: controller.signal, blocking: true, lockOnError: true });
 
     return () => controller.abort();
   }, [currentUser, studentActiveTab]);
@@ -353,6 +391,11 @@ const App: React.FC = () => {
 
     const currentTweet = tweetsById[tweetId];
     if (!currentTweet) return;
+
+    if (currentUser.role === UserRole.Student && (currentTweet.round || 1) !== currentAppRound) {
+      alert(`לא ניתן לתקן תיוג מסבב ישן (סבב ${currentTweet.round || 1}). הסבב הנוכחי הוא ${currentAppRound}.`);
+      return;
+    }
 
     const newAnnotations = { ...currentTweet.annotations };
     const newFeatures = { ...(currentTweet.annotationFeatures || {}) };
@@ -503,7 +546,10 @@ const App: React.FC = () => {
     );
   };
 
-  const handleAssignmentChange = async (tweetId: string, assignedTo: string[]) => {
+  const handleAssignmentChange = async (
+    tweetId: string,
+    assignedTo: string[],
+  ) => {
     if (hasCriticalError) return;
 
     const currentTweet = tweetsById[tweetId];
@@ -698,7 +744,11 @@ const App: React.FC = () => {
   };
 
   if (hasCriticalError) {
-    const errorDetails = JSON.stringify(lastFailedAction || "Unknown Error", null, 2);
+    const errorDetails = JSON.stringify(
+      lastFailedAction || "Unknown Error",
+      null,
+      2,
+    );
 
     const handleCopyError = () => {
       navigator.clipboard.writeText(errorDetails);
@@ -706,7 +756,10 @@ const App: React.FC = () => {
     };
 
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-6 text-white" dir="rtl">
+      <div
+        className="min-h-screen bg-gray-900 flex items-center justify-center p-6 text-white"
+        dir="rtl"
+      >
         <div className="bg-red-900/20 border-2 border-red-500 p-8 rounded-2xl max-w-2xl w-full shadow-2xl backdrop-blur-md">
           <div className="flex items-center gap-4 mb-6">
             <AlertTriangle className="w-12 h-12 text-red-500" />
@@ -742,7 +795,8 @@ const App: React.FC = () => {
             </button>
           </div>
           <p className="mt-6 text-sm text-gray-400 text-center">
-            אל דאגה, התיוגים שכבר אושרו בשרת שמורים. התיוג האחרון שנכשל מופיע למעלה.
+            אל דאגה, התיוגים שכבר אושרו בשרת שמורים. התיוג האחרון שנכשל מופיע
+            למעלה.
           </p>
         </div>
       </div>
@@ -768,8 +822,11 @@ const App: React.FC = () => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <span className="text-xl font-bold text-blue-600">TweetLabeler</span>
+              <span className="mr-4 px-2 py-1 bg-blue-100 rounded text-xs font-medium text-blue-800 border border-blue-200">
+                סבב נוכחי: {currentAppRound}
+              </span>
               <span className="mr-4 px-2 py-1 bg-gray-100 rounded text-xs font-medium text-gray-600">
-                גרסת מחקר v1.0
+                גרסת מחקר v2.0
               </span>
               {isFetching && (
                 <span className="mr-3 text-xs text-gray-500">טוען עמודים נוספים...</span>
@@ -798,6 +855,14 @@ const App: React.FC = () => {
                 <Lock className="w-5 h-5" />
               </button>
               <button
+                onClick={handleRefreshTweets}
+                className="p-2 rounded-full text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors"
+                title="רענן נתונים"
+                disabled={isFetching}
+              >
+                <RefreshCw className={`w-5 h-5 ${isFetching ? "animate-spin" : ""}`} />
+              </button>
+              <button
                 onClick={handleLogout}
                 className="p-2 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                 title="התנתק"
@@ -813,6 +878,7 @@ const App: React.FC = () => {
         {currentUser.role === UserRole.Admin ? (
           <AdminView
             tweets={tweets}
+            currentAppRound={currentAppRound}
             onAdminLabelChange={handleAdminLabelChange}
             onAdminDeleteVote={handleAdminDeleteVote}
             onAddTweets={handleAddTweets}
@@ -827,6 +893,7 @@ const App: React.FC = () => {
           <StudentView
             user={currentUser}
             tweets={tweets}
+            currentAppRound={currentAppRound}
             activeTab={studentActiveTab}
             onActiveTabChange={setStudentActiveTab}
             onLabelTweet={handleLabelTweet}

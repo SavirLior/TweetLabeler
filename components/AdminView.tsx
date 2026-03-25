@@ -31,6 +31,7 @@ import {
 
 interface AdminViewProps {
   tweets: Tweet[];
+  currentAppRound: number;
   onAdminLabelChange: (
     tweetId: string,
     studentUsername: string,
@@ -66,6 +67,7 @@ interface AssignmentConfig {
 
 export const AdminView: React.FC<AdminViewProps> = ({
   tweets,
+  currentAppRound,
   onAdminLabelChange,
   onAdminDeleteVote, // שימוש בפרופ החדש
   onAddTweets,
@@ -85,6 +87,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     useState<string>("all");
   const [selectedLabelFilter, setSelectedLabelFilter] = useState<string>("all");
   const [showConflictsOnly, setShowConflictsOnly] = useState(false);
+  const [selectedRoundFilter, setSelectedRoundFilter] = useState<"all" | number>("all");
 
   // Available students list
   const [availableStudents, setAvailableStudents] = useState<string[]>([]);
@@ -93,6 +96,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [draftTweets, setDraftTweets] = useState<DraftTweet[]>([]);
   const [pasteText, setPasteText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadRound, setUploadRound] = useState(currentAppRound + 1);
+
+  useEffect(() => {
+    setUploadRound(currentAppRound + 1);
+  }, [currentAppRound]);
 
   // --- Auto Assign State ---
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -295,6 +303,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
       // 1. Conflict Filter
       if (showConflictsOnly && !needsResolution(tweet)) return false;
 
+      // 1.5. Round Filter
+      if (selectedRoundFilter !== "all" && (tweet.round || 1) !== selectedRoundFilter) {
+        return false;
+      }
+
       // 2. Student Filter (NEW FIX)
       if (selectedStudentFilter !== "all") {
         const isAssignedToStudent = tweet.assignedTo?.includes(
@@ -316,7 +329,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
       return true;
     });
-  }, [tweets, showConflictsOnly, selectedLabelFilter, selectedStudentFilter]); // Added selectedStudentFilter dependency
+  }, [
+    tweets,
+    showConflictsOnly,
+    selectedLabelFilter,
+    selectedStudentFilter,
+    selectedRoundFilter,
+  ]);
+
+  const availableRounds = useMemo(() => {
+    const rounds = Array.from(new Set(tweets.map((tweet) => tweet.round || 1)));
+    return rounds.sort((a, b) => b - a);
+  }, [tweets]);
 
   // Tweets that need resolution
   const resolutionTweets = useMemo(() => {
@@ -456,6 +480,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const newTweets: Tweet[] = draftTweets.map((draft) => ({
       id: Math.random().toString(36).substr(2, 9),
       text: draft.text,
+      round: uploadRound,
       annotations: {},
       assignedTo: draft.assignedTo.length > 0 ? draft.assignedTo : undefined,
     }));
@@ -598,7 +623,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
           <Button
             onClick={() => setActiveTab("dashboard")}
             variant={activeTab === "dashboard" ? "primary" : "neutral"}
-            className={`flex items-center gap-2 text-sm ${
+            className={`flex
+              s-center gap-2 text-sm ${
               activeTab !== "dashboard" && "bg-white border-transparent"
             }`}
           >
@@ -697,9 +723,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
               {/* Description */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
-      <strong>שיוך אוטומטי</strong> יחלק את הציוצים שווה בשווה. אחוז החפיפה מגדיר כמה משימות תיוג כפולות יתווספו בסך הכל.
-    </p>
+                <p className="text-sm text-blue-800">
+                  <strong>שיוך אוטומטי</strong> יחלק את הציוצים שווה בשווה. אחוז
+                  החפיפה מגדיר כמה משימות תיוג כפולות יתווספו בסך הכל.
+                </p>
               </div>
 
               {/* Select Students */}
@@ -1097,6 +1124,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded font-mono">
                             #{tweet.id}
                           </span>
+                          <span className="bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded border border-indigo-200">
+                            סבב {tweet.round || 1}
+                          </span>
                           {isConflict && (
                             <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" /> טרם נקבע /
@@ -1144,7 +1174,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
                                   {label === LabelOption.Skip && (
                                     <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
-                                      סיבת דילוג: {skipReason || "לא הוזנה סיבה"}
+                                      סיבת דילוג:{" "}
+                                      {skipReason || "לא הוזנה סיבה"}
                                     </div>
                                   )}
 
@@ -1244,6 +1275,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded font-mono">
                           #{tweet.id}
+                        </span>
+                        <span className="bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded border border-indigo-200">
+                          סבב {tweet.round || 1}
                         </span>
                         <span
                           className={`text-xs px-2 py-1 rounded border ${getLabelColor(
@@ -1549,7 +1583,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </table>
               </div>
 
-              <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-4 items-center">
+                <div className="flex items-center gap-2 text-sm bg-white p-2 rounded-lg border border-gray-200">
+                  <span className="font-bold text-gray-700">סבב לשמירה:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-16 p-1 border border-gray-300 rounded text-center"
+                    value={uploadRound}
+                    onChange={(e) => setUploadRound(Number(e.target.value))}
+                  />
+                </div>
                 <Button
                   onClick={saveDraftsToSystem}
                   className="flex items-center gap-2 pl-6 pr-6 shadow-md"
@@ -1953,6 +1997,31 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 {/* --- תוקן: סלקטור לסטודנטים --- */}
                 <div className="flex items-center gap-2">
                   <select
+                    value={selectedRoundFilter === "all" ? "all" : String(selectedRoundFilter)}
+                    onChange={(e) => {
+                      if (e.target.value === "all") {
+                        setSelectedRoundFilter("all");
+                        return;
+                      }
+                      const parsed = Number(e.target.value);
+                      if (!Number.isNaN(parsed)) {
+                        setSelectedRoundFilter(Math.max(1, parsed));
+                      }
+                    }}
+                    className="block w-32 pl-2 pr-8 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+                    title="סינון לפי סבב"
+                  >
+                    <option value="all">כל הסבבים</option>
+                    {availableRounds.map((round) => (
+                      <option key={round} value={round}>
+                        סבב {round}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
                     value={selectedStudentFilter}
                     onChange={(e) => setSelectedStudentFilter(e.target.value)}
                     className="block w-full pl-2 pr-8 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
@@ -2052,7 +2121,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           }`}
                         >
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
-                            {tweet.id}
+                            <div>{tweet.id}</div>
+                            <div className="mt-1">
+                              <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full">
+                                סבב {tweet.round || 1}
+                              </span>
+                            </div>
                             {isConflict && (
                               <div
                                 title={`התנגשות בין מתייגים:\n${conflictDetails}`}

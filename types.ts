@@ -51,6 +51,7 @@ export interface Tweet {
   conflictHistoryDismissed?: boolean;
   conflictDetectedAt?: number;
   conflictResolvedAt?: number;
+  round?: number;
   v?: number;
 }
 
