@@ -44,6 +44,13 @@ export interface Tweet {
   
   // The final resolved label (Automatic consensus or Admin override)
   finalLabel?: string;
+  // Optional admin explanation for how a conflict was resolved.
+  resolutionReason?: string;
+  // Conflict history state (persists until admin removes from resolved conflicts view)
+  wasInConflict?: boolean;
+  conflictHistoryDismissed?: boolean;
+  conflictDetectedAt?: number;
+  conflictResolvedAt?: number;
   v?: number;
 }
 

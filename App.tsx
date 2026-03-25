@@ -15,6 +15,7 @@ import { AdminView } from "./components/AdminView";
 import { LogOut, Database, Lock, AlertTriangle, Copy } from "lucide-react";
 
 const PAGE_SIZE = 50;
+type StudentTab = "label" | "history" | "mistakes";
 
 type RollbackState = {
   tweetsById?: Record<string, Tweet | undefined>;
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   const [hasMore, setHasMore] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isInitialized, setIsInitialized] = useState(true);
+  const [studentActiveTab, setStudentActiveTab] = useState<StudentTab>("label");
 
   const [hasCriticalError, setHasCriticalError] = useState(false);
   const [lastFailedAction, setLastFailedAction] = useState<any>(null);
@@ -138,6 +140,7 @@ const App: React.FC = () => {
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    setStudentActiveTab("label");
     setHasCriticalError(false);
     setLastFailedAction(null);
   };
@@ -149,6 +152,7 @@ const App: React.FC = () => {
     setNextCursor(null);
     setHasMore(false);
     setIsInitialized(true);
+    setStudentActiveTab("label");
   };
 
   const calculateFinalLabel = (
@@ -185,6 +189,41 @@ const App: React.FC = () => {
     return first;
   };
 
+  const isConflictLikeFinalLabel = (value?: string) =>
+    value === "CONFLICT" || value === LabelOption.Skip;
+
+  const isResolvedFinalLabel = (value?: string) =>
+    Boolean(value && value !== "CONFLICT" && value !== LabelOption.Skip);
+
+  const withConflictLifecycle = (
+    previousTweet: Tweet,
+    nextTweet: Tweet,
+    nextFinalLabel: string | undefined,
+  ): Tweet => {
+    const wasConflictAlready =
+      previousTweet.wasInConflict || isConflictLikeFinalLabel(previousTweet.finalLabel);
+
+    if (isConflictLikeFinalLabel(nextFinalLabel)) {
+      return {
+        ...nextTweet,
+        wasInConflict: true,
+        conflictHistoryDismissed: false,
+        conflictDetectedAt: previousTweet.conflictDetectedAt ?? Date.now(),
+        conflictResolvedAt: undefined,
+      };
+    }
+
+    if (wasConflictAlready && isResolvedFinalLabel(nextFinalLabel)) {
+      return {
+        ...nextTweet,
+        wasInConflict: true,
+        conflictResolvedAt: previousTweet.conflictResolvedAt ?? Date.now(),
+      };
+    }
+
+    return nextTweet;
+  };
+
   useEffect(() => {
     if (!currentUser) {
       return;
@@ -193,7 +232,9 @@ const App: React.FC = () => {
     const controller = new AbortController();
     const query =
       currentUser.role === UserRole.Student
-        ? { limit: PAGE_SIZE, assignedTo: currentUser.username }
+        ? studentActiveTab === "mistakes"
+          ? { limit: PAGE_SIZE, mistakesFor: currentUser.username }
+          : { limit: PAGE_SIZE, assignedTo: currentUser.username }
         : { limit: PAGE_SIZE };
 
     const loadTweets = async () => {
@@ -244,7 +285,7 @@ const App: React.FC = () => {
     loadTweets();
 
     return () => controller.abort();
-  }, [currentUser]);
+  }, [currentUser, studentActiveTab]);
 
   const handleLabelTweet = async (
     tweetId: string,
@@ -260,7 +301,7 @@ const App: React.FC = () => {
       ...currentTweet.annotations,
       [currentUser.username]: label,
     };
-    const optimisticTweet: Tweet = {
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       annotations: newAnnotations,
       annotationFeatures: {
@@ -273,6 +314,11 @@ const App: React.FC = () => {
       },
       finalLabel: calculateFinalLabel(currentTweet, newAnnotations),
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      rawOptimisticTweet.finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -316,13 +362,18 @@ const App: React.FC = () => {
     delete newFeatures[currentUser.username];
     delete newTimestamps[currentUser.username];
 
-    const optimisticTweet: Tweet = {
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       annotations: newAnnotations,
       annotationFeatures: newFeatures,
       annotationTimestamps: newTimestamps,
       finalLabel: calculateFinalLabel(currentTweet, newAnnotations),
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      rawOptimisticTweet.finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -350,7 +401,7 @@ const App: React.FC = () => {
       ...currentTweet.annotations,
       [studentUsername]: newLabel,
     };
-    const optimisticTweet: Tweet = {
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       annotations: newAnnotations,
       annotationTimestamps: {
@@ -359,6 +410,11 @@ const App: React.FC = () => {
       },
       finalLabel: calculateFinalLabel(currentTweet, newAnnotations),
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      rawOptimisticTweet.finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -388,13 +444,18 @@ const App: React.FC = () => {
     delete newFeatures[studentUsername];
     delete newTimestamps[studentUsername];
 
-    const optimisticTweet: Tweet = {
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       annotations: newAnnotations,
       annotationFeatures: newFeatures,
       annotationTimestamps: newTimestamps,
       finalLabel: calculateFinalLabel(currentTweet, newAnnotations),
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      rawOptimisticTweet.finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -408,16 +469,27 @@ const App: React.FC = () => {
     );
   };
 
-  const handleSetFinalLabel = async (tweetId: string, finalLabel: string) => {
+  const handleSetFinalLabel = async (
+    tweetId: string,
+    finalLabel: string,
+    resolutionReason?: string,
+  ) => {
     if (hasCriticalError) return;
 
     const currentTweet = tweetsById[tweetId];
     if (!currentTweet) return;
 
-    const optimisticTweet: Tweet = {
+    const normalizedReason = resolutionReason?.trim() || undefined;
+    const rawOptimisticTweet: Tweet = {
       ...currentTweet,
       finalLabel,
+      resolutionReason: normalizedReason,
     };
+    const optimisticTweet = withConflictLifecycle(
+      currentTweet,
+      rawOptimisticTweet,
+      finalLabel,
+    );
 
     setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
 
@@ -427,7 +499,7 @@ const App: React.FC = () => {
         setTweetsById((prev) => ({ ...prev, [tweetId]: savedTweet }));
       },
       { tweetsById: snapshotTweets([tweetId]) },
-      { type: "SET_FINAL_LABEL", tweetId, finalLabel },
+      { type: "SET_FINAL_LABEL", tweetId, finalLabel, resolutionReason: normalizedReason },
     );
   };
 
@@ -452,6 +524,32 @@ const App: React.FC = () => {
       },
       { tweetsById: snapshotTweets([tweetId]) },
       { type: "ASSIGNMENT_CHANGE", tweetId, assignedTo },
+    );
+  };
+
+  const handleRemoveFromConflictArchive = async (tweetId: string) => {
+    if (hasCriticalError) return;
+
+    const currentTweet = tweetsById[tweetId];
+    if (!currentTweet) return;
+
+    const optimisticTweet: Tweet = {
+      ...currentTweet,
+      wasInConflict: false,
+      conflictHistoryDismissed: true,
+      conflictDetectedAt: undefined,
+      conflictResolvedAt: undefined,
+    };
+
+    setTweetsById((prev) => ({ ...prev, [tweetId]: optimisticTweet }));
+
+    await executeSafeRequest(
+      async () => {
+        const savedTweet = await saveTweet(optimisticTweet);
+        setTweetsById((prev) => ({ ...prev, [tweetId]: savedTweet }));
+      },
+      { tweetsById: snapshotTweets([tweetId]) },
+      { type: "REMOVE_CONFLICT_ARCHIVE", tweetId },
     );
   };
 
@@ -722,12 +820,15 @@ const App: React.FC = () => {
             onDeleteTweet={handleDeleteTweet}
             onUpdateAssignment={handleAssignmentChange}
             onSetFinalLabel={handleSetFinalLabel}
+            onRemoveResolvedConflict={handleRemoveFromConflictArchive}
             onDeleteAllTweets={handleDeleteAllTweets}
           />
         ) : (
           <StudentView
             user={currentUser}
             tweets={tweets}
+            activeTab={studentActiveTab}
+            onActiveTabChange={setStudentActiveTab}
             onLabelTweet={handleLabelTweet}
             onResetLabel={handleResetLabel}
           />
