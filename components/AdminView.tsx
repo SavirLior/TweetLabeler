@@ -87,6 +87,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     useState<string>("all");
   const [selectedLabelFilter, setSelectedLabelFilter] = useState<string>("all");
   const [showConflictsOnly, setShowConflictsOnly] = useState(false);
+  const [selectedRoundFilter, setSelectedRoundFilter] = useState<"all" | number>("all");
 
   // Available students list
   const [availableStudents, setAvailableStudents] = useState<string[]>([]);
@@ -302,6 +303,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
       // 1. Conflict Filter
       if (showConflictsOnly && !needsResolution(tweet)) return false;
 
+      // 1.5. Round Filter
+      if (selectedRoundFilter !== "all" && (tweet.round || 1) !== selectedRoundFilter) {
+        return false;
+      }
+
       // 2. Student Filter (NEW FIX)
       if (selectedStudentFilter !== "all") {
         const isAssignedToStudent = tweet.assignedTo?.includes(
@@ -323,7 +329,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
       return true;
     });
-  }, [tweets, showConflictsOnly, selectedLabelFilter, selectedStudentFilter]); // Added selectedStudentFilter dependency
+  }, [
+    tweets,
+    showConflictsOnly,
+    selectedLabelFilter,
+    selectedStudentFilter,
+    selectedRoundFilter,
+  ]);
+
+  const availableRounds = useMemo(() => {
+    const rounds = Array.from(new Set(tweets.map((tweet) => tweet.round || 1)));
+    return rounds.sort((a, b) => b - a);
+  }, [tweets]);
 
   // Tweets that need resolution
   const resolutionTweets = useMemo(() => {
@@ -1978,6 +1995,31 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
                 {/* Filters */}
                 {/* --- תוקן: סלקטור לסטודנטים --- */}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedRoundFilter === "all" ? "all" : String(selectedRoundFilter)}
+                    onChange={(e) => {
+                      if (e.target.value === "all") {
+                        setSelectedRoundFilter("all");
+                        return;
+                      }
+                      const parsed = Number(e.target.value);
+                      if (!Number.isNaN(parsed)) {
+                        setSelectedRoundFilter(Math.max(1, parsed));
+                      }
+                    }}
+                    className="block w-32 pl-2 pr-8 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+                    title="סינון לפי סבב"
+                  >
+                    <option value="all">כל הסבבים</option>
+                    {availableRounds.map((round) => (
+                      <option key={round} value={round}>
+                        סבב {round}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="flex items-center gap-2">
                   <select
                     value={selectedStudentFilter}

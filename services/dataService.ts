@@ -54,6 +54,7 @@ export type TweetPageQuery = {
   mistakesFor?: string;
   finalLabel?: string;
   conflictOnly?: boolean;
+  round?: number;
 };
 
 export type TweetPageResponse = {
@@ -136,6 +137,7 @@ export const getTweetPage = async (
   if (q.mistakesFor) params.set("mistakesFor", q.mistakesFor);
   if (q.finalLabel) params.set("finalLabel", q.finalLabel);
   if (q.conflictOnly) params.set("conflictOnly", "true");
+  if (q.round !== undefined) params.set("round", String(q.round));
 
   return apiRequest<TweetPageResponse>(
     `/tweets${params.toString() ? `?${params.toString()}` : ""}`,

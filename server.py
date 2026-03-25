@@ -366,6 +366,7 @@ def build_tweet_list_query(args):
     final_label = args.get("finalLabel")
     conflict_only = args.get("conflictOnly") == "true"
     cursor = args.get("cursor")
+    round_value = args.get("round")
 
     if mistakes_for:
         # Student mistakes query:
@@ -399,6 +400,8 @@ def build_tweet_list_query(args):
 
     if assigned_to:
         query["assignedTo"] = assigned_to
+    if round_value not in (None, ""):
+        query["round"] = max(1, int(round_value))
     if final_label:
         query["finalLabel"] = final_label
     if conflict_only:
