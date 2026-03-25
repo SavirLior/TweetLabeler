@@ -5,17 +5,21 @@ import datetime
 
 
 
-APIFY_TOKEN = 'TOKEN'  
-
+APIFY_TOKEN = "TOKEN"
 USERNAMES = [
 
-"@InviteToIslam",
-"@Imtiyazibnharun",
-"clickdeen360@",
-"@AlDonFodio",
-"@rashadzali1"
-"@abdinur002",
-"@ESandzaki85074",
+"@AbuQatada___",
+"@AbdulrahmanJii",
+"@TheMumMuslim",
+"@AOM18989",
+"@SabeelLeeds",
+"@MishalHusain",
+"@Ba_ups56",
+"@Sunnahakh1",
+"@alshishan_as",
+"@Halalnation_",
+"@al_Samancii",
+"@abu_txlha",
 
 ]
 
@@ -202,12 +206,12 @@ if df.empty:
     print("⚠️ לא נמצאו נתונים (או שהכל סונן).")
 else:
     # קובץ 1: מלא
-    file_full = "twitter_data_full_ALL.csv"
+    file_full = "twitter_data_full_ALL2.csv"
     df.to_csv(file_full, index=False, encoding='utf-8-sig')
     print(f"✅ נוצר קובץ מלא: {file_full}")
 
     # קובץ 2: טקסט בלבד לאתר
-    file_text_only = "twitter_text_only_ALL.csv"
+    file_text_only = "twitter_text_only_ALL2.csv"
     df_text_only = df[['full_display_text']].rename(columns={'full_display_text': 'text'})
     
     df_text_only.to_csv(file_text_only, index=False, encoding='utf-8-sig')
