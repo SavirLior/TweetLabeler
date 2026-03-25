@@ -1,73 +1,199 @@
-import { Tweet, AppData, User, UserRole } from "../types";
+import { Tweet, User, UserRole } from "../types";
 
 const API_URL = "/api";
 
-// --- Helper for fetch with error handling and timeout ---
-const apiRequest = async (
+type ApiError = Error & { status?: number };
+
+const apiRequest = async <T>(
   endpoint: string,
   method: string = "GET",
-  body?: any
-) => {
-  // Create a controller to handle the 5-second timeout
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<T> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort);
 
   try {
     const options: RequestInit = {
       method,
       headers: { "Content-Type": "application/json" },
-      signal: controller.signal, // Pass the abort signal to fetch
+      signal: controller.signal,
     };
-    if (body) {
+    if (body !== undefined) {
       options.body = JSON.stringify(body);
     }
 
     const response = await fetch(`${API_URL}${endpoint}`, options);
-    
-    // Clear the timer if the request succeeded before 5 seconds
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`);
+      const error = new Error(`API Error: ${response.statusText}`) as ApiError;
+      error.status = response.status;
+      throw error;
     }
-    return await response.json();
+
+    return (await response.json()) as T;
   } catch (error: any) {
-    // Clear the timer on error to prevent memory leaks
     clearTimeout(timeoutId);
-    
-    if (error.name === 'AbortError') {
-      console.error(`Request to ${endpoint} timed out after 5 seconds.`);
+    if (error.name === "AbortError") {
       throw new Error("Server took too long to respond");
     }
-    
-    console.error(`Failed to request ${endpoint}:`, error);
     throw error;
+  } finally {
+    signal?.removeEventListener("abort", onAbort);
   }
 };
 
-// --- Data Fetching ---
+export type TweetPageQuery = {
+  limit?: number;
+  cursor?: string;
+  assignedTo?: string;
+  mistakesFor?: string;
+  finalLabel?: string;
+  conflictOnly?: boolean;
+};
 
-export const getTweets = async (): Promise<Tweet[]> => {
-  try {
-    const data = await apiRequest("/data");
-    return data.tweets || [];
-  } catch (error) {
-    console.error("Could not connect to backend, ensure server.py is running.");
-    // Throw the error so App.tsx knows the initial load failed and can lock the UI
-    throw error;
+export type TweetPageResponse = {
+  items: Tweet[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  total?: number;
+};
+
+export type TweetDelta = {
+  set?: Record<string, unknown>;
+  unset?: string[];
+  expectedVersion?: number;
+};
+
+type BulkDeltaOp = TweetDelta & { tweetId: string };
+
+type PatchTweetResponse = {
+  success: boolean;
+  tweet: Tweet;
+};
+
+type BulkPatchResponse = {
+  success: boolean;
+  results: Array<{
+    success: boolean;
+    tweetId?: string;
+    error?: string;
+    tweet?: Tweet;
+  }>;
+};
+
+type AnnotateResponse = {
+  success: boolean;
+  tweetId: string;
+  finalLabel?: string;
+  version: number;
+};
+
+const buildTweetDelta = (tweet: Tweet): TweetDelta => {
+  const set: Record<string, unknown> = {};
+  const unset: string[] = [];
+  const unsettableFields = new Set([
+    "finalLabel",
+    "resolutionReason",
+    "wasInConflict",
+    "conflictHistoryDismissed",
+    "conflictDetectedAt",
+    "conflictResolvedAt",
+  ]);
+
+  Object.entries(tweet).forEach(([key, value]) => {
+    if (key === "_id" || key === "v") {
+      return;
+    }
+    if (value === undefined || value === null || value === "") {
+      if (unsettableFields.has(key)) {
+        unset.push(key);
+      }
+      return;
+    }
+    set[key] = value;
+  });
+
+  return {
+    set,
+    unset,
+    expectedVersion: tweet.v,
+  };
+};
+
+export const getTweetPage = async (
+  q: TweetPageQuery,
+  signal?: AbortSignal,
+): Promise<TweetPageResponse> => {
+  const params = new URLSearchParams();
+  if (q.limit) params.set("limit", String(q.limit));
+  if (q.cursor) params.set("cursor", q.cursor);
+  if (q.assignedTo) params.set("assignedTo", q.assignedTo);
+  if (q.mistakesFor) params.set("mistakesFor", q.mistakesFor);
+  if (q.finalLabel) params.set("finalLabel", q.finalLabel);
+  if (q.conflictOnly) params.set("conflictOnly", "true");
+
+  return apiRequest<TweetPageResponse>(
+    `/tweets${params.toString() ? `?${params.toString()}` : ""}`,
+    "GET",
+    undefined,
+    signal,
+  );
+};
+
+export const patchTweetDelta = async (
+  tweetId: string,
+  delta: TweetDelta,
+): Promise<PatchTweetResponse> => {
+  return apiRequest<PatchTweetResponse>(`/tweets/${tweetId}`, "PATCH", delta);
+};
+
+export const patchTweetsBulk = async (
+  ops: BulkDeltaOp[],
+): Promise<BulkPatchResponse> => {
+  return apiRequest<BulkPatchResponse>("/tweets/delta/bulk", "POST", { ops });
+};
+
+export const getTweets = async (signal?: AbortSignal): Promise<Tweet[]> => {
+  const allTweets: Tweet[] = [];
+  let cursor: string | undefined;
+  let hasMore = true;
+
+  while (hasMore) {
+    const page = await getTweetPage({ limit: 200, cursor }, signal);
+    allTweets.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+    hasMore = page.hasMore;
   }
+
+  return allTweets;
 };
 
-// --- Data Saving ---
-
-export const saveTweet = async (tweet: Tweet): Promise<void> => {
-  await apiRequest("/tweet", "POST", tweet);
+export const saveTweet = async (tweet: Tweet): Promise<Tweet> => {
+  const response = await patchTweetDelta(tweet.id, buildTweetDelta(tweet));
+  return response.tweet;
 };
 
-export const updateTweets = async (
-  updatedTweetsList: Tweet[]
-): Promise<void> => {
-  await apiRequest("/tweets/bulk", "POST", updatedTweetsList);
+export const updateTweets = async (updatedTweetsList: Tweet[]): Promise<Tweet[]> => {
+  const response = await patchTweetsBulk(
+    updatedTweetsList.map((tweet) => ({
+      tweetId: tweet.id,
+      ...buildTweetDelta(tweet),
+    })),
+  );
+
+  const failed = response.results.find((result) => !result.success);
+  if (failed) {
+    throw new Error(failed.error || "Bulk update failed");
+  }
+
+  return response.results
+    .map((result) => result.tweet)
+    .filter((tweet): tweet is Tweet => Boolean(tweet));
 };
 
 export const addTweets = async (newTweets: Tweet[]): Promise<void> => {
@@ -78,16 +204,13 @@ export const deleteTweet = async (tweetId: string): Promise<void> => {
   await apiRequest(`/tweet/${tweetId}`, "DELETE");
 };
 
-// --- User Management ---
+export const deleteAllTweets = async (): Promise<void> => {
+  await apiRequest("/tweets", "DELETE");
+};
 
-export const getUsers = async (): Promise<User[]> => {
-  try {
-    const data = await apiRequest("/data");
-    return data.users || [];
-  } catch (error) {
-    // Throw error to prevent silent failures
-    throw error;
-  }
+export const getUsers = async (signal?: AbortSignal): Promise<User[]> => {
+  const data = await apiRequest<{ users: User[] }>("/users", "GET", undefined, signal);
+  return data.users || [];
 };
 
 export const getAllStudents = async (): Promise<string[]> => {
@@ -99,45 +222,21 @@ export const getAllStudents = async (): Promise<string[]> => {
 
 export const authenticateUser = async (
   username: string,
-  password: string
+  password: string,
 ): Promise<User | null> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
-
   try {
-    const response = await fetch(`${API_URL}/users/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-
-    if (response.status === 401 || response.status === 404) {
-      // Return null for invalid credentials
+    return await apiRequest<User | null>("/users/login", "POST", { username, password });
+  } catch (error: any) {
+    if (error.status === 401 || error.status === 404) {
       return null;
     }
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`);
-    }
-    return await response.json();
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    
-    if (error.name === 'AbortError') {
-      console.error("Authentication timed out after 5 seconds.");
-      throw new Error("Server took too long to respond");
-    }
-    
-    console.error("Failed to authenticate user:", error);
     throw error;
   }
 };
 
 export const registerUser = async (user: User): Promise<User> => {
   try {
-    return await apiRequest("/users/register", "POST", user);
+    return await apiRequest<User>("/users/register", "POST", user);
   } catch (error) {
     throw new Error("שם המשתמש כבר קיים או שיש בעיית תקשורת");
   }
@@ -146,7 +245,7 @@ export const registerUser = async (user: User): Promise<User> => {
 export const changePassword = async (
   username: string,
   currentPassword: string,
-  newPassword: string
+  newPassword: string,
 ): Promise<{ success: boolean; message?: string; error?: string }> => {
   try {
     return await apiRequest("/users/change-password", "POST", {
@@ -159,10 +258,7 @@ export const changePassword = async (
   }
 };
 
-// --- Export ---
-
 export const exportToCSV = (tweets: Tweet[], users: string[]) => {
-  // Build header: ID, Text, AssignedTo, Final Decision, then for each user [Label, Features]
   const header = ["Tweet ID", "Text", "Final Decision", "Assigned To"];
   users.forEach((u) => {
     header.push(`Label_${u}`);
@@ -201,7 +297,7 @@ export const exportToCSV = (tweets: Tweet[], users: string[]) => {
   link.setAttribute("href", url);
   link.setAttribute(
     "download",
-    `tweets_labels_detailed_${new Date().toISOString().slice(0, 10)}.csv`
+    `tweets_labels_detailed_${new Date().toISOString().slice(0, 10)}.csv`,
   );
   document.body.appendChild(link);
   link.click();
@@ -209,20 +305,16 @@ export const exportToCSV = (tweets: Tweet[], users: string[]) => {
 };
 
 export const saveAnnotation = async (
-  tweetId: string, 
-  username: string, 
-  label: string, 
+  tweetId: string,
+  username: string,
+  label: string,
   features: string[],
-  finalLabel?: string 
-): Promise<void> => {
-    const payload = {
-        tweetId,
-        username,
-        label,
-        features,
-        timestamp: Date.now(),
-        finalLabel
-    };
-    
-    await apiRequest('/tweet/annotate', 'POST', payload);
+): Promise<AnnotateResponse> => {
+  return apiRequest<AnnotateResponse>("/tweet/annotate", "POST", {
+    tweetId,
+    username,
+    label,
+    features,
+    timestamp: Date.now(),
+  });
 };
