@@ -88,6 +88,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [selectedLabelFilter, setSelectedLabelFilter] = useState<string>("all");
   const [showConflictsOnly, setShowConflictsOnly] = useState(false);
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<"all" | number>("all");
+  const [resolvedRoundFilter, setResolvedRoundFilter] = useState<"all" | number>("all");
+  const [resolvedStudentFilter, setResolvedStudentFilter] = useState<string>("all");
 
   // Available students list
   const [availableStudents, setAvailableStudents] = useState<string[]>([]);
@@ -341,6 +343,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const rounds = Array.from(new Set(tweets.map((tweet) => tweet.round || 1)));
     return rounds.sort((a, b) => b - a);
   }, [tweets]);
+
+  const filteredResolvedConflictTweets = useMemo(() => {
+    return resolvedConflictTweets.filter((tweet) => {
+      if (resolvedRoundFilter !== "all" && (tweet.round || 1) !== resolvedRoundFilter) {
+        return false;
+      }
+
+      if (resolvedStudentFilter !== "all") {
+        const participants = new Set([
+          ...(tweet.assignedTo || []),
+          ...Object.keys(tweet.annotations || {}),
+        ]);
+        if (!participants.has(resolvedStudentFilter)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [resolvedConflictTweets, resolvedRoundFilter, resolvedStudentFilter]);
 
   // Tweets that need resolution
   const resolutionTweets = useMemo(() => {
@@ -1254,19 +1276,61 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
             </div>
 
-            {resolvedConflictTweets.length === 0 ? (
+            <div className="flex flex-wrap items-center gap-3 mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 whitespace-nowrap">Round</span>
+                <select
+                  value={resolvedRoundFilter}
+                  onChange={(e) =>
+                    setResolvedRoundFilter(
+                      e.target.value === "all" ? "all" : Number(e.target.value),
+                    )
+                  }
+                  className="block w-32 pl-2 pr-8 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+                >
+                  <option value="all">All</option>
+                  {availableRounds.map((round) => (
+                    <option key={round} value={round}>
+                      Round {round}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 whitespace-nowrap">Student</span>
+                <select
+                  value={resolvedStudentFilter}
+                  onChange={(e) => setResolvedStudentFilter(e.target.value)}
+                  className="block w-44 pl-2 pr-8 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+                >
+                  <option value="all">All students</option>
+                  {availableStudents.map((student) => (
+                    <option key={student} value={student}>
+                      {student}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <span className="text-xs text-gray-500">
+                Showing {filteredResolvedConflictTweets.length} / {resolvedConflictTweets.length}
+              </span>
+            </div>
+
+            {filteredResolvedConflictTweets.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
                 <CheckSquare className="w-12 h-12 mx-auto text-gray-400 mb-3 opacity-50" />
                 <h3 className="text-lg font-medium text-gray-900">
-                  אין קונפליקטים שנפתרו להצגה
+                  אין קונפליקטים שנפתרו לפי הסינון שנבחר
                 </h3>
                 <p className="text-gray-500">
-                  לאחר שתיקי קונפליקט יוכרעו, הם יופיעו כאן.
+                  נסה לשנות את סינון הסבב או הסטודנט.
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {resolvedConflictTweets.map((tweet) => (
+                {filteredResolvedConflictTweets.map((tweet) => (
                   <div
                     key={tweet.id}
                     className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"

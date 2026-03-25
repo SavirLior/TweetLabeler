@@ -14,7 +14,7 @@ import { StudentView } from "./components/StudentView";
 import { AdminView } from "./components/AdminView";
 import { LogOut, Database, Lock, AlertTriangle, Copy, RefreshCw } from "lucide-react";
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 100;
 type StudentTab = "label" | "history" | "mistakes";
 
 type RollbackState = {

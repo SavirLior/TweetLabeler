@@ -36,6 +36,8 @@ export const StudentView: React.FC<StudentViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [historyRoundFilter, setHistoryRoundFilter] = useState<"all" | number>("all");
+  const [mistakesRoundFilter, setMistakesRoundFilter] = useState<"all" | number>("all");
 
   // Modal State
   const [pendingLabel, setPendingLabel] = useState<{
@@ -50,6 +52,11 @@ export const StudentView: React.FC<StudentViewProps> = ({
     return tweets.filter((t) => t.assignedTo?.includes(user.username));
   }, [tweets, user.username]);
 
+  const availableMyRounds = useMemo(() => {
+    const rounds = Array.from(new Set(myTweets.map((tweet) => tweet.round || 1)));
+    return rounds.sort((a, b) => b - a);
+  }, [myTweets]);
+
   // Tweets that have NOT been labeled by this user
   const unlabeledTweets = useMemo(() => {
     return myTweets.filter((t: Tweet) => !t.annotations[user.username]);
@@ -58,6 +65,10 @@ export const StudentView: React.FC<StudentViewProps> = ({
   // Tweets that HAVE been labeled by this user, filtered and sorted
   const labeledTweets = useMemo(() => {
     let result = myTweets.filter((t: Tweet) => t.annotations[user.username]);
+
+    if (historyRoundFilter !== "all") {
+      result = result.filter((t: Tweet) => (t.round || 1) === historyRoundFilter);
+    }
 
     // Filter by search term
     if (searchTerm) {
@@ -74,7 +85,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
     });
 
     return result;
-  }, [myTweets, user.username, searchTerm, sortOrder]);
+  }, [myTweets, user.username, historyRoundFilter, searchTerm, sortOrder]);
 
   // Mistakes tab receives a dedicated backend query, but we keep a defensive
   // frontend filter to ensure card data remains consistent.
@@ -86,9 +97,12 @@ export const StudentView: React.FC<StudentViewProps> = ({
       if (!finalLabel || finalLabel === "CONFLICT" || finalLabel === LabelOption.Skip) {
         return false;
       }
+      if (mistakesRoundFilter !== "all" && (tweet.round || 1) !== mistakesRoundFilter) {
+        return false;
+      }
       return myLabel !== finalLabel;
     });
-  }, [tweets, user.username]);
+  }, [tweets, user.username, mistakesRoundFilter]);
 
   const currentTweet = unlabeledTweets.length > 0 ? unlabeledTweets[0] : null;
 
@@ -449,6 +463,24 @@ export const StudentView: React.FC<StudentViewProps> = ({
               </div>
               <div className="relative">
                 <select
+                  value={historyRoundFilter}
+                  onChange={(e) =>
+                    setHistoryRoundFilter(
+                      e.target.value === "all" ? "all" : Number(e.target.value),
+                    )
+                  }
+                  className="block w-full pl-3 pr-8 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                >
+                  <option value="all">All rounds</option>
+                  {availableMyRounds.map((round) => (
+                    <option key={round} value={round}>
+                      Round {round}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="relative">
+                <select
                   value={sortOrder}
                   onChange={(e) =>
                     setSortOrder(e.target.value as "newest" | "oldest")
@@ -591,6 +623,29 @@ export const StudentView: React.FC<StudentViewProps> = ({
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                Filter by round
+              </span>
+              <select
+                value={mistakesRoundFilter}
+                onChange={(e) =>
+                  setMistakesRoundFilter(
+                    e.target.value === "all" ? "all" : Number(e.target.value),
+                  )
+                }
+                className="block w-full max-w-xs pl-3 pr-8 py-2 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+              >
+                <option value="all">All rounds</option>
+                {availableMyRounds.map((round) => (
+                  <option key={round} value={round}>
+                    Round {round}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           {mistakesTweets.length > 0 ? (
             mistakesTweets.map((tweet) => {
               const myLabel = tweet.annotations[user.username];

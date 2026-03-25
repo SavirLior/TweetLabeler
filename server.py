@@ -493,7 +493,7 @@ def list_users():
 def list_tweets():
     try:
         init_db()
-        limit = min(max(int(request.args.get("limit", 50)), 1), 200)
+        limit = min(max(int(request.args.get("limit", 100)), 1), 200)
         query = build_tweet_list_query(request.args)
         projection = {
             "_id": 1,
