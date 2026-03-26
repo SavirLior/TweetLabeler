@@ -5,6 +5,7 @@ import {
   deleteAllTweets,
   deleteTweet,
   getTweetPage,
+  getTweetRounds,
   saveAnnotation,
   saveTweet,
   updateTweets,
@@ -16,6 +17,7 @@ import { LogOut, Database, Lock, AlertTriangle, Copy, RefreshCw } from "lucide-r
 
 const PAGE_SIZE = 100;
 type StudentTab = "label" | "history" | "mistakes";
+type AdminRoundSelection = "ALL" | number;
 
 type RollbackState = {
   tweetsById?: Record<string, Tweet | undefined>;
@@ -33,6 +35,11 @@ const App: React.FC = () => {
   const [isFetching, setIsFetching] = useState(false);
   const [isInitialized, setIsInitialized] = useState(true);
   const [studentActiveTab, setStudentActiveTab] = useState<StudentTab>("label");
+  const [adminSelectedRound, setAdminSelectedRound] =
+    useState<AdminRoundSelection>("ALL");
+  const [adminRoundOptions, setAdminRoundOptions] = useState<number[]>([]);
+  const [adminCurrentRound, setAdminCurrentRound] = useState(1);
+  const [adminRoundReady, setAdminRoundReady] = useState(true);
 
   const [hasCriticalError, setHasCriticalError] = useState(false);
   const [lastFailedAction, setLastFailedAction] = useState<any>(null);
@@ -56,6 +63,9 @@ const App: React.FC = () => {
     if (tweets.length === 0) return 1;
     return Math.max(...tweets.map((t) => t.round || 1));
   }, [tweets]);
+
+  const displayedCurrentRound =
+    currentUser?.role === UserRole.Admin ? adminCurrentRound : currentAppRound;
 
   const mergePage = (items: Tweet[], mode: "replace" | "append") => {
     setTweetsById((prev) => {
@@ -146,6 +156,12 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     setStudentActiveTab("label");
+    if (user.role === UserRole.Admin) {
+      setAdminRoundReady(false);
+      setAdminSelectedRound("ALL");
+    } else {
+      setAdminRoundReady(true);
+    }
     setHasCriticalError(false);
     setLastFailedAction(null);
   };
@@ -158,6 +174,37 @@ const App: React.FC = () => {
     setHasMore(false);
     setIsInitialized(true);
     setStudentActiveTab("label");
+    setAdminSelectedRound("ALL");
+    setAdminRoundOptions([]);
+    setAdminCurrentRound(1);
+    setAdminRoundReady(true);
+  };
+
+  const loadAdminRoundMetadata = async (
+    signal?: AbortSignal,
+    options?: { resetSelection?: boolean },
+  ) => {
+    const roundsData = await getTweetRounds(signal);
+    if (signal?.aborted) return;
+
+    const normalizedRounds =
+      roundsData.rounds && roundsData.rounds.length > 0
+        ? [...roundsData.rounds].sort((a, b) => a - b)
+        : [1];
+    const nextCurrentRound =
+      roundsData.currentRound || normalizedRounds[normalizedRounds.length - 1] || 1;
+
+    setAdminRoundOptions(normalizedRounds);
+    setAdminCurrentRound(nextCurrentRound);
+    if (options?.resetSelection) {
+      setAdminSelectedRound(nextCurrentRound);
+    } else {
+      setAdminSelectedRound((prev) => {
+        if (prev === "ALL") return prev;
+        return normalizedRounds.includes(prev) ? prev : nextCurrentRound;
+      });
+    }
+    setAdminRoundReady(true);
   };
 
   const calculateFinalLabel = (
@@ -240,7 +287,11 @@ const App: React.FC = () => {
         : { limit: PAGE_SIZE, assignedTo: currentUser.username };
     }
 
-    return { limit: PAGE_SIZE };
+    if (adminSelectedRound === "ALL") {
+      return { limit: PAGE_SIZE };
+    }
+
+    return { limit: PAGE_SIZE, round: adminSelectedRound };
   };
 
   const loadTweetsFromApi = async (
@@ -251,6 +302,9 @@ const App: React.FC = () => {
     } = {},
   ) => {
     if (!currentUser) {
+      return;
+    }
+    if (currentUser.role === UserRole.Admin && !adminRoundReady) {
       return;
     }
 
@@ -319,11 +373,37 @@ const App: React.FC = () => {
       return;
     }
 
+    if (currentUser.role !== UserRole.Admin) {
+      setAdminRoundReady(true);
+      return;
+    }
+
+    const controller = new AbortController();
+    setAdminRoundReady(false);
+
+    loadAdminRoundMetadata(controller.signal, { resetSelection: true }).catch((error) => {
+      if (!controller.signal.aborted) {
+        console.error("Failed to load admin rounds metadata", error);
+        setAdminRoundOptions([1]);
+        setAdminCurrentRound(1);
+        setAdminSelectedRound(1);
+        setAdminRoundReady(true);
+      }
+    });
+
+    return () => controller.abort();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
     const controller = new AbortController();
     loadTweetsFromApi({ signal: controller.signal, blocking: true, lockOnError: true });
 
     return () => controller.abort();
-  }, [currentUser, studentActiveTab]);
+  }, [currentUser, studentActiveTab, adminSelectedRound, adminRoundReady]);
 
   const handleLabelTweet = async (
     tweetId: string,
@@ -641,6 +721,12 @@ const App: React.FC = () => {
       rollbackState,
       { type: "DELETE_ALL_TWEETS" },
     );
+
+    if (currentUser?.role === UserRole.Admin) {
+      loadAdminRoundMetadata(undefined, { resetSelection: false }).catch((error) => {
+        console.error("Failed to refresh rounds metadata after delete all", error);
+      });
+    }
   };
 
   const handleBulkUpdateTweets = async (updatedList: Tweet[]) => {
@@ -682,6 +768,12 @@ const App: React.FC = () => {
       { tweetsById: snapshotTweets(newIds), visibleIds: previousIds },
       { type: "ADD_TWEETS", count: withDefaults.length },
     );
+
+    if (currentUser?.role === UserRole.Admin) {
+      loadAdminRoundMetadata(undefined, { resetSelection: false }).catch((error) => {
+        console.error("Failed to refresh rounds metadata after add", error);
+      });
+    }
   };
 
   const handleChangePassword = async () => {
@@ -823,7 +915,7 @@ const App: React.FC = () => {
             <div className="flex items-center">
               <span className="text-xl font-bold text-blue-600">TweetLabeler</span>
               <span className="mr-4 px-2 py-1 bg-blue-100 rounded text-xs font-medium text-blue-800 border border-blue-200">
-                סבב נוכחי: {currentAppRound}
+                סבב נוכחי: {displayedCurrentRound}
               </span>
               <span className="mr-4 px-2 py-1 bg-gray-100 rounded text-xs font-medium text-gray-600">
                 גרסת מחקר v2.0
@@ -878,7 +970,10 @@ const App: React.FC = () => {
         {currentUser.role === UserRole.Admin ? (
           <AdminView
             tweets={tweets}
-            currentAppRound={currentAppRound}
+            currentAppRound={displayedCurrentRound}
+            selectedGlobalRound={adminSelectedRound}
+            availableGlobalRounds={adminRoundOptions}
+            onSelectedGlobalRoundChange={setAdminSelectedRound}
             onAdminLabelChange={handleAdminLabelChange}
             onAdminDeleteVote={handleAdminDeleteVote}
             onAddTweets={handleAddTweets}

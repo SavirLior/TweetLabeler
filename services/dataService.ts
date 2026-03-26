@@ -64,6 +64,12 @@ export type TweetPageResponse = {
   total?: number;
 };
 
+export type TweetRoundsResponse = {
+  rounds: number[];
+  currentRound: number;
+  totalRounds: number;
+};
+
 export type TweetDelta = {
   set?: Record<string, unknown>;
   unset?: string[];
@@ -145,6 +151,12 @@ export const getTweetPage = async (
     undefined,
     signal,
   );
+};
+
+export const getTweetRounds = async (
+  signal?: AbortSignal,
+): Promise<TweetRoundsResponse> => {
+  return apiRequest<TweetRoundsResponse>("/tweets/rounds", "GET", undefined, signal);
 };
 
 export const patchTweetDelta = async (

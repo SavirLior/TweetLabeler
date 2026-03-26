@@ -32,6 +32,9 @@ import {
 interface AdminViewProps {
   tweets: Tweet[];
   currentAppRound: number;
+  selectedGlobalRound: "ALL" | number;
+  availableGlobalRounds: number[];
+  onSelectedGlobalRoundChange: (round: "ALL" | number) => void;
   onAdminLabelChange: (
     tweetId: string,
     studentUsername: string,
@@ -68,6 +71,9 @@ interface AssignmentConfig {
 export const AdminView: React.FC<AdminViewProps> = ({
   tweets,
   currentAppRound,
+  selectedGlobalRound,
+  availableGlobalRounds,
+  onSelectedGlobalRoundChange,
   onAdminLabelChange,
   onAdminDeleteVote, // שימוש בפרופ החדש
   onAddTweets,
@@ -87,8 +93,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     useState<string>("all");
   const [selectedLabelFilter, setSelectedLabelFilter] = useState<string>("all");
   const [showConflictsOnly, setShowConflictsOnly] = useState(false);
-  const [selectedRoundFilter, setSelectedRoundFilter] = useState<"all" | number>("all");
-  const [resolvedRoundFilter, setResolvedRoundFilter] = useState<"all" | number>("all");
   const [resolvedStudentFilter, setResolvedStudentFilter] = useState<string>("all");
 
   // Available students list
@@ -305,11 +309,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
       // 1. Conflict Filter
       if (showConflictsOnly && !needsResolution(tweet)) return false;
 
-      // 1.5. Round Filter
-      if (selectedRoundFilter !== "all" && (tweet.round || 1) !== selectedRoundFilter) {
-        return false;
-      }
-
       // 2. Student Filter (NEW FIX)
       if (selectedStudentFilter !== "all") {
         const isAssignedToStudent = tweet.assignedTo?.includes(
@@ -336,20 +335,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
     showConflictsOnly,
     selectedLabelFilter,
     selectedStudentFilter,
-    selectedRoundFilter,
   ]);
-
-  const availableRounds = useMemo(() => {
-    const rounds = Array.from(new Set(tweets.map((tweet) => tweet.round || 1)));
-    return rounds.sort((a, b) => b - a);
-  }, [tweets]);
 
   const filteredResolvedConflictTweets = useMemo(() => {
     return resolvedConflictTweets.filter((tweet) => {
-      if (resolvedRoundFilter !== "all" && (tweet.round || 1) !== resolvedRoundFilter) {
-        return false;
-      }
-
       if (resolvedStudentFilter !== "all") {
         const participants = new Set([
           ...(tweet.assignedTo || []),
@@ -362,7 +351,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       return true;
     });
-  }, [resolvedConflictTweets, resolvedRoundFilter, resolvedStudentFilter]);
+  }, [resolvedConflictTweets, resolvedStudentFilter]);
 
   // Tweets that need resolution
   const resolutionTweets = useMemo(() => {
@@ -693,6 +682,47 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <Upload className="w-4 h-4" />
             העלאת נתונים
           </Button>
+        </div>
+      </div>
+
+      <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-blue-600" />
+            <span className="text-sm font-semibold text-gray-800">
+              Global round selector
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={
+                selectedGlobalRound === "ALL"
+                  ? "ALL"
+                  : String(selectedGlobalRound)
+              }
+              onChange={(e) => {
+                if (e.target.value === "ALL") {
+                  onSelectedGlobalRoundChange("ALL");
+                  return;
+                }
+                const parsed = Number(e.target.value);
+                if (!Number.isNaN(parsed)) {
+                  onSelectedGlobalRoundChange(Math.max(1, parsed));
+                }
+              }}
+              className="block w-44 pl-2 pr-8 py-2 text-sm border-blue-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md bg-white"
+            >
+              <option value="ALL">ALL rounds</option>
+              {availableGlobalRounds.map((round) => (
+                <option key={round} value={round}>
+                  Round {round}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-gray-500">
+              Active round: {currentAppRound}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1277,26 +1307,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-3 mb-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 whitespace-nowrap">Round</span>
-                <select
-                  value={resolvedRoundFilter}
-                  onChange={(e) =>
-                    setResolvedRoundFilter(
-                      e.target.value === "all" ? "all" : Number(e.target.value),
-                    )
-                  }
-                  className="block w-32 pl-2 pr-8 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
-                >
-                  <option value="all">All</option>
-                  {availableRounds.map((round) => (
-                    <option key={round} value={round}>
-                      Round {round}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600 whitespace-nowrap">Student</span>
                 <select
@@ -2059,31 +2069,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
                 {/* Filters */}
                 {/* --- תוקן: סלקטור לסטודנטים --- */}
-                <div className="flex items-center gap-2">
-                  <select
-                    value={selectedRoundFilter === "all" ? "all" : String(selectedRoundFilter)}
-                    onChange={(e) => {
-                      if (e.target.value === "all") {
-                        setSelectedRoundFilter("all");
-                        return;
-                      }
-                      const parsed = Number(e.target.value);
-                      if (!Number.isNaN(parsed)) {
-                        setSelectedRoundFilter(Math.max(1, parsed));
-                      }
-                    }}
-                    className="block w-32 pl-2 pr-8 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
-                    title="סינון לפי סבב"
-                  >
-                    <option value="all">כל הסבבים</option>
-                    {availableRounds.map((round) => (
-                      <option key={round} value={round}>
-                        סבב {round}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
                 <div className="flex items-center gap-2">
                   <select
                     value={selectedStudentFilter}

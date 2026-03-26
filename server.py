@@ -359,6 +359,19 @@ def serialize_tweet(tweet_doc):
     return serialized
 
 
+def build_round_filter_condition(round_value):
+    requested_round = max(1, int(round_value))
+    exact_values = [requested_round, str(requested_round)]
+    if requested_round == 1:
+        return {
+            "$or": [
+                {"round": {"$in": [*exact_values, 0, "0", None, ""]}},
+                {"round": {"$exists": False}},
+            ]
+        }
+    return {"round": {"$in": exact_values}}
+
+
 def build_tweet_list_query(args):
     query = base_tweet_query()
     assigned_to = args.get("assignedTo")
@@ -401,7 +414,8 @@ def build_tweet_list_query(args):
     if assigned_to:
         query["assignedTo"] = assigned_to
     if round_value not in (None, ""):
-        query["round"] = max(1, int(round_value))
+        round_condition = build_round_filter_condition(round_value)
+        query["$and"] = [*(query.get("$and") or []), round_condition]
     if final_label:
         query["finalLabel"] = final_label
     if conflict_only:
@@ -526,6 +540,51 @@ def list_tweets():
                 "items": [serialize_tweet(doc) for doc in docs],
                 "nextCursor": next_cursor,
                 "hasMore": has_more,
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/tweets/rounds", methods=["GET"])
+def list_tweet_rounds():
+    try:
+        init_db()
+        query = base_tweet_query()
+
+        rounds = []
+        distinct_rounds = tweets_collection.distinct("round", query)
+        for value in distinct_rounds:
+            try:
+                rounds.append(max(1, int(value)))
+            except (TypeError, ValueError):
+                continue
+
+        legacy_round_one_filter = {
+            "$and": [
+                query,
+                {
+                    "$or": [
+                        {"round": {"$exists": False}},
+                        {"round": {"$in": [None, "", 0, "0"]}},
+                    ]
+                },
+            ]
+        }
+        has_legacy_round_one = (
+            tweets_collection.count_documents(legacy_round_one_filter, limit=1) > 0
+        )
+        if has_legacy_round_one:
+            rounds.append(1)
+
+        normalized_rounds = sorted(set(rounds))
+        current_round = max(normalized_rounds) if normalized_rounds else 1
+
+        return jsonify(
+            {
+                "rounds": normalized_rounds,
+                "currentRound": current_round,
+                "totalRounds": len(normalized_rounds),
             }
         )
     except Exception as e:
