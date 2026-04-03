@@ -33,7 +33,7 @@ DATA_FILE = "data.json"
 CSV_FILE = "tweet_classifications.csv"
 
 # MongoDB configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://ofekmazor2121dbUser:4ZvTINrC6KAxmooT@fusion-tweets.9pn4kn4.mongodb.net/?appName=fusion-tweets")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://edenoren772_db_user:Ofek772468@cluster0.hs9wlnh.mongodb.net/?appName=Cluster0")
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "tweetlabeler")
 MONGO_TWEETS_COLLECTION = os.getenv("MONGO_TWEETS_COLLECTION", "tweets")
 MONGO_USERS_COLLECTION = os.getenv("MONGO_USERS_COLLECTION", "users")
