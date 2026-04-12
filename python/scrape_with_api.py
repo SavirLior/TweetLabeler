@@ -3,30 +3,25 @@ from apify_client import ApifyClient
 import re
 import datetime
 
-
-
 APIFY_TOKEN = "TOKEN"
 USERNAMES = [
+"@mk_muwahid",
+"@ImamZayd",
+"@Alien_Zaki",
+"@james3562675626",
+"@AbuIdrees",
+"@SeekIstighfar",
+"@zeyyxx_",
+"@mk_muwahid",
+"@bintabdirahman2",
 
-"@AbuQatada___",
-"@AbdulrahmanJii",
-"@TheMumMuslim",
-"@AOM18989",
-"@SabeelLeeds",
-"@MishalHusain",
-"@Ba_ups56",
-"@Sunnahakh1",
-"@alshishan_as",
-"@Halalnation_",
-"@al_Samancii",
-"@abu_txlha",
 
 ]
 
-MAX_TWEETS_PER_USER = 25
+MAX_TWEETS_PER_USER = 50
 
 # ==========================================
-# 2. פונקציות עזר
+# 2. Helper Functions
 # ==========================================
 
 def clean_text(text):
@@ -53,27 +48,27 @@ def format_date(date_str):
 
 def get_best_text(tweet_obj):
     """
-    הפונקציה שצדה את הטקסט הכי ארוך בתוך האובייקט
+    Function that catches the longest text within the object
     """
     if not isinstance(tweet_obj, dict):
         return ""
 
     candidates = []
-    # בדיקה בשדות הרגילים
+    # Check standard fields
     candidates.append(tweet_obj.get('fullText'))
     candidates.append(tweet_obj.get('text'))
     candidates.append(tweet_obj.get('full_text'))
 
-    # בדיקה בתוך extended_tweet
+    # Check inside extended_tweet
     if 'extended_tweet' in tweet_obj:
         candidates.append(tweet_obj['extended_tweet'].get('full_text'))
     
-    # בדיקה בתוך legacy
+    # Check inside legacy
     if 'legacy' in tweet_obj:
         candidates.append(tweet_obj['legacy'].get('full_text'))
         candidates.append(tweet_obj['legacy'].get('text'))
 
-    # סינון: זורקים None ובוחרים את הכי ארוך
+    # Filtering: discard None and pick the longest one
     valid_texts = [t for t in candidates if t and isinstance(t, str)]
     
     if not valid_texts:
@@ -82,20 +77,20 @@ def get_best_text(tweet_obj):
     return max(valid_texts, key=len)
 
 # ==========================================
-# 3. הפעלת הרובוט של Apify (החלק שתוקן)
+# 3. Running the Apify Actor (Fixed Part)
 # ==========================================
 
-print("🚀 מתחיל בהרצת הרובוט של Apify... זה יקח זמן בהתאם לכמות.")
+print("🚀 Starting the Apify actor... This will take time depending on the amount.")
 
 try:
     client = ApifyClient(APIFY_TOKEN)
 
-    # ✅ התיקון: שימוש ב-twitterHandles כפי שמופיע בממשק שעבד לך
+    # ✅ Fix: using twitterHandles as it appears in the interface that worked for you
     run_input = {
         "twitterHandles": USERNAMES,
         "maxItems": MAX_TWEETS_PER_USER * len(USERNAMES),
         "sort": "Latest",
-        "tweetLanguage": "en",  # עוזר לסנן מראש שפות לא רלוונטיות
+        "tweetLanguage": "en",  # Helps pre-filter irrelevant languages
         "includeSearchTerms": False,
         "onlyImage": False,
         "onlyQuote": False,
@@ -105,46 +100,46 @@ try:
         "customMapFunction": "(object) => { return {...object} }"
     }
 
-    print(f"📡 שולח בקשה עבור המשתמשים: {USERNAMES}")
+    print(f"📡 Sending request for users: {USERNAMES}")
 
     run = client.actor("apidojo/tweet-scraper").call(run_input=run_input)
     
-    print("✅ הסריקה הסתיימה! מוריד נתונים...")
+    print("✅ Scraping finished! Downloading data...")
     
     dataset_items = client.dataset(run["defaultDatasetId"]).list_items().items
 
 except Exception as e:
-    print(f"❌ שגיאה בהרצת Apify: {e}")
+    print(f"❌ Error running Apify: {e}")
     exit()
 
 # ==========================================
-# 4. עיבוד הנתונים (הלוגיקה שלך)
+# 4. Data Processing (Your logic)
 # ==========================================
 
 processed_rows = []
 skipped_arabic_count = 0
 
-print(f"📂 מעבד {len(dataset_items)} ציוצים...")
+print(f"📂 Processing {len(dataset_items)} tweets...")
 
 for item in dataset_items:
     if not isinstance(item, dict):
         continue
 
-    # --- פילטר שפה 1: ציוץ ראשי ---
+    # --- Language filter 1: Main tweet ---
     if item.get('lang') == 'ar':
         skipped_arabic_count += 1
         continue
 
-    # --- זיהוי ריטוויט וטקסט ראשי ---
+    # --- Identify retweet and main text ---
     rt_obj = item.get('retweet') or item.get('retweetedStatus') or item.get('retweeted_status') or item.get('retweetedTweet')
 
-    # --- פילטר שפה 2: תוכן הריטוויט ---
+    # --- Language filter 2: Retweet content ---
     if rt_obj and isinstance(rt_obj, dict):
         if rt_obj.get('lang') == 'ar':
             skipped_arabic_count += 1
             continue
 
-    # שליפת הטקסט
+    # Extracting the text
     final_user_text = ""
     is_retweet = False
 
@@ -158,7 +153,7 @@ for item in dataset_items:
     if not final_user_text:
         continue
 
-    # --- טיפול ב-Quote (ציטוט) ---
+    # --- Handling Quotes ---
     combined_text = ""
     is_quote = False
     quote_obj = item.get('quote') or item.get('quoted_status') or item.get('quotedTweet')
@@ -176,14 +171,14 @@ for item in dataset_items:
                 f'{final_user_text}'
             )
 
-    # --- בניית הטקסט הסופי ---
+    # --- Building the final text ---
     if not is_quote:
         if is_retweet:
             combined_text = f'[Retweeted]\n"{final_user_text}"'
         else:
             combined_text = final_user_text
 
-    # ניקוי
+    # Cleaning
     clean_combined_text = clean_text(combined_text)
 
     if clean_combined_text:
@@ -197,27 +192,27 @@ for item in dataset_items:
         })
 
 # ==========================================
-# 5. שמירה לקבצים
+# 5. Saving to files
 # ==========================================
 
 df = pd.DataFrame(processed_rows)
 
 if df.empty:
-    print("⚠️ לא נמצאו נתונים (או שהכל סונן).")
+    print("⚠️ No data found (or everything was filtered).")
 else:
-    # קובץ 1: מלא
-    file_full = "twitter_data_full_ALL2.csv"
+    # File 1: Full
+    file_full = "twitter_data_full_ALL3.csv"
     df.to_csv(file_full, index=False, encoding='utf-8-sig')
-    print(f"✅ נוצר קובץ מלא: {file_full}")
+    print(f"✅ Full file created: {file_full}")
 
-    # קובץ 2: טקסט בלבד לאתר
-    file_text_only = "twitter_text_only_ALL2.csv"
+    # File 2: Text only for the website
+    file_text_only = "twitter_text_only_ALL3.csv"
     df_text_only = df[['full_display_text']].rename(columns={'full_display_text': 'text'})
     
     df_text_only.to_csv(file_text_only, index=False, encoding='utf-8-sig')
     
     print("-" * 50)
-    print(f"✅ נוצר קובץ לאתר: {file_text_only}")
-    print(f"📥 סה\"כ נשמרו: {len(df)}")
-    print(f"🗑️ סוננו (ערבית): {skipped_arabic_count}")
+    print(f"✅ Website file created: {file_text_only}")
+    print(f"📥 Total saved: {len(df)}")
+    print(f"🗑️ Filtered (Arabic): {skipped_arabic_count}")
     print("-" * 50)
