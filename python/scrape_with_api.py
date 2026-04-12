@@ -8,14 +8,13 @@ USERNAMES = [
 "@mk_muwahid",
 "@ImamZayd",
 "@Alien_Zaki",
+'@Adz17',
 "@james3562675626",
 "@AbuIdrees",
 "@SeekIstighfar",
 "@zeyyxx_",
 "@mk_muwahid",
 "@bintabdirahman2",
-
-
 ]
 
 MAX_TWEETS_PER_USER = 50
