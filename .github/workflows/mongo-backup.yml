@@ -1,0 +1,29 @@
+name: Daily MongoDB to S3 Backup
+
+on:
+  schedule:
+    # רץ כל יום ב-09:39 UTC שזה 12:39 שעון ישראל
+    - cron: '41 9 * * *'
+  workflow_dispatch: # מאפשר להריץ את הגיבוי באופן ידני בלחיצת כפתור בגיטהאב לבדיקה
+
+jobs:
+  backup-to-s3:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Backup using mongodump (Docker)
+        run: |
+          echo "Starting MongoDB backup..."
+          docker run --rm -v ${{ github.workspace }}:/backup mongo:latest mongodump --uri="${{ secrets.MONGO_URI }}" --archive=/backup/my_project_backup_$(date +%Y%m%d).gz --gzip
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1 # מוגדר לאזור צפון וירג'יניה
+
+      - name: Upload Backup to S3
+        run: |
+          echo "Uploading backup to S3 bucket..."
+          aws s3 cp my_project_backup_*.gz s3://${{ secrets.AWS_S3_BUCKET }}/backups/
+          echo "Backup uploaded successfully!"
