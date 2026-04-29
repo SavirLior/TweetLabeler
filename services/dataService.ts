@@ -3,6 +3,17 @@ import { Tweet, User, UserRole } from "../types";
 const API_URL = "/api";
 
 type ApiError = Error & { status?: number };
+let apiAuthUser: Pick<User, "username" | "role" | "sessionToken"> | null = null;
+
+export const setApiAuthUser = (user: User | null) => {
+  apiAuthUser = user
+    ? {
+        username: user.username,
+        role: user.role,
+        sessionToken: user.sessionToken,
+      }
+    : null;
+};
 
 const apiRequest = async <T>(
   endpoint: string,
@@ -19,7 +30,16 @@ const apiRequest = async <T>(
   try {
     const options: RequestInit = {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(apiAuthUser?.sessionToken
+          ? {
+              "X-Username": apiAuthUser.username,
+              "X-User-Role": apiAuthUser.role,
+              "X-Session-Token": apiAuthUser.sessionToken,
+            }
+          : {}),
+      },
       signal: controller.signal,
     };
     if (body !== undefined) {
@@ -55,6 +75,7 @@ export type TweetPageQuery = {
   finalLabel?: string;
   conflictOnly?: boolean;
   round?: number;
+  includeModelData?: boolean;
 };
 
 export type TweetPageResponse = {
@@ -144,6 +165,7 @@ export const getTweetPage = async (
   if (q.finalLabel) params.set("finalLabel", q.finalLabel);
   if (q.conflictOnly) params.set("conflictOnly", "true");
   if (q.round !== undefined) params.set("round", String(q.round));
+  if (q.includeModelData) params.set("includeModelData", "true");
 
   return apiRequest<TweetPageResponse>(
     `/tweets${params.toString() ? `?${params.toString()}` : ""}`,

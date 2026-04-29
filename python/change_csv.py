@@ -1,11 +1,30 @@
 import pandas as pd
+import numpy as np
 
-# Load the source CSV
-df = pd.read_csv('tweets_from_the_site3.csv')
+input_filename = 'extrenal_predictions (3).csv'
+output_filename = 'all_uncertain_tweets_max0100.csv'
 
-# Filter by 'Salafi jihadi' and select only text and label columns
-# Note: Ensure 'text' and 'Final Decision' match your actual column headers
-filtered_data = df[df['Final Decision'] == 'Salafi jihadi'][['Text', 'Final Decision']]
+try:
+    df = pd.read_csv(input_filename)
+    
+    prob_cols = ['label_Irrelevant', 'label_Salafi jihadi', 'label_Salafi taklidi']
+    
+    df['max_prob'] = df[prob_cols].max(axis=1)
+    
+    filtered_df = df[df['max_prob'] <= 1].copy()
+    
+    best_label = filtered_df[prob_cols].idxmax(axis=1).str.replace('label_', '')
+    
+    filtered_df['model_decision'] = np.where(
+        filtered_df['max_prob'] < 0.5,
+        "No decision, maximum is " + best_label,
+        best_label
+    )
+    
+    filtered_df['uncertainty_score'] = filtered_df[prob_cols].apply(lambda x: min(abs(x - 0.5)), axis=1)
+    
+    filtered_df.to_csv(output_filename, index=False, encoding='utf-8-sig')
+    print(f"Success! Saved {len(filtered_df)} tweets to '{output_filename}'")
 
-# Save to the destination CSV
-filtered_data.to_csv('destination3.csv', index=False)
+except Exception as e:
+    print(f"Error: {e}")

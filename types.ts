@@ -7,6 +7,7 @@ export interface User {
   username: string;
   password?: string;
   role: UserRole;
+  sessionToken?: string;
 }
 
 export enum LabelOption {
@@ -33,6 +34,9 @@ export interface Tweet {
   _id?: string;
   id: string;
   text: string;
+  // Admin-only model prediction metadata imported with tweet uploads.
+  model_decision?: string;
+  modelProbabilities?: Record<string, number>;
   // List of usernames who are assigned to label this tweet
   assignedTo?: string[];
   // Map username to the annotation they chose

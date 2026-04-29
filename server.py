@@ -8,6 +8,7 @@ import json
 import os
 import csv
 import io
+import secrets
 from datetime import datetime
 MASTERPASS = "mazor102030"
 
@@ -23,7 +24,7 @@ CORS(
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Username, X-User-Role, X-Session-Token"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
@@ -43,6 +44,7 @@ db = mongo_client[MONGO_DB_NAME]
 tweets_collection = db[MONGO_TWEETS_COLLECTION]
 users_collection = db[MONGO_USERS_COLLECTION]
 db_initialized = False
+session_tokens = {}
 HASH_PREFIXES = ("pbkdf2:", "scrypt:", "argon2:")
 UNRESOLVED_FINAL_LABELS = {
     "",
@@ -52,6 +54,8 @@ UNRESOLVED_FINAL_LABELS = {
     "conflict",
     "conflict (unresolved)",
 }
+MODEL_PROBABILITY_PREFIX = "label_"
+MODEL_DATA_FIELDS = ("model_decision", "modelProbabilities")
 
 # Helper functions
 def init_db():
@@ -81,6 +85,49 @@ def init_db():
     backfill_conflict_history()
     db_initialized = True
 
+def normalize_model_metadata(tweet_doc):
+    """Keep model prediction metadata in a consistent nested shape."""
+    if not isinstance(tweet_doc, dict):
+        return tweet_doc
+
+    probabilities = tweet_doc.get("modelProbabilities")
+    if not isinstance(probabilities, dict):
+        probabilities = {}
+
+    for key, value in list(tweet_doc.items()):
+        if not isinstance(key, str) or not key.startswith(MODEL_PROBABILITY_PREFIX):
+            continue
+        label = key[len(MODEL_PROBABILITY_PREFIX):].replace("_", " ").strip()
+        if not label:
+            continue
+        try:
+            probabilities[label] = float(value)
+        except (TypeError, ValueError):
+            probabilities[label] = value
+
+    if probabilities:
+        tweet_doc["modelProbabilities"] = probabilities
+
+    return tweet_doc
+
+def can_include_model_data(args):
+    if args.get("includeModelData") != "true":
+        return False
+
+    username = request.headers.get("X-Username")
+    role = request.headers.get("X-User-Role")
+    session_token = request.headers.get("X-Session-Token")
+    if not username or not session_token:
+        return False
+
+    session = session_tokens.get(session_token)
+    return bool(
+        session
+        and session.get("username") == username
+        and role == "admin"
+        and session.get("role") == "admin"
+    )
+
 def migrate_from_file():
     if not os.path.exists(DATA_FILE):
         return
@@ -98,6 +145,7 @@ def migrate_from_file():
             if password and not is_password_hash(password):
                 user["password"] = generate_password_hash(password)
         for tweet in tweets:
+            normalize_model_metadata(tweet)
             tweet.setdefault("v", 0)
             tweet.setdefault("updatedAt", datetime.utcnow())
         if tweets:
@@ -484,7 +532,28 @@ def get_data():
     """Get all tweets and users"""
     try:
         init_db()
-        tweets = list(tweets_collection.find(base_tweet_query(), {"_id": 0}))
+        projection = {
+            "_id": 0,
+            "id": 1,
+            "text": 1,
+            "round": 1,
+            "assignedTo": 1,
+            "annotations": 1,
+            "annotationFeatures": 1,
+            "annotationTimestamps": 1,
+            "finalLabel": 1,
+            "resolutionReason": 1,
+            "wasInConflict": 1,
+            "conflictHistoryDismissed": 1,
+            "conflictDetectedAt": 1,
+            "conflictResolvedAt": 1,
+            "updatedAt": 1,
+            "v": 1,
+        }
+        if can_include_model_data(request.args):
+            for field in MODEL_DATA_FIELDS:
+                projection[field] = 1
+        tweets = list(tweets_collection.find(base_tweet_query(), projection))
         users = list(users_collection.find({}, {"_id": 0, "password": 0}))
         return jsonify({"tweets": tweets, "users": users})
     except PyMongoError as e:
@@ -527,6 +596,9 @@ def list_tweets():
             "updatedAt": 1,
             "v": 1,
         }
+        if can_include_model_data(request.args):
+            for field in MODEL_DATA_FIELDS:
+                projection[field] = 1
 
         docs = list(
             tweets_collection.find(query, projection).sort("_id", 1).limit(limit + 1)
@@ -600,6 +672,7 @@ def save_tweet():
             return jsonify({"success": False, "error": "Missing tweet id"}), 400
         set_payload = {}
         unset_fields = []
+        normalize_model_metadata(tweet)
         for key, value in tweet.items():
             if key == "_id":
                 continue
@@ -665,6 +738,7 @@ def update_tweets_bulk():
         for tweet in updated_tweets:
             set_payload = {}
             unset_fields = []
+            normalize_model_metadata(tweet)
             for key, value in tweet.items():
                 if key == "_id":
                     continue
@@ -738,6 +812,7 @@ def add_tweets():
         now = datetime.now()
         for tweet in new_tweets:
             tweet_doc = {k: v for k, v in tweet.items() if k != "_id"}
+            normalize_model_metadata(tweet_doc)
             tweet_doc["updatedAt"] = now
             tweet_doc.setdefault("v", 0)
             operations.append(
@@ -798,12 +873,18 @@ def register_user():
         if users_collection.find_one({"username": new_user["username"]}):
             return jsonify({"success": False, "error": "Username already exists"}), 400
             
-        user_doc = {k: v for k, v in new_user.items() if k != "_id"}
+        user_doc = {k: v for k, v in new_user.items() if k not in ("_id", "sessionToken")}
         user_doc["password"] = generate_password_hash(new_user["password"])
         users_collection.insert_one(user_doc)
         user_response = {
             k: v for k, v in user_doc.items() if k not in ("password", "_id")
         }
+        session_token = secrets.token_urlsafe(32)
+        session_tokens[session_token] = {
+            "username": user_response.get("username"),
+            "role": user_response.get("role"),
+        }
+        user_response["sessionToken"] = session_token
         
         return jsonify(user_response)
         
@@ -836,6 +917,12 @@ def login_user():
             )
 
         user_response = {k: v for k, v in user.items() if k not in ("password", "_id")}
+        session_token = secrets.token_urlsafe(32)
+        session_tokens[session_token] = {
+            "username": user_response.get("username"),
+            "role": user_response.get("role"),
+        }
+        user_response["sessionToken"] = session_token
         return jsonify(user_response)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

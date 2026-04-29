@@ -8,6 +8,7 @@ import {
   getTweetRounds,
   saveAnnotation,
   saveTweet,
+  setApiAuthUser,
   updateTweets,
 } from "./services/dataService";
 import { Login } from "./components/Login";
@@ -24,6 +25,11 @@ type RollbackState = {
   visibleIds?: string[];
   nextCursor?: string | null;
   hasMore?: boolean;
+};
+
+const stripModelData = (tweet: Tweet): Tweet => {
+  const { model_decision, modelProbabilities, ...studentSafeTweet } = tweet;
+  return studentSafeTweet;
 };
 
 const App: React.FC = () => {
@@ -155,6 +161,7 @@ const App: React.FC = () => {
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    setApiAuthUser(user);
     setStudentActiveTab("label");
     if (user.role === UserRole.Admin) {
       setAdminRoundReady(false);
@@ -168,6 +175,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setApiAuthUser(null);
     setTweetsById({});
     setVisibleIds([]);
     setNextCursor(null);
@@ -287,11 +295,15 @@ const App: React.FC = () => {
         : { limit: PAGE_SIZE, assignedTo: currentUser.username };
     }
 
+    const adminModelAccess = {
+      includeModelData: true,
+    };
+
     if (adminSelectedRound === "ALL") {
-      return { limit: PAGE_SIZE };
+      return { limit: PAGE_SIZE, ...adminModelAccess };
     }
 
-    return { limit: PAGE_SIZE, round: adminSelectedRound };
+    return { limit: PAGE_SIZE, round: adminSelectedRound, ...adminModelAccess };
   };
 
   const loadTweetsFromApi = async (
@@ -987,7 +999,7 @@ const App: React.FC = () => {
         ) : (
           <StudentView
             user={currentUser}
-            tweets={tweets}
+            tweets={tweets.map(stripModelData)}
             currentAppRound={currentAppRound}
             activeTab={studentActiveTab}
             onActiveTabChange={setStudentActiveTab}

@@ -27,6 +27,7 @@ import {
   HelpCircle,
   Gavel,
   Check,
+  Bot,
 } from "lucide-react";
 
 interface AdminViewProps {
@@ -60,6 +61,8 @@ interface DraftTweet {
   tempId: string;
   text: string;
   assignedTo: string[];
+  model_decision?: string;
+  modelProbabilities?: Record<string, number>;
 }
 
 // Interface for Auto Assignment Config
@@ -373,46 +376,67 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setPasteText("");
   };
 
-  // --- פונקציית עזר חדשה לפירוק CSV (להוסיף לפני handleFileUpload) ---
   const parseCSV = (text: string) => {
-    const results: string[] = [];
-    let currentLine = "";
+    const rows: string[][] = [];
+    let currentCell = "";
+    let currentRow: string[] = [];
     let inQuotes = false;
 
     for (let i = 0; i < text.length; i++) {
       const char = text[i];
       const nextChar = text[i + 1];
 
-      // טיפול במירכאות
       if (char === '"') {
         if (inQuotes && nextChar === '"') {
-          // מירכאות כפולות בתוך טקסט נשמרות כאחת ("")
-          currentLine += '"';
+          currentCell += '"';
           i++;
         } else {
-          // כניסה או יציאה ממצב ציטוט
           inQuotes = !inQuotes;
         }
-      }
-      // טיפול בירידת שורה (רק אם אנחנו לא בתוך ציטוט)
-      else if ((char === "\n" || char === "\r") && !inQuotes) {
-        if (currentLine.trim()) {
-          results.push(currentLine);
+      } else if (char === "," && !inQuotes) {
+        currentRow.push(currentCell);
+        currentCell = "";
+      } else if ((char === "\n" || char === "\r") && !inQuotes) {
+        currentRow.push(currentCell);
+        if (currentRow.some((cell) => cell.trim().length > 0)) {
+          rows.push(currentRow);
         }
-        currentLine = "";
-        // דילוג על \r\n אם קיים
+        currentRow = [];
+        currentCell = "";
         if (char === "\r" && nextChar === "\n") i++;
       } else {
-        currentLine += char;
+        currentCell += char;
       }
     }
-    // הוספת השורה האחרונה
-    if (currentLine.trim()) results.push(currentLine);
 
-    return results;
+    currentRow.push(currentCell);
+    if (currentRow.some((cell) => cell.trim().length > 0)) {
+      rows.push(currentRow);
+    }
+
+    return rows;
   };
 
-  // --- הפונקציה המעודכנת ---
+  const normalizeCsvHeader = (header: string) =>
+    header
+      .replace(/^\uFEFF/, "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_");
+
+  const modelProbabilityLabel = (header: string) =>
+    header
+      .replace(/^\uFEFF/, "")
+      .trim()
+      .replace(/^label[_\s-]*/i, "")
+      .replace(/_/g, " ")
+      .trim();
+
+  const parseProbability = (value: string) => {
+    const parsed = Number(value.trim());
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -420,24 +444,58 @@ export const AdminView: React.FC<AdminViewProps> = ({
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
-        // שימוש בפונקציה החדשה במקום split רגיל
-        const lines = parseCSV(content);
+        const rows = parseCSV(content);
+        if (rows.length === 0) return;
 
-        const newDrafts: DraftTweet[] = lines
-          .map((line) => {
-            let text = line.trim();
-            // ניקוי מירכאות חיצוניות של CSV
-            if (text.startsWith('"') && text.endsWith('"')) {
-              // הסרת מירכאות עוטפות והחזרת מירכאות כפולות לרגילות
-              text = text.slice(1, -1).replace(/""/g, '"');
+        const headers = rows[0].map(normalizeCsvHeader);
+        const textIndex = headers.findIndex((header) =>
+          ["text", "tweet", "tweet_text", "content"].includes(header),
+        );
+        const modelDecisionIndex = headers.findIndex(
+          (header) => header === "model_decision",
+        );
+        const probabilityIndexes = headers
+          .map((header, index) => ({ header, index }))
+          .filter(({ header }) => header.startsWith("label_"));
+        const hasStructuredHeader =
+          textIndex >= 0 ||
+          modelDecisionIndex >= 0 ||
+          probabilityIndexes.length > 0;
+        const dataRows = hasStructuredHeader ? rows.slice(1) : rows;
+
+        const newDrafts: DraftTweet[] = dataRows
+          .map((row) => {
+            const text = (
+              hasStructuredHeader ? row[textIndex >= 0 ? textIndex : 0] : row.join(",")
+            )?.trim();
+
+            const modelDecision =
+              modelDecisionIndex >= 0 ? row[modelDecisionIndex]?.trim() : "";
+            const modelProbabilities: Record<string, number> = {};
+            probabilityIndexes.forEach(({ index }) => {
+              const label = modelProbabilityLabel(rows[0][index] || "");
+              const probability = parseProbability(row[index] || "");
+              if (label && probability !== undefined) {
+                modelProbabilities[label] = probability;
+              }
+            });
+
+            if (!text) {
+              return null;
             }
 
             return {
               tempId: Math.random().toString(36).substr(2, 9),
-              text: text,
+              text,
               assignedTo: [],
+              model_decision: modelDecision || undefined,
+              modelProbabilities:
+                Object.keys(modelProbabilities).length > 0
+                  ? modelProbabilities
+                  : undefined,
             };
           })
+          .filter((draft): draft is DraftTweet => Boolean(draft))
           .filter(
             (d) =>
               d.text.toLowerCase() !== "text" &&
@@ -494,6 +552,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
       round: uploadRound,
       annotations: {},
       assignedTo: draft.assignedTo.length > 0 ? draft.assignedTo : undefined,
+      model_decision: draft.model_decision,
+      modelProbabilities: draft.modelProbabilities,
     }));
     onAddTweets(newTweets);
     setDraftTweets([]);
@@ -586,6 +646,34 @@ export const AdminView: React.FC<AdminViewProps> = ({
       default:
         return "bg-white text-gray-900 border-gray-300";
     }
+  };
+
+  const formatModelTooltip = (tweet: Pick<Tweet, "modelProbabilities">) => {
+    const probabilities = tweet.modelProbabilities || {};
+    const entries = Object.entries(probabilities);
+    if (entries.length === 0) return "Model prediction";
+
+    return entries
+      .map(([label, probability]) => `${label}: ${(probability * 100).toFixed(1)}%`)
+      .join("\n");
+  };
+
+  const ModelDecisionBadge = ({
+    tweet,
+  }: {
+    tweet: Pick<Tweet, "model_decision" | "modelProbabilities">;
+  }) => {
+    if (!tweet.model_decision) return null;
+
+    return (
+      <span
+        title={formatModelTooltip(tweet)}
+        className="inline-flex w-fit items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-800 shadow-sm"
+      >
+        <Bot className="h-3 w-3" />
+        מודל: {tweet.model_decision}
+      </span>
+    );
   };
 
   // For chart colors (Backgrounds)
@@ -907,6 +995,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <p className="text-lg leading-relaxed text-gray-800 font-medium">
                   "{editingTweet.text}"
                 </p>
+                <div className="mt-3">
+                  <ModelDecisionBadge tweet={editingTweet} />
+                </div>
               </div>
 
               {/* Final Label Selection */}
@@ -1191,6 +1282,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       <p className="text-gray-900 font-medium mb-4 text-lg">
                         "{tweet.text}"
                       </p>
+                      <div className="mb-4">
+                        <ModelDecisionBadge tweet={tweet} />
+                      </div>
 
                       <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 mb-4">
                         <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">
@@ -1398,6 +1492,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <p className="text-gray-900 font-medium mb-4 text-lg">
                       "{tweet.text}"
                     </p>
+                    <div className="mb-4">
+                      <ModelDecisionBadge tweet={tweet} />
+                    </div>
 
                     {tweet.resolutionReason?.trim() && (
                       <div className="mb-4 rounded-lg border border-blue-100 bg-blue-50 p-3">
@@ -1491,6 +1588,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <li>
                   אין צורך בכותרות, אך אם השורה הראשונה היא 'text' או 'tweet',
                   המערכת תסנן אותה.
+                </li>
+                <li>
+                  בקובץ עם עמודות, ניתן לכלול גם model_decision ועמודות
+                  הסתברות שמתחילות ב-label_.
                 </li>
                 <li>מומלץ להסיר תווים מיוחדים שעלולים לשבש את הקריאה.</li>
               </ul>
@@ -1600,6 +1701,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         תוכן הציוץ
                       </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
+                        החלטת מודל
+                      </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
                         שיוך לסטודנטים
                       </th>
@@ -1614,6 +1718,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {draft.text}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <ModelDecisionBadge tweet={draft} />
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <div className="flex flex-wrap gap-2">
@@ -2121,6 +2228,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs">
                         תוכן הציוץ
                       </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-36">
+                        החלטת מודל
+                      </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                         סיווג סופי
                       </th>
@@ -2195,6 +2305,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             >
                               {tweet.text}
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
+                            <ModelDecisionBadge tweet={tweet} />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
                             {tweet.finalLabel &&
