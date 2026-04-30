@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 
-input_filename = 'extrenal_predictions (3).csv'
-output_filename = 'all_uncertain_tweets_max0100.csv'
+input_filename = 'extrenal_predictions_british_M.csv'
+output_filename = 'british_Muslim_uncertain_tweets_max090.csv'
 
 try:
     df = pd.read_csv(input_filename)
@@ -11,7 +11,7 @@ try:
     
     df['max_prob'] = df[prob_cols].max(axis=1)
     
-    filtered_df = df[df['max_prob'] <= 1].copy()
+    filtered_df = df[df['max_prob'] <= 0.9].copy()
     
     best_label = filtered_df[prob_cols].idxmax(axis=1).str.replace('label_', '')
     
