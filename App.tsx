@@ -27,9 +27,61 @@ type RollbackState = {
   hasMore?: boolean;
 };
 
+type ErrorDetails = {
+  message: string;
+  name?: string;
+  stack?: string;
+  status?: number;
+  responseBody?: unknown;
+  context?: string;
+  actionData?: unknown;
+};
+
 const stripModelData = (tweet: Tweet): Tweet => {
   const { model_decision, modelProbabilities, ...studentSafeTweet } = tweet;
   return studentSafeTweet;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const normalizeTweet = (tweet: Tweet): Tweet => ({
+  ...tweet,
+  assignedTo: Array.isArray(tweet.assignedTo) ? tweet.assignedTo : [],
+  annotations: isRecord(tweet.annotations) ? tweet.annotations : {},
+  annotationFeatures: isRecord(tweet.annotationFeatures) ? tweet.annotationFeatures : {},
+  annotationTimestamps: isRecord(tweet.annotationTimestamps)
+    ? tweet.annotationTimestamps
+    : {},
+});
+
+const toErrorDetails = (
+  error: unknown,
+  context?: string,
+  actionData?: unknown,
+): ErrorDetails => {
+  if (error instanceof Error) {
+    const maybeApiError = error as Error & {
+      status?: number;
+      responseBody?: unknown;
+    };
+    return {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      status: maybeApiError.status,
+      responseBody: maybeApiError.responseBody,
+      context,
+      actionData,
+    };
+  }
+
+  return {
+    message:
+      typeof error === "string" ? error : "Non-Error exception was thrown",
+    context,
+    actionData,
+  };
 };
 
 const App: React.FC = () => {
@@ -74,9 +126,11 @@ const App: React.FC = () => {
     currentUser?.role === UserRole.Admin ? adminCurrentRound : currentAppRound;
 
   const mergePage = (items: Tweet[], mode: "replace" | "append") => {
+    const normalizedItems = items.map(normalizeTweet);
+
     setTweetsById((prev) => {
       const next = mode === "replace" ? {} : { ...prev };
-      items.forEach((tweet) => {
+      normalizedItems.forEach((tweet) => {
         next[tweet.id] = tweet;
       });
       return next;
@@ -84,12 +138,12 @@ const App: React.FC = () => {
 
     setVisibleIds((prev) => {
       if (mode === "replace") {
-        return items.map((tweet) => tweet.id);
+        return normalizedItems.map((tweet) => tweet.id);
       }
 
       const seen = new Set(prev);
       const appended = [...prev];
-      items.forEach((tweet) => {
+      normalizedItems.forEach((tweet) => {
         if (!seen.has(tweet.id)) {
           seen.add(tweet.id);
           appended.push(tweet.id);
@@ -152,8 +206,10 @@ const App: React.FC = () => {
       await apiCall();
       localStorage.removeItem("pending_action_backup");
     } catch (error) {
+      const errorDetails = toErrorDetails(error, "executeSafeRequest", actionData);
       console.error("CRITICAL API FAILURE - SYSTEM LOCKED", error);
-      setLastFailedAction(actionData);
+      console.error("Critical API failure details", errorDetails);
+      setLastFailedAction(errorDetails);
       applyRollback(rollbackState);
       setHasCriticalError(true);
     }
@@ -360,8 +416,11 @@ const App: React.FC = () => {
       }
     } catch (error) {
       if (!signal?.aborted) {
+        const errorDetails = toErrorDetails(error, "loadTweetsFromApi", query);
         console.error("Failed to load tweets", error);
+        console.error("Failed to load tweets details", errorDetails);
         if (lockOnError) {
+          setLastFailedAction(errorDetails);
           setHasCriticalError(true);
         }
         if (blocking) {

@@ -53,6 +53,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         }
       }
     } catch (err: any) {
+      console.error("Login request failed", err);
       setError(err.message || 'אירעה שגיאה');
     } finally {
       setIsLoading(false);

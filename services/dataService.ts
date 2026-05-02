@@ -2,7 +2,10 @@ import { Tweet, User, UserRole } from "../types";
 
 const API_URL = "/api";
 
-type ApiError = Error & { status?: number };
+type ApiError = Error & {
+  status?: number;
+  responseBody?: unknown;
+};
 let apiAuthUser: Pick<User, "username" | "role" | "sessionToken"> | null = null;
 
 export const setApiAuthUser = (user: User | null) => {
@@ -34,9 +37,9 @@ const apiRequest = async <T>(
         "Content-Type": "application/json",
         ...(apiAuthUser?.sessionToken
           ? {
-              "X-Username": apiAuthUser.username,
-              "X-User-Role": apiAuthUser.role,
-              "X-Session-Token": apiAuthUser.sessionToken,
+              "X-Username": encodeURIComponent(apiAuthUser.username),
+              "X-User-Role": encodeURIComponent(apiAuthUser.role),
+              "X-Session-Token": encodeURIComponent(apiAuthUser.sessionToken),
             }
           : {}),
       },
@@ -50,8 +53,18 @@ const apiRequest = async <T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = new Error(`API Error: ${response.statusText}`) as ApiError;
+      let responseBody: unknown;
+      try {
+        responseBody = await response.json();
+      } catch {
+        responseBody = await response.text();
+      }
+
+      const error = new Error(
+        `API Error ${response.status}: ${response.statusText}`,
+      ) as ApiError;
       error.status = response.status;
+      error.responseBody = responseBody;
       throw error;
     }
 

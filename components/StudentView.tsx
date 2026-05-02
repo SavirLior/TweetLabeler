@@ -59,12 +59,12 @@ export const StudentView: React.FC<StudentViewProps> = ({
 
   // Tweets that have NOT been labeled by this user
   const unlabeledTweets = useMemo(() => {
-    return myTweets.filter((t: Tweet) => !t.annotations[user.username]);
+    return myTweets.filter((t: Tweet) => !t.annotations?.[user.username]);
   }, [myTweets, user.username]);
 
   // Tweets that HAVE been labeled by this user, filtered and sorted
   const labeledTweets = useMemo(() => {
-    let result = myTweets.filter((t: Tweet) => t.annotations[user.username]);
+    let result = myTweets.filter((t: Tweet) => t.annotations?.[user.username]);
 
     if (historyRoundFilter !== "all") {
       result = result.filter((t: Tweet) => (t.round || 1) === historyRoundFilter);
@@ -109,7 +109,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
   const progress = useMemo(() => {
     if (myTweets.length === 0) return 0;
     const completedCount = myTweets.filter(
-      (t: Tweet) => t.annotations[user.username]
+      (t: Tweet) => t.annotations?.[user.username]
     ).length;
     return Math.round((completedCount / myTweets.length) * 100);
   }, [myTweets.length, myTweets, user.username]);
@@ -528,7 +528,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {labeledTweets.map((tweet: Tweet) => {
-                    const currentLabel = tweet.annotations[user.username];
+                    const currentLabel = tweet.annotations?.[user.username] || "";
                     const currentFeatures =
                       tweet.annotationFeatures?.[user.username] || [];
                     const timestamp =
@@ -648,7 +648,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
           </div>
           {mistakesTweets.length > 0 ? (
             mistakesTweets.map((tweet) => {
-              const myLabel = tweet.annotations[user.username];
+              const myLabel = tweet.annotations?.[user.username];
               return (
                 <div
                   key={tweet.id}
