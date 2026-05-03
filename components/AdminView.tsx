@@ -96,6 +96,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     useState<string>("all");
   const [selectedLabelFilter, setSelectedLabelFilter] = useState<string>("all");
   const [showConflictsOnly, setShowConflictsOnly] = useState(false);
+  const [showModelConflictsOnly, setShowModelConflictsOnly] = useState(false);
   const [resolvedStudentFilter, setResolvedStudentFilter] = useState<string>("all");
 
   // Available students list
@@ -141,6 +142,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const isResolvedFinalLabel = (value?: string) =>
     Boolean(value && value !== "CONFLICT" && value !== LabelOption.Skip);
+
+  const normalizeDecisionLabel = (value?: string) =>
+    (value || "").trim().toLowerCase();
+
+  const hasModelDecisionConflict = (tweet: Tweet) =>
+    Boolean(
+      tweet.model_decision &&
+        isResolvedFinalLabel(tweet.finalLabel) &&
+        normalizeDecisionLabel(tweet.finalLabel) !==
+          normalizeDecisionLabel(tweet.model_decision),
+    );
 
   const hasHistoricalConflict = (tweet: Tweet) =>
     Boolean(tweet.wasInConflict || isConflictLikeFinalLabel(tweet.finalLabel));
@@ -254,6 +266,63 @@ export const AdminView: React.FC<AdminViewProps> = ({
     };
   }, [tweets, availableStudents]);
 
+  const modelDecisionStats = useMemo(() => {
+    const comparableTweets = tweets.filter(
+      (tweet) => tweet.model_decision && isResolvedFinalLabel(tweet.finalLabel),
+    );
+    const wrongPairs: Record<string, number> = {};
+    const wrongByFinalLabel: Record<string, number> = {};
+    const totalsByFinalLabel: Record<string, number> = {};
+    let matchingCount = 0;
+
+    comparableTweets.forEach((tweet) => {
+      const finalLabel = tweet.finalLabel || "";
+      const modelDecision = tweet.model_decision || "";
+      totalsByFinalLabel[finalLabel] = (totalsByFinalLabel[finalLabel] || 0) + 1;
+
+      if (
+        normalizeDecisionLabel(finalLabel) === normalizeDecisionLabel(modelDecision)
+      ) {
+        matchingCount += 1;
+        return;
+      }
+
+      const pairKey = `${finalLabel}|||${modelDecision}`;
+      wrongPairs[pairKey] = (wrongPairs[pairKey] || 0) + 1;
+      wrongByFinalLabel[finalLabel] = (wrongByFinalLabel[finalLabel] || 0) + 1;
+    });
+
+    const conflictCount = comparableTweets.length - matchingCount;
+    const accuracy =
+      comparableTweets.length > 0
+        ? Math.round((matchingCount / comparableTweets.length) * 100)
+        : 0;
+
+    const wrongPairRows = Object.entries(wrongPairs)
+      .map(([key, count]) => {
+        const [finalLabel, modelDecision] = key.split("|||");
+        return { finalLabel, modelDecision, count };
+      })
+      .sort((a, b) => b.count - a.count || a.finalLabel.localeCompare(b.finalLabel));
+
+    const wrongFinalLabelRows = Object.entries(wrongByFinalLabel)
+      .map(([finalLabel, count]) => ({
+        finalLabel,
+        count,
+        total: totalsByFinalLabel[finalLabel] || count,
+      }))
+      .sort((a, b) => b.count - a.count || a.finalLabel.localeCompare(b.finalLabel));
+
+    return {
+      totalComparable: comparableTweets.length,
+      matchingCount,
+      conflictCount,
+      accuracy,
+      wrongPairRows,
+      wrongFinalLabelRows,
+    };
+  }, [tweets]);
+
   const handleExport = () => {
     const allUsers = studentStats.map((s) => s.name);
     exportToCSV(tweets, allUsers);
@@ -312,7 +381,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
       // 1. Conflict Filter
       if (showConflictsOnly && !needsResolution(tweet)) return false;
 
-      // 2. Student Filter (NEW FIX)
+      // 2. Model-vs-final conflict filter
+      if (showModelConflictsOnly && !hasModelDecisionConflict(tweet)) {
+        return false;
+      }
+
+      // 3. Student Filter (NEW FIX)
       if (selectedStudentFilter !== "all") {
         const isAssignedToStudent = tweet.assignedTo?.includes(
           selectedStudentFilter,
@@ -321,7 +395,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
         if (!isAssignedToStudent) return false;
       }
 
-      // 3. Label Filter
+      // 4. Label Filter
       if (selectedLabelFilter !== "all") {
         // Filter based on Final Label if exists, otherwise check any student annotation
         if (tweet.finalLabel) {
@@ -336,6 +410,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   }, [
     tweets,
     showConflictsOnly,
+    showModelConflictsOnly,
     selectedLabelFilter,
     selectedStudentFilter,
   ]);
@@ -660,17 +735,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const ModelDecisionBadge = ({
     tweet,
+    isConflict = false,
   }: {
     tweet: Pick<Tweet, "model_decision" | "modelProbabilities">;
+    isConflict?: boolean;
   }) => {
     if (!tweet.model_decision) return null;
 
     return (
       <span
         title={formatModelTooltip(tweet)}
-        className="inline-flex w-fit items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-800 shadow-sm"
+        className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold shadow-sm ${
+          isConflict
+            ? "border-orange-200 bg-orange-50 text-orange-800"
+            : "border-cyan-200 bg-cyan-50 text-cyan-800"
+        }`}
       >
-        <Bot className="h-3 w-3" />
+        {isConflict ? (
+          <AlertTriangle className="h-3 w-3" />
+        ) : (
+          <Bot className="h-3 w-3" />
+        )}
         מודל: {tweet.model_decision}
       </span>
     );
@@ -2000,6 +2085,149 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
           </div>
 
+          {/* Model Accuracy Statistics */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Bot className="w-5 h-5 text-gray-500" />
+                סטטיסטיקת מודל מול החלטה סופית
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                מחושב רק עבור ציוצים עם החלטת מודל וסיווג סופי פתור
+              </p>
+            </div>
+            <div className="p-6">
+              {modelDecisionStats.totalComparable > 0 ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <p className="text-sm text-gray-500">סה"כ לבדיקה</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {modelDecisionStats.totalComparable}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                      <p className="text-sm text-green-700">התאמות</p>
+                      <p className="text-2xl font-bold text-green-800">
+                        {modelDecisionStats.matchingCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                      <p className="text-sm text-orange-700">קונפליקטים</p>
+                      <p className="text-2xl font-bold text-orange-800">
+                        {modelDecisionStats.conflictCount}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                      <p className="text-sm text-blue-700">דיוק מודל</p>
+                      <p className="text-2xl font-bold text-blue-800">
+                        {modelDecisionStats.accuracy}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="overflow-hidden rounded-lg border border-gray-200">
+                      <div className="bg-gray-50 px-4 py-3">
+                        <h4 className="text-sm font-semibold text-gray-800">
+                          איפה המודל טעה
+                        </h4>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-white">
+                            <tr>
+                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">
+                                סיווג סופי
+                              </th>
+                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">
+                                החלטת מודל
+                              </th>
+                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">
+                                כמות
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 bg-white">
+                            {modelDecisionStats.wrongPairRows.length > 0 ? (
+                              modelDecisionStats.wrongPairRows.map((row) => (
+                                <tr
+                                  key={`${row.finalLabel}-${row.modelDecision}`}
+                                  className="hover:bg-orange-50"
+                                >
+                                  <td className="px-4 py-2 text-sm text-gray-900">
+                                    {row.finalLabel}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-gray-700">
+                                    {row.modelDecision}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm font-semibold text-orange-700">
+                                    {row.count}
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td
+                                  colSpan={3}
+                                  className="px-4 py-6 text-center text-sm text-gray-500"
+                                >
+                                  אין טעויות מודל בנתונים המסוננים
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-lg border border-gray-200">
+                      <div className="bg-gray-50 px-4 py-3">
+                        <h4 className="text-sm font-semibold text-gray-800">
+                          טעויות לפי סיווג סופי
+                        </h4>
+                      </div>
+                      <div className="divide-y divide-gray-100">
+                        {modelDecisionStats.wrongFinalLabelRows.length > 0 ? (
+                          modelDecisionStats.wrongFinalLabelRows.map((row) => {
+                            const pct = Math.round((row.count / row.total) * 100);
+                            return (
+                              <div key={row.finalLabel} className="px-4 py-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-sm font-medium text-gray-800">
+                                    {row.finalLabel}
+                                  </span>
+                                  <span className="text-sm text-orange-700 font-semibold">
+                                    {row.count}/{row.total} ({pct}%)
+                                  </span>
+                                </div>
+                                <div className="mt-2 h-2 rounded-full bg-gray-100">
+                                  <div
+                                    className="h-2 rounded-full bg-orange-400"
+                                    style={{ width: `${pct}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="px-4 py-6 text-center text-sm text-gray-500">
+                            אין טעויות לסיכום לפי סיווג
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Bot className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                  <p>אין עדיין נתונים להשוואה בין המודל לסיווג הסופי</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Overall Classification Distribution */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
@@ -2159,6 +2387,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </p>
               </div>
 
+              {showModelConflictsOnly && (
+                <div className="text-sm font-bold text-orange-600">
+                  סינון סופי מול מודל פעיל
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 border-l pl-3 ml-1">
                   <button
@@ -2171,6 +2405,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
                     {showConflictsOnly ? "הצג הכל" : "הצג התנגשויות"}
+                  </button>
+                  <button
+                    onClick={() =>
+                      setShowModelConflictsOnly(!showModelConflictsOnly)
+                    }
+                    className={`flex items-center gap-1 text-sm px-3 py-1.5 rounded-md border transition-colors ${
+                      showModelConflictsOnly
+                        ? "bg-orange-50 text-orange-700 border-orange-200"
+                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Bot className="w-3.5 h-3.5" />
+                    {showModelConflictsOnly ? "הצג הכל" : "סופי ≠ מודל"}
                   </button>
                 </div>
 
@@ -2250,6 +2497,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       const isConflict =
                         tweet.finalLabel === "CONFLICT" ||
                         tweet.finalLabel === LabelOption.Skip;
+                      const isModelDecisionConflict =
+                        hasModelDecisionConflict(tweet);
                       const assignedCount = tweet.assignedTo?.length || 0;
                       const labeledCount = Object.keys(
                         tweet.annotations,
@@ -2276,7 +2525,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         <tr
                           key={tweet.id}
                           className={`hover:bg-gray-50 ${
-                            isConflict ? "bg-red-50 hover:bg-red-100" : ""
+                            isConflict
+                              ? "bg-red-50 hover:bg-red-100"
+                              : isModelDecisionConflict
+                                ? "bg-orange-50 hover:bg-orange-100"
+                                : ""
                           }`}
                         >
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
@@ -2297,6 +2550,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                 </span>
                               </div>
                             )}
+                            {isModelDecisionConflict && (
+                              <div
+                                title={`Final label: ${tweet.finalLabel}\nModel decision: ${tweet.model_decision}`}
+                                className="text-orange-600 mt-1 cursor-help flex items-center gap-1 bg-white rounded-full px-1 border border-orange-200 shadow-sm w-fit"
+                              >
+                                <Bot className="w-3 h-3" />
+                                <span className="text-[10px] font-bold">
+                                  סופי ≠ מודל
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 max-w-xs align-top">
                             <div
@@ -2307,7 +2571,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
-                            <ModelDecisionBadge tweet={tweet} />
+                            <ModelDecisionBadge
+                              tweet={tweet}
+                              isConflict={isModelDecisionConflict}
+                            />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
                             {tweet.finalLabel &&
