@@ -328,6 +328,87 @@ export const AdminView: React.FC<AdminViewProps> = ({
     exportToCSV(tweets, allUsers);
   };
 
+  const escapeExcelCell = (value: string | number | undefined) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const formatConflictLabelsForExport = (tweet: Tweet) => {
+    const entries = Object.entries(tweet.annotations || {});
+    if (entries.length === 0) return "";
+
+    return entries
+      .map(([student, label]) => {
+        const features = tweet.annotationFeatures?.[student] || [];
+        const featureText = features.length > 0 ? ` (${features.join("; ")})` : "";
+        return `${student}: ${label}${featureText}`;
+      })
+      .join("\n");
+  };
+
+  const exportConflictsToExcel = (conflictTweets: Tweet[], filenamePrefix: string) => {
+    const rows = conflictTweets.map((tweet) => ({
+      id: tweet.id,
+      round: tweet.round || 1,
+      text: tweet.text,
+      conflict: formatConflictLabelsForExport(tweet),
+      finalDecision:
+        tweet.finalLabel === "CONFLICT" ? "CONFLICT (Unresolved)" : tweet.finalLabel || "",
+    }));
+
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    table { border-collapse: collapse; direction: rtl; font-family: Arial, sans-serif; }
+    th, td { border: 1px solid #d1d5db; padding: 8px; vertical-align: top; white-space: pre-wrap; }
+    th { background: #f3f4f6; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <table>
+    <thead>
+      <tr>
+        <th>Tweet ID</th>
+        <th>Round</th>
+        <th>Text</th>
+        <th>Conflict labels</th>
+        <th>Final decision</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows
+        .map(
+          (row) => `<tr>
+        <td>${escapeExcelCell(row.id)}</td>
+        <td>${escapeExcelCell(row.round)}</td>
+        <td>${escapeExcelCell(row.text)}</td>
+        <td>${escapeExcelCell(row.conflict)}</td>
+        <td>${escapeExcelCell(row.finalDecision)}</td>
+      </tr>`,
+        )
+        .join("")}
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+    const blob = new Blob(["\uFEFF", html], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleDeleteClick = (tweetId: string) => {
     if (window.confirm("האם אתה בטוח שברצונך למחוק ציוץ זה לצמיתות?")) {
       onDeleteTweet(tweetId);
@@ -1309,19 +1390,32 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {activeTab === "resolutions" && (
         <div className="space-y-6 animate-fadeIn">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <Gavel className="w-6 h-6 text-orange-600" />
+            <div className="flex flex-col gap-4 mb-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-orange-100 p-2 rounded-lg">
+                  <Gavel className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    בקרת איכות והכרעות (סיווג סופי)
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    רשימת ציוצים בהם קיימת אי-הסכמה ("CONFLICT") בין המתייגים. קבע
+                    כאן את הסיווג הסופי (Final Decision) שיופיע בייצוא הנתונים.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">
-                  בקרת איכות והכרעות (סיווג סופי)
-                </h2>
-                <p className="text-sm text-gray-500">
-                  רשימת ציוצים בהם קיימת אי-הסכמה ("CONFLICT") בין המתייגים. קבע
-                  כאן את הסיווג הסופי (Final Decision) שיופיע בייצוא הנתונים.
-                </p>
-              </div>
+              <Button
+                onClick={() =>
+                  exportConflictsToExcel(resolutionTweets, "unresolved_conflicts")
+                }
+                variant="secondary"
+                className="flex items-center gap-2 text-sm md:self-center"
+                disabled={resolutionTweets.length === 0}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                ייצוא לאקסל
+              </Button>
             </div>
 
             {resolutionTweets.length === 0 ? (
@@ -1505,6 +1599,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <span className="text-xs text-gray-500">
                 Showing {filteredResolvedConflictTweets.length} / {resolvedConflictTweets.length}
               </span>
+
+              <Button
+                onClick={() =>
+                  exportConflictsToExcel(
+                    filteredResolvedConflictTweets,
+                    "resolved_conflicts",
+                  )
+                }
+                variant="secondary"
+                className="flex items-center gap-2 text-sm py-1.5"
+                disabled={filteredResolvedConflictTweets.length === 0}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                ייצוא לאקסל
+              </Button>
             </div>
 
             {filteredResolvedConflictTweets.length === 0 ? (
