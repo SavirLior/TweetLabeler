@@ -8,9 +8,9 @@ client = MongoClient(MONGO_URI)
 db = client[MONGO_DB_NAME]
 collection = db[MONGO_TWEETS_COLLECTION]
 
-count = collection.count_documents({"round": 4})
+count = collection.count_documents({"round": 5})
 print(f"Found {count} tweets to delete.")
 
 # Uncomment the next two lines to actually delete
-result = collection.delete_many({"round": 4})
+result = collection.delete_many({"round": 5})
 print(f"Deleted {result.deleted_count} tweets.")

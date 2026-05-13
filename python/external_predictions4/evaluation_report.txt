@@ -1,0 +1,27 @@
+=== Model Evaluation Report ===
+
+Overall Accuracy: 0.8080
+
+--- Classification Report ---
+                      precision    recall  f1-score   support
+
+    label_Irrelevant       0.93      0.86      0.89       206
+ label_Salafi jihadi       0.44      0.27      0.33        15
+label_Salafi taklidi       0.41      0.69      0.51        29
+
+            accuracy                           0.81       250
+           macro avg       0.59      0.61      0.58       250
+        weighted avg       0.84      0.81      0.82       250
+
+
+--- Confusion Matrix ---
+Labels Order: ['label_Irrelevant', 'label_Salafi jihadi', 'label_Salafi taklidi']
+[[178   3  25]
+ [  7   4   4]
+ [  7   2  20]]
+
+--- Errors by True Category ---
+Real_label
+label_Irrelevant        28
+label_Salafi jihadi     11
+label_Salafi taklidi     9
