@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Tweet, LabelOption } from "../types";
 import { Button } from "./Button";
+import { TweetText } from "./TweetText";
 import { exportToCSV, getAllStudents } from "../services/dataService";
 import {
   Download,
@@ -1158,9 +1159,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Tweet Text */}
               <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                <p className="text-lg leading-relaxed text-gray-800 font-medium">
-                  "{editingTweet.text}"
-                </p>
+                <TweetText
+                  text={editingTweet.text}
+                  className="text-lg leading-relaxed text-gray-800 font-medium whitespace-pre-wrap break-words"
+                />
                 <div className="mt-3">
                   <ModelDecisionBadge tweet={editingTweet} />
                 </div>
@@ -1458,9 +1460,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         </div>
                       </div>
 
-                      <p className="text-gray-900 font-medium mb-4 text-lg">
-                        "{tweet.text}"
-                      </p>
+                      <TweetText
+                        text={tweet.text}
+                        className="text-gray-900 font-medium mb-4 text-lg whitespace-pre-wrap break-words"
+                      />
                       <div className="mb-4">
                         <ModelDecisionBadge tweet={tweet} />
                       </div>
@@ -1683,9 +1686,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </div>
                     </div>
 
-                    <p className="text-gray-900 font-medium mb-4 text-lg">
-                      "{tweet.text}"
-                    </p>
+                    <TweetText
+                      text={tweet.text}
+                      className="text-gray-900 font-medium mb-4 text-lg whitespace-pre-wrap break-words"
+                    />
                     <div className="mb-4">
                       <ModelDecisionBadge tweet={tweet} />
                     </div>
@@ -1911,7 +1915,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           {idx + 1}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {draft.text}
+                          <TweetText
+                            text={draft.text}
+                            className="whitespace-pre-wrap break-words"
+                          />
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <ModelDecisionBadge tweet={draft} />
@@ -2672,12 +2679,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             )}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 max-w-xs align-top">
-                            <div
+                            <TweetText
+                              text={tweet.text}
                               className="line-clamp-2 hover:line-clamp-none cursor-pointer transition-all"
-                              title={tweet.text}
-                            >
-                              {tweet.text}
-                            </div>
+                            />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm align-top">
                             <ModelDecisionBadge

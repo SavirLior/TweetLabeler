@@ -1,7 +1,7 @@
 import pandas as pd
 
-input_file = 'filtered_salafi_jihadi.csv'
-output_file = 'filtered_salafi_jihadi.xlsx'
+input_file = 'tweetsfromsite_1_3_4_test4_minus_filtered_plus_sg_no_blank.csv'
+output_file = 'all_tweets.xlsx'
 
 try:
     df = pd.read_csv(input_file, encoding='utf-8-sig')

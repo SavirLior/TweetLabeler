@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { User, Tweet, LabelOption, LABEL_REASONS } from "../types";
 import { Button } from "./Button";
+import { TweetText } from "./TweetText";
 import { exportToCSV } from "../services/dataService";
 import {
   CheckCircle,
@@ -383,9 +384,10 @@ export const StudentView: React.FC<StudentViewProps> = ({
                 </span>
               </div>
               <div className="p-8 min-h-fit bg-white">
-                <p className="text-lg sm:text-xl leading-relaxed text-gray-800 font-medium whitespace-pre-wrap break-words word-wrap">
-                  "{currentTweet.text}"
-                </p>
+                <TweetText
+                  text={currentTweet.text}
+                  className="text-lg sm:text-xl leading-relaxed text-gray-800 font-medium whitespace-pre-wrap break-words word-wrap"
+                />
               </div>
               <div className="bg-gray-50 px-6 py-6 border-t border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">
@@ -556,9 +558,10 @@ export const StudentView: React.FC<StudentViewProps> = ({
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 max-w-md align-top">
-                          <div className="line-clamp-3 hover:line-clamp-none transition-all">
-                            {tweet.text}
-                          </div>
+                          <TweetText
+                            text={tweet.text}
+                            className="line-clamp-3 hover:line-clamp-none transition-all"
+                          />
                         </td>
                         <td className="px-6 py-4 text-sm font-medium align-top">
                           <div
@@ -668,9 +671,10 @@ export const StudentView: React.FC<StudentViewProps> = ({
                     </span>
                   </div>
 
-                  <p className="text-gray-900 leading-relaxed mb-4 whitespace-pre-wrap">
-                    "{tweet.text}"
-                  </p>
+                  <TweetText
+                    text={tweet.text}
+                    className="text-gray-900 leading-relaxed mb-4 whitespace-pre-wrap"
+                  />
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
