@@ -3,7 +3,7 @@
 This module provides infrastructure for:
 1. Discovering relevant Twitter/X users from keyword searches.
 2. Fetching recent tweets from discovered users.
-3. Passing tweet text to a placeholder Fusion model evaluator.
+3. Passing tweet text to a local Fusion model evaluator.
 
 Set APIFY_API_TOKEN in your environment before running against Apify.
 """
@@ -11,23 +11,30 @@ Set APIFY_API_TOKEN in your environment before running against Apify.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
-import random
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable
 
+import torch
 from apify_client import ApifyClient
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "YOUR_APIFY_API_TOKEN")
 APIFY_ACTOR_ID = "apidojo/tweet-scraper"
+MODEL_EXPORT_DIR = Path(__file__).resolve().parent / "model_export_exp_76_iter_153"
+MODEL_DIR = MODEL_EXPORT_DIR / "model"
 DEFAULT_TWEET_LANGUAGE = "en"
 DEFAULT_DISCOVERY_LIMIT = 10
 DEFAULT_USER_TWEET_LIMIT = 10
-DEFAULT_FLAG_THRESHOLD = 2
+DEFAULT_EXTRA_TWEET_LIMIT = 50
+JIHADI_LABEL_TOKEN = "jihadi"
 
 logger = logging.getLogger(__name__)
+_local_classifier: "LocalTweetClassifier | None" = None
 
 
 @dataclass(frozen=True)
@@ -38,6 +45,97 @@ class TweetEvaluation:
     label: str
     flagged: bool
     confidence: float
+    probabilities: dict[str, float]
+
+
+class LocalTweetClassifier:
+    """Loads the exported model once and reuses it for batched inference."""
+
+    def __init__(self, model_dir: Path = MODEL_DIR):
+        metadata_path = model_dir / "fusion_model_metadata.json"
+        if not model_dir.exists():
+            raise FileNotFoundError(f"Model directory was not found: {model_dir}")
+        if not metadata_path.exists():
+            raise FileNotFoundError(f"Model metadata was not found: {metadata_path}")
+
+        with metadata_path.open(encoding="utf-8") as metadata_file:
+            self.metadata = json.load(metadata_file)
+
+        self.labels = list(self.metadata["labels"])
+        self.max_length = int(self.metadata.get("max_length", 128))
+        self.prediction_type = self.metadata.get("prediction_type", "single_label")
+        self.device = self._select_device()
+        self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+        self.model.to(self.device)
+        self.model.eval()
+
+    @staticmethod
+    def _select_device() -> torch.device:
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            return torch.device("mps")
+        return torch.device("cpu")
+
+    @staticmethod
+    def _is_jihadi_label(label: str) -> bool:
+        return JIHADI_LABEL_TOKEN in label.casefold()
+
+    def predict(self, tweets_list: list[str], batch_size: int = 16) -> list[TweetEvaluation]:
+        evaluations: list[TweetEvaluation] = []
+        if not tweets_list:
+            return evaluations
+
+        with torch.inference_mode():
+            for start in range(0, len(tweets_list), batch_size):
+                batch = tweets_list[start : start + batch_size]
+                encoded = self.tokenizer(
+                    batch,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=self.max_length,
+                )
+                encoded = {key: value.to(self.device) for key, value in encoded.items()}
+                logits = self.model(**encoded).logits
+
+                if self.prediction_type == "multi_label":
+                    probabilities_tensor = torch.sigmoid(logits)
+                else:
+                    probabilities_tensor = torch.softmax(logits, dim=1)
+
+                for tweet, probabilities in zip(
+                    batch, probabilities_tensor.detach().cpu().tolist()
+                ):
+                    predicted_index = max(
+                        range(len(probabilities)),
+                        key=lambda index: probabilities[index],
+                    )
+                    label = self.labels[predicted_index]
+                    probabilities_by_label = {
+                        label_name: float(probability)
+                        for label_name, probability in zip(self.labels, probabilities)
+                    }
+                    evaluations.append(
+                        TweetEvaluation(
+                            tweet=tweet,
+                            label=label,
+                            flagged=self._is_jihadi_label(label),
+                            confidence=round(float(probabilities[predicted_index]), 6),
+                            probabilities=probabilities_by_label,
+                        )
+                    )
+
+        return evaluations
+
+
+def get_local_classifier() -> LocalTweetClassifier:
+    """Return the process-global classifier, loading it lazily once per run."""
+    global _local_classifier
+    if _local_classifier is None:
+        _local_classifier = LocalTweetClassifier()
+    return _local_classifier
 
 
 def build_apify_client(api_token: str = APIFY_API_TOKEN) -> ApifyClient:
@@ -224,42 +322,48 @@ def fetch_recent_tweets_for_user(
 async def evaluate_tweets_with_fusion_model(
     tweets_list: list[str],
 ) -> list[TweetEvaluation]:
-    """Mock evaluator for the future AWS-hosted Fusion LLM integration.
-
-    This function is the integration boundary for the production Fusion model.
-    In the final implementation, it should make authenticated HTTP/REST requests
-    to the Fusion LLM service currently hosted on AWS, send batches of tweet text,
-    handle request timeouts/retries, validate the response schema, and translate
-    model output into a stable internal classification format.
-
-    For now, this mock randomly marks a small subset of tweets as "jihadi" or
-    "salafi jihadi" so the rest of the pipeline can be exercised without calling
-    the AWS service.
-    """
+    """Evaluate tweet text with the local model in ./model_export_exp_76_iter_153."""
     await asyncio.sleep(0)
+    return get_local_classifier().predict(tweets_list)
 
-    evaluations: list[TweetEvaluation] = []
-    for tweet in tweets_list:
-        roll = random.random()
-        if roll < 0.08:
-            label = "salafi jihadi"
-            flagged = True
-            confidence = random.uniform(0.80, 0.98)
-        else:
-            label = "not flagged"
-            flagged = False
-            confidence = random.uniform(0.55, 0.95)
 
-        evaluations.append(
-            TweetEvaluation(
-                tweet=tweet,
-                label=label,
-                flagged=flagged,
-                confidence=round(confidence, 3),
-            )
-        )
+async def evaluate_and_scrape_extra_if_jihadi(
+    username: str,
+    tweets: list[str],
+    *,
+    client: ApifyClient,
+    extra_tweet_limit: int = DEFAULT_EXTRA_TWEET_LIMIT,
+    tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
+) -> list[TweetEvaluation]:
+    """Classify tweets and scrape extra tweets if any are classified as Jihadi."""
+    evaluations = await evaluate_tweets_with_fusion_model(tweets)
+    flagged_count = sum(evaluation.flagged for evaluation in evaluations)
 
-    return evaluations
+    if flagged_count == 0:
+        logger.info("@%s not flagged: 0/%s jihadi tweets.", username, len(evaluations))
+        return evaluations
+
+    logger.warning(
+        "@%s flagged: %s/%s tweets classified as Jihadi. Fetching %s extra tweets.",
+        username,
+        flagged_count,
+        len(evaluations),
+        extra_tweet_limit,
+    )
+
+    extra_tweets = fetch_recent_tweets_for_user(
+        username,
+        client=client,
+        limit=extra_tweet_limit,
+        tweet_language=tweet_language,
+    )
+    seen = {tweet.casefold() for tweet in tweets}
+    new_extra_tweets = [tweet for tweet in extra_tweets if tweet.casefold() not in seen]
+    if not new_extra_tweets:
+        return evaluations
+
+    extra_evaluations = await evaluate_tweets_with_fusion_model(new_extra_tweets)
+    return [*evaluations, *extra_evaluations]
 
 
 async def run_pipeline(
@@ -267,10 +371,10 @@ async def run_pipeline(
     *,
     tweets_per_user: int = DEFAULT_USER_TWEET_LIMIT,
     discovery_limit: int = DEFAULT_DISCOVERY_LIMIT,
-    flag_threshold: int = DEFAULT_FLAG_THRESHOLD,
+    extra_tweet_limit: int = DEFAULT_EXTRA_TWEET_LIMIT,
     tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
 ) -> dict[str, list[TweetEvaluation]]:
-    """Run the full two-phase extraction and mock evaluation pipeline."""
+    """Run the full two-phase extraction and local-model evaluation pipeline."""
     
     client = build_apify_client()
     usernames = discover_usernames_by_keywords(
@@ -298,23 +402,13 @@ async def run_pipeline(
             results[username] = []
             continue
 
-        evaluations = await evaluate_tweets_with_fusion_model(tweets)
-        flagged_count = sum(evaluation.flagged for evaluation in evaluations)
-        results[username] = evaluations
-
-        if flagged_count > flag_threshold:
-            print(
-                f"WARNING: @{username} flagged. "
-                f"{flagged_count}/{len(evaluations)} tweets exceeded the threshold "
-                f"of {flag_threshold}."
-            )
-        else:
-            logger.info(
-                "@%s not flagged: %s/%s flagged tweets.",
-                username,
-                flagged_count,
-                len(evaluations),
-            )
+        results[username] = await evaluate_and_scrape_extra_if_jihadi(
+            username,
+            tweets,
+            client=client,
+            extra_tweet_limit=extra_tweet_limit,
+            tweet_language=tweet_language,
+        )
 
     return results
 
@@ -332,7 +426,7 @@ def main() -> None:
             example_keywords,
             tweets_per_user=DEFAULT_USER_TWEET_LIMIT,
             discovery_limit=DEFAULT_DISCOVERY_LIMIT,
-            flag_threshold=DEFAULT_FLAG_THRESHOLD,
+            extra_tweet_limit=DEFAULT_EXTRA_TWEET_LIMIT,
         )
     )
 
