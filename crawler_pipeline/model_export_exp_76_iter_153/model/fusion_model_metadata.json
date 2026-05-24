@@ -1,0 +1,18 @@
+{
+  "model_type": null,
+  "experiment_model_type": "bert_multi_class_with_validation",
+  "project_id": 53,
+  "project_name": "salafia3",
+  "experiment_name": "add the test from site",
+  "experiment_id": 76,
+  "iteration_id": 153,
+  "iteration_number": 2,
+  "export_name": "salafia3_add_the_test_from_site_iteration_2",
+  "labels": [
+    "Irrelevant",
+    "Salafi jihadi",
+    "Salafi taklidi"
+  ],
+  "max_length": 128,
+  "prediction_type": "single_label"
+}
