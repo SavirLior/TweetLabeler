@@ -11,6 +11,7 @@ Set APIFY_API_TOKEN in your environment before running against Apify.
 from __future__ import annotations
 
 import asyncio
+import argparse
 import json
 import logging
 import math
@@ -27,11 +28,22 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 try:
-    from .mongo_store import (
-        CrawlerMongoStore,
+    from .config import (
+        APIFY_ACTOR_ID,
+        DEFAULT_DEEP_DIVE_TWEET_LIMIT,
+        DEFAULT_DISCOVERY_LIMIT,
         DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
         DEFAULT_MIN_POSITIVE_TWEETS,
         DEFAULT_POSITIVE_RATIO_THRESHOLD,
+        DEFAULT_PROFILE_OVERFETCH_MULTIPLIER,
+        DEFAULT_TWEET_LANGUAGE,
+        DEFAULT_USER_TWEET_LIMIT,
+        JIHADI_LABEL_TOKEN,
+        MODEL_DIR,
+        MODEL_EXPORT_DIR,
+    )
+    from .mongo_store import (
+        CrawlerMongoStore,
         calculate_classification_score,
         make_tweet_key,
     )
@@ -44,11 +56,22 @@ try:
         get_retweet_object,
     )
 except ImportError:  # Allows running this file directly from crawler_pipeline/.
-    from mongo_store import (
-        CrawlerMongoStore,
+    from config import (
+        APIFY_ACTOR_ID,
+        DEFAULT_DEEP_DIVE_TWEET_LIMIT,
+        DEFAULT_DISCOVERY_LIMIT,
         DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
         DEFAULT_MIN_POSITIVE_TWEETS,
         DEFAULT_POSITIVE_RATIO_THRESHOLD,
+        DEFAULT_PROFILE_OVERFETCH_MULTIPLIER,
+        DEFAULT_TWEET_LANGUAGE,
+        DEFAULT_USER_TWEET_LIMIT,
+        JIHADI_LABEL_TOKEN,
+        MODEL_DIR,
+        MODEL_EXPORT_DIR,
+    )
+    from mongo_store import (
+        CrawlerMongoStore,
         calculate_classification_score,
         make_tweet_key,
     )
@@ -63,18 +86,10 @@ except ImportError:  # Allows running this file directly from crawler_pipeline/.
 
 
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "YOUR_APIFY_API_TOKEN")
-APIFY_ACTOR_ID = "apidojo/tweet-scraper"
-MODEL_EXPORT_DIR = Path(__file__).resolve().parent / "model_export_exp_76_iter_153"
-MODEL_DIR = MODEL_EXPORT_DIR / "model"
-DEFAULT_TWEET_LANGUAGE = "en"
-DEFAULT_DISCOVERY_LIMIT = 10
-DEFAULT_USER_TWEET_LIMIT = 10
-DEFAULT_DEEP_DIVE_TWEET_LIMIT = DEFAULT_MIN_PROFILE_EVALUATED_TWEETS
-PROFILE_OVERFETCH_MULTIPLIER = 1.5
+PROFILE_OVERFETCH_MULTIPLIER = DEFAULT_PROFILE_OVERFETCH_MULTIPLIER
 MIN_PROFILE_EVALUATED_TWEETS = DEFAULT_MIN_PROFILE_EVALUATED_TWEETS
 USER_JIHADI_TWEET_THRESHOLD = DEFAULT_MIN_POSITIVE_TWEETS
 POSITIVE_RATIO_THRESHOLD = DEFAULT_POSITIVE_RATIO_THRESHOLD
-JIHADI_LABEL_TOKEN = "jihadi"
 
 logger = logging.getLogger(__name__)
 _local_classifier: "LocalTweetClassifier | None" = None
@@ -966,21 +981,73 @@ async def run_pipeline(
 
 
 def main() -> None:
-    """Example CLI entry point for local pipeline execution."""
+    """CLI entry point for local pipeline execution."""
+    parser = argparse.ArgumentParser(description="Run the Twitter/X crawler pipeline.")
+    parser.add_argument("keywords", nargs="+", help="Keyword(s) to search on Twitter/X.")
+    parser.add_argument(
+        "--discovery-limit",
+        type=int,
+        default=DEFAULT_DISCOVERY_LIMIT,
+        help="Number of keyword-discovery tweets to evaluate.",
+    )
+    parser.add_argument(
+        "--profile-limit",
+        type=int,
+        default=DEFAULT_DEEP_DIVE_TWEET_LIMIT,
+        help="Minimum clean profile tweets required for user classification.",
+    )
+    parser.add_argument(
+        "--overfetch-multiplier",
+        type=float,
+        default=PROFILE_OVERFETCH_MULTIPLIER,
+        help="Raw profile fetch multiplier. Default 1.5, so profile-limit 100 fetches 150 raw tweets.",
+    )
+    parser.add_argument(
+        "--min-profile-tweets",
+        type=int,
+        default=MIN_PROFILE_EVALUATED_TWEETS,
+        help="Minimum clean profile tweets that must enter the model.",
+    )
+    parser.add_argument(
+        "--min-positive-tweets",
+        type=int,
+        default=USER_JIHADI_TWEET_THRESHOLD,
+        help="Minimum Salafi jihadi profile tweets required.",
+    )
+    parser.add_argument(
+        "--ratio",
+        type=float,
+        default=POSITIVE_RATIO_THRESHOLD,
+        help="Minimum Salafi jihadi positive ratio required.",
+    )
+    parser.add_argument(
+        "--tweet-language",
+        default=DEFAULT_TWEET_LANGUAGE,
+        help="Tweet language sent to Apify. Use an empty value to disable.",
+    )
+    args = parser.parse_args()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
 
-    example_keywords = ["replace with keyword 1", "replace with keyword 2"]
-    asyncio.run(
+    verified_users = asyncio.run(
         run_pipeline(
-            example_keywords,
-            discovery_limit=DEFAULT_DISCOVERY_LIMIT,
-            deep_dive_tweet_limit=DEFAULT_DEEP_DIVE_TWEET_LIMIT,
-            user_jihadi_threshold=USER_JIHADI_TWEET_THRESHOLD,
+            args.keywords,
+            discovery_limit=args.discovery_limit,
+            deep_dive_tweet_limit=args.profile_limit,
+            user_jihadi_threshold=args.min_positive_tweets,
+            min_profile_evaluated_tweets=args.min_profile_tweets,
+            positive_ratio_threshold=args.ratio,
+            profile_overfetch_multiplier=args.overfetch_multiplier,
+            tweet_language=args.tweet_language or None,
         )
     )
+    if verified_users:
+        print("Positive users:", ", ".join(sorted(verified_users)))
+    else:
+        print("No positive users found.")
 
 
 if __name__ == "__main__":

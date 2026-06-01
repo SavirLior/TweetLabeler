@@ -18,10 +18,18 @@ from pymongo import ASCENDING, DESCENDING, MongoClient
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
-
-DEFAULT_POSITIVE_RATIO_THRESHOLD = 0.12
-DEFAULT_MIN_POSITIVE_TWEETS = 8
-DEFAULT_MIN_PROFILE_EVALUATED_TWEETS = 100
+try:
+    from .config import (
+        DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
+        DEFAULT_MIN_POSITIVE_TWEETS,
+        DEFAULT_POSITIVE_RATIO_THRESHOLD,
+    )
+except ImportError:  # Allows running this file directly from crawler_pipeline/.
+    from config import (
+        DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
+        DEFAULT_MIN_POSITIVE_TWEETS,
+        DEFAULT_POSITIVE_RATIO_THRESHOLD,
+    )
 
 STATUS_SALAFI_JIHADI = "salafi_jihadi"
 STATUS_NOT_SALAFI_JIHADI = "not_salafi_jihadi"
