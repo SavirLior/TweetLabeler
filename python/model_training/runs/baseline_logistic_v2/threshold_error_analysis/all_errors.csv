@@ -1,0 +1,567 @@
+tweet_id,label,threshold_prediction,prediction_confidence,jihadi_probability,source_file,text,model_text,prob_Irrelevant,prob_Salafi jihadi,prob_Salafi taklidi,error_type
+xfinb6ufa,Irrelevant,Salafi jihadi,0.7192359782471385,0.7192359782471385,python/tweetsFromSite/tests_from_site4.csv,"""It should be clear for everyone that individuals such as Ali Gomaa, Ahmad at-Tayyib, Habib Ali Jifri &amp; their likes have a close to infallible status amongst many. All of their criminal actions &amp; statements are swept under the rug &amp; they are respected as religious authorities.""","""It should be clear for everyone that individuals such as Ali Gomaa, Ahmad at-Tayyib, Habib Ali Jifri &amp; their likes have a close to infallible status amongst many. All of their criminal actions &amp; statements are swept under the rug &amp; they are respected as religious authorities.""",0.1541286955528916,0.7192359782471385,0.1266353261999699,Irrelevant_as_Salafi jihadi
+ei201flab,Salafi taklidi,Salafi jihadi,0.6756905437655434,0.6756905437655434,python/tweetsFromSite/tweets_from_site5.csv,"""""Salafi/Madkhali publications affiliated Sudani Shaykh Nizar ibn Hashim al-Abbas on how the UAE has joined with the enemies of Allah &amp; spread Kufr &amp; Shirk,
+
+No state in the history of Islam has done what the UAE has done. 
+""
+--------------
+
+Its like all of the spubs Madkhalis have turned a blind eye to what their Shaykh said lol. If anyone else said this, theyd be labelled a Takfiri Khaariji Qutbi Sururi Ikhwaani.","""""Salafi/Madkhali publications affiliated Sudani Shaykh Nizar ibn Hashim al-Abbas on how the UAE has joined with the enemies of Allah &amp; spread Kufr &amp; Shirk, No state in the history of Islam has done what the UAE has done. "" -------------- Its like all of the spubs Madkhalis have turned a blind eye to what their Shaykh said lol. If anyone else said this, theyd be labelled a Takfiri Khaariji Qutbi Sururi Ikhwaani.",0.1195630970336295,0.6756905437655434,0.204746359200827,Salafi taklidi_as_Salafi jihadi
+vvnjw81td,Salafi jihadi,Irrelevant,0.6601113844671372,0.2027757891916104,python/tweetsFromSite/tests_from_site4.csv,"""@maghribii16 This is simply not true! JNIM also mobilized fighters from central Mali and Burkina Faso and fought alongside Tuareg Sahawat MSA and GATIA.
+
+Nevertheless, IS-Sahel was able to defeat both JNIM and the Tuareg Sahawat at Menaka in 2023:","""@USER This is simply not true! JNIM also mobilized fighters from central Mali and Burkina Faso and fought alongside Tuareg Sahawat MSA and GATIA. Nevertheless, IS-Sahel was able to defeat both JNIM and the Tuareg Sahawat at Menaka in 2023:",0.6601113844671372,0.2027757891916104,0.1371128263412522,Salafi jihadi_as_Irrelevant
+5tppsyss1,Salafi jihadi,Irrelevant,0.6587340413427802,0.2009021997938616,python/tweetsFromSite/tweets_from_the_site1.csv,"""""BREAKING: The U.S. State Department has ordered American diplomats to leave Saudi Arabia after drone attacks near the U.S. Embassy in Riyadh.
+
+Source: NYT""
+""
+--------------
+
+No, please stay put in the Land of Tawheed,","""""BREAKING: The U.S. State Department has ordered American diplomats to leave Saudi Arabia after drone attacks near the U.S. Embassy in Riyadh. Source: NYT"" "" -------------- No, please stay put in the Land of Tawheed,",0.6587340413427802,0.2009021997938616,0.1403637588633582,Salafi jihadi_as_Irrelevant
+qozq19zv0,Salafi taklidi,Irrelevant,0.6373097043539736,0.1841230064518604,python/tweetsFromSite/tests_from_site4.csv,"""""@KItreal512 @Ba_ups56 Stop protecting and prove your argument , how does saying Allah ""hand isn't like  x,you and z"" negates apparent meaning  Don't be scared jahmi 
+""
+--------------
+
+Ashari ibn Zani's Guide to Online Debate:
+
+1. Block your opponent if you can't prove how  negating tashbih is negating apparent meaning","""""@USER @USER Stop protecting and prove your argument , how does saying Allah ""hand isn't like x,you and z"" negates apparent meaning Don't be scared jahmi "" -------------- Ashari ibn Zani's Guide to Online Debate: 1. Block your opponent if you can't prove how negating tashbih is negating apparent meaning",0.6373097043539736,0.1841230064518604,0.178567289194166,Salafi taklidi_as_Irrelevant
+nnbf5fhrn,Salafi taklidi,Irrelevant,0.6121784827782467,0.1997172917106061,python/tweetsFromSite/tweets_from_site5.csv,"""Limam Al-Khatib Al-Baghdadi   a dit:
+
+Tout comme les richesses ne sont utiles qu'en les dpensant, de mme les connaissances ne profitent qu' celui qui les met en pratique et respecte les obligations.
+
+Que chacun donc examine sa propre personne et saisisse le butin de son temps, car le sjour [ici-bas] est court, le dpart [la mort] est proche, le chemin est dangereux, lillusion est frquente et le danger est grand. 
+
+Celui qui juge est clairvoyant, Allah est aux aguets et vers Lui se fera le retour et la destination finale. Allah dit : {Quiconque fait un bien ft-ce du poids dun atome, le verra, et quiconque fait un mal ft-ce du poids dun atome, le verra.}
+
+  Iqtidaa Al-Ilm Al-Amal, p.16.
+
+ Az-Zalzalah, v.7-8.","""Limam Al-Khatib Al-Baghdadi a dit: Tout comme les richesses ne sont utiles qu'en les dpensant, de mme les connaissances ne profitent qu' celui qui les met en pratique et respecte les obligations. Que chacun donc examine sa propre personne et saisisse le butin de son temps, car le sjour [ici-bas] est court, le dpart [la mort] est proche, le chemin est dangereux, lillusion est frquente et le danger est grand. Celui qui juge est clairvoyant, Allah est aux aguets et vers Lui se fera le retour et la destination finale. Allah dit : {Quiconque fait un bien ft-ce du poids dun atome, le verra, et quiconque fait un mal ft-ce du poids dun atome, le verra.} Iqtidaa Al-Ilm Al-Amal, p.16. Az-Zalzalah, v.7-8.",0.6121784827782467,0.1997172917106061,0.1881042255111471,Salafi taklidi_as_Irrelevant
+cfi3jhp9y,Salafi jihadi,Irrelevant,0.6104009545849906,0.2689202637928778,python/tweetsFromSite/tweets_from_the_site1.csv,"""""..Dont Deceive The Muslims .. 
+""
+--------------
+
+Funny how this Munafiq is speaking about Iran allying with America what about your Taghut kingdomof Saudi Arabia ya Munafiq 
+(Check thread),","""""..Dont Deceive The Muslims .. "" -------------- Funny how this Munafiq is speaking about Iran allying with America what about your Taghut kingdomof Saudi Arabia ya Munafiq (Check thread),",0.6104009545849906,0.2689202637928778,0.1206787816221315,Salafi jihadi_as_Irrelevant
+d3balmspm,Salafi taklidi,Salafi jihadi,0.5963275327636663,0.5963275327636663,python/tweetsFromSite/tweets_from_site4.csv,"""""@followerofgod96 @Alelislam It's obvious that despite the Shaykh holding those beliefs regarding the UN, he still affirmed Islam for Muslim rulers who are in fact in the UN""
+""
+--------------
+
+Because he believes doing  major shirk doesn't make someone a mushrik","""""@USER @USER It's obvious that despite the Shaykh holding those beliefs regarding the UN, he still affirmed Islam for Muslim rulers who are in fact in the UN"" "" -------------- Because he believes doing major shirk doesn't make someone a mushrik",0.1882956039630665,0.5963275327636663,0.2153768632732672,Salafi taklidi_as_Salafi jihadi
+7vuwmn980,Salafi taklidi,Irrelevant,0.56505443774094,0.2259956469934399,python/tweetsFromSite/tests_from_site4.csv,"""Imm Dhahb   said: 
+
+If you see the mutakallim innovator saying: leave out the Qur'n &amp; ahad hadith and bring forth logic; then know that he is Ab Jahl.
+
+[Siyr alam an-Nubl (4/472)]","""Imm Dhahb said: If you see the mutakallim innovator saying: leave out the Qur'n &amp; ahad hadith and bring forth logic; then know that he is Ab Jahl. [Siyr alam an-Nubl (4/472)]",0.56505443774094,0.2259956469934399,0.2089499152656201,Salafi taklidi_as_Irrelevant
+78yyt0f6b,Salafi jihadi,Irrelevant,0.5627810273723235,0.2699211931493358,python/tweetsFromSite/tweets_from_site5.csv,"""""Amjad Rafeeq expects people to sign such retractions (see below). Maybe he needs to apply this to himself and draft one up to sign? @AbuIyaadSP 
+""
+--------------
+
+This is hilarious, because they had no problem with this contract for 10 years until their fallout with Abu Iyaad
+
+How am I meant to take you people seriously when you cant even hold your own to account","""""Amjad Rafeeq expects people to sign such retractions (see below). Maybe he needs to apply this to himself and draft one up to sign? @USER "" -------------- This is hilarious, because they had no problem with this contract for 10 years until their fallout with Abu Iyaad How am I meant to take you people seriously when you cant even hold your own to account",0.5627810273723235,0.2699211931493358,0.1672977794783406,Salafi jihadi_as_Irrelevant
+9o212s8qx,Salafi taklidi,Irrelevant,0.5621362922024529,0.1347895222186744,python/tweetsFromSite/tweets_from_site5.csv,"""  Mditons sur cette rponse de cet immense Savant..
+
+ Il a t demand  Cheikh Muqbil Ibn Hadi Al-Wadi'i - m.1422H -   :
+
+Si vous avez un tlphone [fixe], pourriez-vous nous donner le numro ?
+
+Il a rpondu : 
+
+Nous navons pas de tlphone [fixe] et nous nen voulons pas, car cela nous fait perdre du temps.
+
+  Gharatul Ash-Ritta, 1/279.
+
+Le Cheikh est mort en 1422 de lhgire, soit en 2001 !!  cette poque il ntait pas question diphone comme aujourdhui, mais de tlphone fixe Que dire !? QuAllh Lui fasse misricorde et quIl nous prserve du temps perdu, amin.",""" Mditons sur cette rponse de cet immense Savant.. Il a t demand Cheikh Muqbil Ibn Hadi Al-Wadi'i - m.1422H - : Si vous avez un tlphone [fixe], pourriez-vous nous donner le numro ? Il a rpondu : Nous navons pas de tlphone [fixe] et nous nen voulons pas, car cela nous fait perdre du temps. Gharatul Ash-Ritta, 1/279. Le Cheikh est mort en 1422 de lhgire, soit en 2001 !! cette poque il ntait pas question diphone comme aujourdhui, mais de tlphone fixe Que dire !? QuAllh Lui fasse misricorde et quIl nous prserve du temps perdu, amin.",0.5621362922024529,0.1347895222186744,0.3030741855788726,Salafi taklidi_as_Irrelevant
+s9pp2fcfe,Irrelevant,Salafi jihadi,0.5559295286904448,0.5559295286904448,python/tweetsFromSite/tweets_from_site4.csv,"""Ruhayli says his land (S*udi) is built upon the Deen, it has acted upon &amp; truly established moderation due to the rulers &amp; the scholars. He then goes on to quote his king who apparently spoke golden words regarding moderation &amp; extremism.","""Ruhayli says his land (S*udi) is built upon the Deen, it has acted upon &amp; truly established moderation due to the rulers &amp; the scholars. He then goes on to quote his king who apparently spoke golden words regarding moderation &amp; extremism.",0.2389949532162488,0.5559295286904448,0.2050755180933063,Irrelevant_as_Salafi jihadi
+7j17yz7ig,Salafi taklidi,Salafi jihadi,0.550695568346654,0.550695568346654,python/tweetsFromSite/tweets_from_site5.csv,"""The Madkhalis are h*rny and  Rise up and discuss (pls dont). @ameeniooo This is the students and product of Shamsi and SPUBS. Is this how you refute Khawarij ? By engaging in the same filth that Allah destroyed entire nations for ? #salafi #salafiyyah","""The Madkhalis are h*rny and Rise up and discuss (pls dont). @USER This is the students and product of Shamsi and SPUBS. Is this how you refute Khawarij ? By engaging in the same filth that Allah destroyed entire nations for ? #salafi #salafiyyah",0.2098416181191467,0.550695568346654,0.2394628135341992,Salafi taklidi_as_Salafi jihadi
+8622ba448,Salafi jihadi,Irrelevant,0.5472696204084075,0.2793201481889772,python/tweetsFromSite/tweets_from_site4.csv,Turn your comments on you lil madkhali scared chicken  let me expose you and your teacher shamsi,Turn your comments on you lil madkhali scared chicken let me expose you and your teacher shamsi,0.5472696204084075,0.2793201481889772,0.1734102314026153,Salafi jihadi_as_Irrelevant
+edzc2i40j,Salafi jihadi,Irrelevant,0.5393538441075314,0.2775096521419162,python/tweetsFromSite/tweets_from_site4.csv,"""""@warfareanalysis &amp; before that US managed to kill at least 500 000 babies below 5 years old as a result of the blockade 
+""
+--------------
+
+Watch this
+And tell me again you respect the poor Shuyukh that didnt know better and allowed these atrocities to happen via their evil fatwa
+Indirectly they had a hand in the murder of hundred of thousands children  
+May Allah judge them accordingly","""""@USER &amp; before that US managed to kill at least 500 000 babies below 5 years old as a result of the blockade "" -------------- Watch this And tell me again you respect the poor Shuyukh that didnt know better and allowed these atrocities to happen via their evil fatwa Indirectly they had a hand in the murder of hundred of thousands children May Allah judge them accordingly",0.5393538441075314,0.2775096521419162,0.1831365037505523,Salafi jihadi_as_Irrelevant
+3rvs9oaqb,Salafi taklidi,Irrelevant,0.5366278910103717,0.2687323060884775,python/tweetsFromSite/tweets_from_site4.csv,"""""
+""
+--------------
+
+You can have the correct aqeedah but still behave like a munafiq traitor",""""" "" -------------- You can have the correct aqeedah but still behave like a munafiq traitor",0.5366278910103717,0.2687323060884775,0.1946398029011507,Salafi taklidi_as_Irrelevant
+rmizaijin,Salafi taklidi,Irrelevant,0.5342823372514159,0.2977888110790358,python/tweetsFromSite/tweets_from_site4.csv,"""@Sabh345 Why would a kafir fear Allah and disagreement is not about personal opinions , she was corrected with proofs""","""@USER Why would a kafir fear Allah and disagreement is not about personal opinions , she was corrected with proofs""",0.5342823372514159,0.2977888110790358,0.1679288516695481,Salafi taklidi_as_Irrelevant
+u6s1rx8zb,Salafi jihadi,Irrelevant,0.5340634826574984,0.2806177110803517,python/tweetsFromSite/tests_from_site4.csv,"Sheikh   : 
+
+ Beware of defending or praising Tawaghit, otherwise you will be complicit in all their crimes..","Sheikh : Beware of defending or praising Tawaghit, otherwise you will be complicit in all their crimes..",0.5340634826574984,0.2806177110803517,0.1853188062621499,Salafi jihadi_as_Irrelevant
+6gkt82s0y,Salafi jihadi,Irrelevant,0.5301074566042178,0.2272672391969975,python/tweetsFromSite/tweets_from_site4.csv,"""Why is it always pro Gulf Mashaykh who say this?
+Very easy
+The Gulf today has same origins as Sykes Picot and colonial creation of Israel by Brit crusaders
+They lived under Pax Britannica and now under Pax Americana
+Thats why day and night they do nothing but attack Palestinians""","""Why is it always pro Gulf Mashaykh who say this? Very easy The Gulf today has same origins as Sykes Picot and colonial creation of Israel by Brit crusaders They lived under Pax Britannica and now under Pax Americana Thats why day and night they do nothing but attack Palestinians""",0.5301074566042178,0.2272672391969975,0.2426253041987846,Salafi jihadi_as_Irrelevant
+mji13jn1x,Irrelevant,Salafi taklidi,0.5293097216059192,0.2555553155814167,python/tweetsFromSite/tweets_from_site5.csv,"""Manners of Students Toward Their Deceased Teacher.
+
+Ibn al-Ar mentions that shortly before his (al-Nawaws) death, he accompanied al-Naww (may Allh have mercy on him) to the graves of his mashyikh. al-Naww visited them, recited some Qurn, made supplication, and wept.
+
+  Tufat al-Tlibn & Umdat al-libn.""","""Manners of Students Toward Their Deceased Teacher. Ibn al-Ar mentions that shortly before his (al-Nawaws) death, he accompanied al-Naww (may Allh have mercy on him) to the graves of his mashyikh. al-Naww visited them, recited some Qurn, made supplication, and wept. Tufat al-Tlibn & Umdat al-libn.""",0.2151349628126641,0.2555553155814167,0.5293097216059192,Irrelevant_as_Salafi taklidi
+w1gsxhut1,Salafi taklidi,Irrelevant,0.5243362973820936,0.1606556964751098,python/tweetsFromSite/tweets_from_the_site3.csv,""" -  !!
+
+Were now in the final stretch of our renovations - ahead of our schools & clubs resuming within the next week. 
+
+Alhamdulilh we have a double donation scheme             ! 
+ 
+Help us get closer to our appeal target -  you give will be doubled  so dont miss out! 
+
+Shaykh Saaleh al-Fawzaan( ) mentioned: Indeed the giving of charity from ones pure wealth and from ones halaal earnings in the cause of Allaah (  ), is from the            .
+
+: 
+
+ 
+
+ 
+
+ :
+Account Name: Dar Ul Hadith
+Sort Code: 309542
+Account Number: 05570092
+Bank Name: Lloyds
+:",""" - !! Were now in the final stretch of our renovations - ahead of our schools & clubs resuming within the next week. Alhamdulilh we have a double donation scheme ! Help us get closer to our appeal target - you give will be doubled so dont miss out! Shaykh Saaleh al-Fawzaan( ) mentioned: Indeed the giving of charity from ones pure wealth and from ones halaal earnings in the cause of Allaah ( ), is from the . : : Account Name: Dar Ul Hadith Sort Code: 309542 Account Number: 05570092 Bank Name: Lloyds :",0.5243362973820936,0.1606556964751098,0.3150080061427965,Salafi taklidi_as_Irrelevant
+l0z65iy42,Salafi taklidi,Salafi jihadi,0.5182797069409771,0.5182797069409771,python/tweetsFromSite/tweets_from_site4.csv,These man will make takfir al adhir their whole personality and ensure their life revolves around it,These man will make takfir al adhir their whole personality and ensure their life revolves around it,0.2886032205466177,0.5182797069409771,0.1931170725124051,Salafi taklidi_as_Salafi jihadi
+4mmwp8qvx,Salafi taklidi,Irrelevant,0.5111869270437562,0.2622529891234073,python/tweetsFromSite/tweets_from_site5.csv,"""Assim al-Hakeem has a better Sharh than Ahmed Jibril icl""","""Assim al-Hakeem has a better Sharh than Ahmed Jibril icl""",0.5111869270437562,0.2622529891234073,0.2265600838328365,Salafi taklidi_as_Irrelevant
+c7lbtjuzd,Salafi taklidi,Irrelevant,0.5108571142088708,0.2280894539258544,python/tweetsFromSite/tweets_from_the_site3.csv,There is a difference between abandoning all actions (believing action in and of itself doesnt remove imaan unless preceded by the heart or tongue) and abandoning all actions (believing that not doing any good deeds or obligations doesnt remove imaan). The first one is.,There is a difference between abandoning all actions (believing action in and of itself doesnt remove imaan unless preceded by the heart or tongue) and abandoning all actions (believing that not doing any good deeds or obligations doesnt remove imaan). The first one is.,0.5108571142088708,0.2280894539258544,0.2610534318652746,Salafi taklidi_as_Irrelevant
+s7yfhll3p,Salafi taklidi,Irrelevant,0.5044867377296655,0.1977702788900567,python/tweetsFromSite/tweets_from_the_site1.csv,"The Prophet (peace be upon him) said (to her): 
+
+""Where is Allah?"" 
+
+She said: ""Above the heavens.""
+
+-Sahih Muslim 537.
+
+Screw your ""consensus"".,","The Prophet (peace be upon him) said (to her): ""Where is Allah?"" She said: ""Above the heavens."" -Sahih Muslim 537. Screw your ""consensus"".,",0.5044867377296655,0.1977702788900567,0.2977429833802778,Salafi taklidi_as_Irrelevant
+1k8xhknwl,Irrelevant,Salafi taklidi,0.4982305761536398,0.2217039049744028,python/tweetsFromSite/tests_from_site4.csv,"""""Why is there such a jump in rabid khariji creed on tiktok and now its spilling onto Twitter. Just pure hazimism lmfao
+
+These people end up apostating, either heavy burn out or theyll be so ghulat theyll exit the religion
+
+At least this sect doesnt exist in the real world""
+""
+--------------
+
+Lol speaking of Telegram earlier, this nigga is part of some schizo Albanian telegram channel where they focus explicitly on al adhir like the bums they are
+
+No surprise there","""""Why is there such a jump in rabid khariji creed on tiktok and now its spilling onto Twitter. Just pure hazimism lmfao These people end up apostating, either heavy burn out or theyll be so ghulat theyll exit the religion At least this sect doesnt exist in the real world"" "" -------------- Lol speaking of Telegram earlier, this nigga is part of some schizo Albanian telegram channel where they focus explicitly on al adhir like the bums they are No surprise there",0.2800655188719573,0.2217039049744028,0.4982305761536398,Irrelevant_as_Salafi taklidi
+60iu6jkx3,Salafi taklidi,Salafi jihadi,0.4957948183312207,0.4957948183312207,python/tweetsFromSite/tests_from_site4.csv,"""In 1989
+
+Sh Albani to Sh Saleh:
+
+Takfiris love you
+
+...
+
+Sh Saleh l-Shaykh on kufr of Libya, Egypt, Tunisia, Syria, Kuwait govs:
+
+Now there are two issues [of major kufr]: I have given examples of the firstnamely, the issue of takm by the sharah.","""In 1989 Sh Albani to Sh Saleh: Takfiris love you ... Sh Saleh l-Shaykh on kufr of Libya, Egypt, Tunisia, Syria, Kuwait govs: Now there are two issues [of major kufr]: I have given examples of the firstnamely, the issue of takm by the sharah.",0.2021420743160232,0.4957948183312207,0.3020631073527561,Salafi taklidi_as_Salafi jihadi
+q4tkh0ctv,Irrelevant,Salafi taklidi,0.4907427326439347,0.1441232564334275,python/tweetsFromSite/tweets_from_the_site3.csv,"Aid our brothers upon the Sunnah in Reading with what you can.
+
+Aishah    narrated that the Messenger of Allah  said: 
+""Whomsoever builds a Masjid for the sake of Allah not desiring to be seen nor heard Allah will build for him a house in Jannah.""
+
+(Saheeh) at-Targheeb wat-Tarheeb 274","Aid our brothers upon the Sunnah in Reading with what you can. Aishah narrated that the Messenger of Allah said: ""Whomsoever builds a Masjid for the sake of Allah not desiring to be seen nor heard Allah will build for him a house in Jannah."" (Saheeh) at-Targheeb wat-Tarheeb 274",0.3651340109226376,0.1441232564334275,0.4907427326439347,Irrelevant_as_Salafi taklidi
+ythqokxsr,Irrelevant,Salafi jihadi,0.4891239250924244,0.3762847465321538,python/tweetsFromSite/tweets_from_site4.csv,"""""Muslim women are the pure defintion of pick-me girls. Oh look! I'm so modest! I'm not like the other girls who show their bodies because I'm saving myself for the one man I wanna devote my life to!! Look at me I'm so better than yall!""
+""
+--------------
+
+These filthy kuffar hate the hijab and Muslim women because usually they are surrounded by filth like themselves, but when they come across Muslim women it reminds them of how filthy they are.","""""Muslim women are the pure defintion of pick-me girls. Oh look! I'm so modest! I'm not like the other girls who show their bodies because I'm saving myself for the one man I wanna devote my life to!! Look at me I'm so better than yall!"" "" -------------- These filthy kuffar hate the hijab and Muslim women because usually they are surrounded by filth like themselves, but when they come across Muslim women it reminds them of how filthy they are.",0.4891239250924244,0.3762847465321538,0.1345913283754215,Irrelevant_as_Salafi jihadi
+cwgtsk2s4,Salafi taklidi,Salafi jihadi,0.4881616814856231,0.3628237783914003,python/tweetsFromSite/tweets_from_the_site3.csv,"(84) 
+The Claim That Shaykh Al-Albani Was Overly Lenient and Shaykh Muqbil Overly Strict in Hadith Grading
+
+Question: 
+It is said about Shaykh Nasir Ad-Din Al-Albani that he was lenient in his authentication and weakening of hadiths, and about Shaykh Muqbil that he was overly severe. How true are these statements?
+
+Sheikh Yahya Al-Hajoori
+As for the claim that Shaykh Al-Albani was lenient in authentication and weakeningthis is incorrect. How could that be? He never weakened a hadith without providing clear evidence for its weakness. He was extremely meticulous in weakening hadiths. His book Silsilah Adh-Daifah (The Chain of Weak Hadiths) stands as a testament to this, showing his great precision. Regarding authentication, he would sometimes exercise his own reasoning (ijtihad) on certain hadiths, citing various chains and applying his own methodological principles. He might say, ""This hadith, through these chains, is hasan in my view."" This is similar to what Al-Hafidh Ibn Hajar does in Bulugh Al-Maram, where he says, ""This hadith is hasan,"" even though some other hadith masters or researchers may disagree. The same can be said for Az-Zaylai and other scholarsthis is a normal matter of scholarly difference.
+
+It is true that some hadiths in Silsilah As-Sahihah (The Chain of Authentic Hadiths) which he deemed authentic are not accepted by some other scholars. However, in reality, his ijtihad was very strong, and he provided the Muslim Ummah with an immense treasure that neither a scholar nor a student can do without. He remains a mujtahid, like other mujtahids in the field of hadith. A student of knowledge should still examine the hadiths, even those found in Silsilah As-Sahihah or Irwa Al-Ghalil, and form their own conclusion based on what they see, even if it aligns with Shaykh Al-Albanis ruling. If a student feels they have not reached the level to judge a hadith as hasan or sahih as the Shaykh did, they can simply hold their own informed opinion. And all praise is due to Allah, the Lord of the worlds.
+
+As for the claim that Shaykh Muqbil was severe in authentication and weakeningthere is no doubt that he was extremely meticulous. The ""severity"" here simply refers to his rigorous precision. Shaykh Muqbil would scrutinise many hadiths in light of hidden defects (ilal). I once asked him directly: ""O Shaykh, the hadiths you included in As-Sahih Al-Musnad, did you examine them for hidden defects?"" He replied, ""I mostly examine them for hidden defects."" He continued this practice throughout his life, constantly reviewing As-Sahih Al-Musnad against books of ilal. If Al-Hafidh Ad-Daraqutni, Abu Hatim, Abu Zurah, Al-Hafidh Ibn Hajar, or any of the hadith masters stated that a hadith had a defect, Shaykh Muqbil would either remove it from his collection or keep it with a note indicating its defect.
+
+In my observation, the criticisms regarding authentication directed at our Shaykh (Muqbil), may Allah have mercy on him, are far fewer than those directed at Shaykh Al-Albani. This is worth noting, considering the vast number of hadiths that Shaykh Al-Albani ruled upon compared to the number that our Shaykh ruled upon.","(84) The Claim That Shaykh Al-Albani Was Overly Lenient and Shaykh Muqbil Overly Strict in Hadith Grading Question: It is said about Shaykh Nasir Ad-Din Al-Albani that he was lenient in his authentication and weakening of hadiths, and about Shaykh Muqbil that he was overly severe. How true are these statements? Sheikh Yahya Al-Hajoori As for the claim that Shaykh Al-Albani was lenient in authentication and weakeningthis is incorrect. How could that be? He never weakened a hadith without providing clear evidence for its weakness. He was extremely meticulous in weakening hadiths. His book Silsilah Adh-Daifah (The Chain of Weak Hadiths) stands as a testament to this, showing his great precision. Regarding authentication, he would sometimes exercise his own reasoning (ijtihad) on certain hadiths, citing various chains and applying his own methodological principles. He might say, ""This hadith, through these chains, is hasan in my view."" This is similar to what Al-Hafidh Ibn Hajar does in Bulugh Al-Maram, where he says, ""This hadith is hasan,"" even though some other hadith masters or researchers may disagree. The same can be said for Az-Zaylai and other scholarsthis is a normal matter of scholarly difference. It is true that some hadiths in Silsilah As-Sahihah (The Chain of Authentic Hadiths) which he deemed authentic are not accepted by some other scholars. However, in reality, his ijtihad was very strong, and he provided the Muslim Ummah with an immense treasure that neither a scholar nor a student can do without. He remains a mujtahid, like other mujtahids in the field of hadith. A student of knowledge should still examine the hadiths, even those found in Silsilah As-Sahihah or Irwa Al-Ghalil, and form their own conclusion based on what they see, even if it aligns with Shaykh Al-Albanis ruling. If a student feels they have not reached the level to judge a hadith as hasan or sahih as the Shaykh did, they can simply hold their own informed opinion. And all praise is due to Allah, the Lord of the worlds. As for the claim that Shaykh Muqbil was severe in authentication and weakeningthere is no doubt that he was extremely meticulous. The ""severity"" here simply refers to his rigorous precision. Shaykh Muqbil would scrutinise many hadiths in light of hidden defects (ilal). I once asked him directly: ""O Shaykh, the hadiths you included in As-Sahih Al-Musnad, did you examine them for hidden defects?"" He replied, ""I mostly examine them for hidden defects."" He continued this practice throughout his life, constantly reviewing As-Sahih Al-Musnad against books of ilal. If Al-Hafidh Ad-Daraqutni, Abu Hatim, Abu Zurah, Al-Hafidh Ibn Hajar, or any of the hadith masters stated that a hadith had a defect, Shaykh Muqbil would either remove it from his collection or keep it with a note indicating its defect. In my observation, the criticisms regarding authentication directed at our Shaykh (Muqbil), may Allah have mercy on him, are far fewer than those directed at Shaykh Al-Albani. This is worth noting, considering the vast number of hadiths that Shaykh Al-Albani ruled upon compared to the number that our Shaykh ruled upon.",0.1490145401229766,0.3628237783914003,0.4881616814856231,Salafi taklidi_as_Salafi jihadi
+ldvlx44a4,Irrelevant,Salafi jihadi,0.4858686662026518,0.4858686662026518,python/tweetsFromSite/tweets_from_site4.csv,Moroccan minister of justice Abdul Latif Wahbi says that a (unrelated) man &amp; woman being alone in a house is not a crime. He then refers to the Hadith of Shaytaan being the third of them &amp; mocks it by saying Give me the national identity card of Shaytaan.,Moroccan minister of justice Abdul Latif Wahbi says that a (unrelated) man &amp; woman being alone in a house is not a crime. He then refers to the Hadith of Shaytaan being the third of them &amp; mocks it by saying Give me the national identity card of Shaytaan.,0.365287227930603,0.4858686662026518,0.1488441058667453,Irrelevant_as_Salafi jihadi
+mrb6ioj1k,Irrelevant,Salafi taklidi,0.483173308689045,0.1596618831910301,python/tweetsFromSite/tweets_from_the_site3.csv,""" 5k, 3 days. Lets clear these  and get closer to saving the Markaz!
+
+A Markaz upon the Sunnah stays standing because people step forward.
+
+5. 50. 500.
+
+The dawah is upheld by those who carry it.
+
+Give what you can. Be written among the builders. 
+
+Donate Tonight",""" 5k, 3 days. Lets clear these and get closer to saving the Markaz! A Markaz upon the Sunnah stays standing because people step forward. 5. 50. 500. The dawah is upheld by those who carry it. Give what you can. Be written among the builders. Donate Tonight",0.3571648081199246,0.1596618831910301,0.483173308689045,Irrelevant_as_Salafi taklidi
+2trsey0tu,Salafi taklidi,Irrelevant,0.4783420922975402,0.2485008224298011,python/tweetsFromSite/tweets_from_site5.csv,"""""""Ibn Abbas was a nominalist and Ibn Hanbal would have agreed with me on this.""
+Jake al-Wahhabi al-Hrib.
+
+Also wahhabis: ""Ilm kalam is Zandaqa &amp; Bid'ah.""
+ 
+""
+--------------
+
+How is this even considered kalm? Its simply attaching a word to a concept.
+
+You probably think me asking for a specific coffee flavour is also kalm.","""""""Ibn Abbas was a nominalist and Ibn Hanbal would have agreed with me on this."" Jake al-Wahhabi al-Hrib. Also wahhabis: ""Ilm kalam is Zandaqa &amp; Bid'ah."" "" -------------- How is this even considered kalm? Its simply attaching a word to a concept. You probably think me asking for a specific coffee flavour is also kalm.",0.4783420922975402,0.2485008224298011,0.2731570852726584,Salafi taklidi_as_Irrelevant
+a0qlea9vu,Salafi taklidi,Irrelevant,0.4724539195121469,0.2900125325413791,python/tweetsFromSite/tweets_from_site4.csv,"Ruhaylis real answer regarding boycotting certain franchises in Muslim countries isnt much different to the fake video
+
+-  They have 0 connection to the actual company 
+
+- Muslims work in these chains so boycotting is Dhulm &amp; not permitted
+
+- They donate in charity to Muslims",Ruhaylis real answer regarding boycotting certain franchises in Muslim countries isnt much different to the fake video - They have 0 connection to the actual company - Muslims work in these chains so boycotting is Dhulm &amp; not permitted - They donate in charity to Muslims,0.4724539195121469,0.2900125325413791,0.2375335479464739,Salafi taklidi_as_Irrelevant
+ry1vc5t70,Irrelevant,Salafi taklidi,0.4721425724222379,0.1691052063837942,python/tweetsFromSite/tests_from_site4.csv,"""""Why do people encourage people to speak about things, even if they may have no knowledge about it? If you want to make a difference, you dont make the whole world speak. You ask the people with knowledge to speak""
+""
+--------------
+
+This brother made a very good point .
+Most of us dont even know the entirety of juz Amma , what makes you think you can discuss the differences between Ahkaam and aqidah ?
+
+It is known from our pious predecessors that the foundation of gaining ilm was to memorise the entire Quran before studying rullings , ilmul Hadith , jarh wa tadeel etc  . So if you cannot do that then stay silent until you have done so .
+
+Theres a famous story between imam Abu hanifah and Imam Muhammad Bin Hassan Ash-Shaybaani. 
+Ash-Shaybaani wanted to enter and sit with Abu Hanifah during his duroos . But Abu Hanfiah had stipulated a condition and that was to first go memorise the Quran and then come back once he had completed . 
+Imam Muhammad was so eager that he memorised the words of Allah  entirely in just 8 days .
+
+So, if you want to succeed as a student of knowledge, do Hifz Ul-Quran , then continue with your further studies . You cannot master one and leave the other out , they both go hand in hand . 
+
+May Allah grant us to be great Huffz and allow the words of Allah to enter our hearts","""""Why do people encourage people to speak about things, even if they may have no knowledge about it? If you want to make a difference, you dont make the whole world speak. You ask the people with knowledge to speak"" "" -------------- This brother made a very good point . Most of us dont even know the entirety of juz Amma , what makes you think you can discuss the differences between Ahkaam and aqidah ? It is known from our pious predecessors that the foundation of gaining ilm was to memorise the entire Quran before studying rullings , ilmul Hadith , jarh wa tadeel etc . So if you cannot do that then stay silent until you have done so . Theres a famous story between imam Abu hanifah and Imam Muhammad Bin Hassan Ash-Shaybaani. Ash-Shaybaani wanted to enter and sit with Abu Hanifah during his duroos . But Abu Hanfiah had stipulated a condition and that was to first go memorise the Quran and then come back once he had completed . Imam Muhammad was so eager that he memorised the words of Allah entirely in just 8 days . So, if you want to succeed as a student of knowledge, do Hifz Ul-Quran , then continue with your further studies . You cannot master one and leave the other out , they both go hand in hand . May Allah grant us to be great Huffz and allow the words of Allah to enter our hearts",0.3587522211939677,0.1691052063837942,0.4721425724222379,Irrelevant_as_Salafi taklidi
+fsbsn2zkw,Irrelevant,Salafi taklidi,0.4713917147833891,0.1162399764603411,python/tweetsFromSite/tweets_from_the_site3.csv,""" VIDEO TOUR
+
+ Masjid Ibn Taymiyyah Islamabad  Real progress, may Allah bless it. 
+
+ Please share with friends and relatives! 
+
+Donate this Ramadan:
+ Apple Pay / Google Pay / PayPal / Debit Card / Bank Transfer. 
+
+ WORLDWIDE Donations:
+ 
+Link: 
+
+ INSIDE PAKISTAN:",""" VIDEO TOUR Masjid Ibn Taymiyyah Islamabad Real progress, may Allah bless it. Please share with friends and relatives! Donate this Ramadan: Apple Pay / Google Pay / PayPal / Debit Card / Bank Transfer. WORLDWIDE Donations: Link: INSIDE PAKISTAN:",0.4123683087562698,0.1162399764603411,0.4713917147833891,Irrelevant_as_Salafi taklidi
+zqzyqimqi,Irrelevant,Salafi taklidi,0.4684269843903844,0.1013620172093736,python/tweetsFromSite/tweets_from_the_site1.csv,"Following Ancestors Into Shirk |ClickDEEN360  via @YouTube,","Following Ancestors Into Shirk |ClickDEEN360 via @USER,",0.4302109984002419,0.1013620172093736,0.4684269843903844,Irrelevant_as_Salafi taklidi
+cmhjhiglx,Irrelevant,Salafi taklidi,0.4629657120400583,0.3221048129153921,python/tweetsFromSite/tweets_from_site5.csv,"""Yasir Qadhi misses the mark againhe contradicts the Quran and opposes the Messenger of Allah () in his end justifies the means political philosophy. He screams out in exultation of the Rabbis and Jews, These are our brethren! These are our brethren! They are the REAL followers of Moses! They are the ones who make the Children of Israel proud!
+This is not the belief of the Muslimsthis is not what the Qur'an teaches, nor is it from the teachings of the Prophet Muhammad (). The REAL followers of Moses (peace be upon him) believe in Jesus son of Mary as the servant and Messenger of God, and they believe in Muhammad () as the servant and final Messenger of Godthat is the religion of Islam. 
+Allah () said in the Quran: And whoever desires other than Islam as religionnever will it be accepted from him, and in the Hereafter, he will be among the losers. (3:85) And He (the Most High) said: Verily, those who disbelieve (in the religion of Islam) among the People of the Scripture (Jews and Christians) and the Pagans will abide in the Fire of Hell. They are the worst of creation. (98:6) So, how are the Jews who disbelieved in Jesus and Muhammad (and disbelieved in the Books revealed to these Prophets) be the REAL followers of Moses?!
+If they were [as Qadhi claims] the REAL followers of Moses (peace be upon him), they would follow the Prophet Muhammad () because that is what Moses (peace be upon him) would do, just as the Prophet () said: I have certainly come to you with that which is pure and clear proof... By the One in whose Hand is my soul, even if Moses (peace be upon him) was alive, he would have no choice but to follow me. (Imm Ahmad in al-Musnad, 3/387 no. 14859, graded authentic by al-Albn)
+Furthermore, The Talmudic stories make fun of Jesus birth from a virgin, fervently contest his claim to be the Messiah... and maintain that he was rightfully executed as a blasphemer and idolater. (Jesus in the Talmud, Peter Schfer)
+Our brethren believe in all of Gods Prophets including Moses, Jesus and Muhammad (peace be upon them all). The Prophet () said: By the One in whose hand is the soul of Muhammad, there is not a person from this nation, whether he is a Jew or a Christian, who hears of me, and then dies without believing in the message I was sent with except that he will be among the people of Hellfire. (Muslim, no. 153)""","""Yasir Qadhi misses the mark againhe contradicts the Quran and opposes the Messenger of Allah () in his end justifies the means political philosophy. He screams out in exultation of the Rabbis and Jews, These are our brethren! These are our brethren! They are the REAL followers of Moses! They are the ones who make the Children of Israel proud! This is not the belief of the Muslimsthis is not what the Qur'an teaches, nor is it from the teachings of the Prophet Muhammad (). The REAL followers of Moses (peace be upon him) believe in Jesus son of Mary as the servant and Messenger of God, and they believe in Muhammad () as the servant and final Messenger of Godthat is the religion of Islam. Allah () said in the Quran: And whoever desires other than Islam as religionnever will it be accepted from him, and in the Hereafter, he will be among the losers. (3:85) And He (the Most High) said: Verily, those who disbelieve (in the religion of Islam) among the People of the Scripture (Jews and Christians) and the Pagans will abide in the Fire of Hell. They are the worst of creation. (98:6) So, how are the Jews who disbelieved in Jesus and Muhammad (and disbelieved in the Books revealed to these Prophets) be the REAL followers of Moses?! If they were [as Qadhi claims] the REAL followers of Moses (peace be upon him), they would follow the Prophet Muhammad () because that is what Moses (peace be upon him) would do, just as the Prophet () said: I have certainly come to you with that which is pure and clear proof... By the One in whose Hand is my soul, even if Moses (peace be upon him) was alive, he would have no choice but to follow me. (Imm Ahmad in al-Musnad, 3/387 no. 14859, graded authentic by al-Albn) Furthermore, The Talmudic stories make fun of Jesus birth from a virgin, fervently contest his claim to be the Messiah... and maintain that he was rightfully executed as a blasphemer and idolater. (Jesus in the Talmud, Peter Schfer) Our brethren believe in all of Gods Prophets including Moses, Jesus and Muhammad (peace be upon them all). The Prophet () said: By the One in whose hand is the soul of Muhammad, there is not a person from this nation, whether he is a Jew or a Christian, who hears of me, and then dies without believing in the message I was sent with except that he will be among the people of Hellfire. (Muslim, no. 153)""",0.2149294750445495,0.3221048129153921,0.4629657120400583,Irrelevant_as_Salafi taklidi
+672n3bxv0,Irrelevant,Salafi jihadi,0.4613767959127466,0.4613767959127466,python/tweetsFromSite/tweets_from_site5.csv,Says who?,Says who?,0.3397821423996541,0.4613767959127466,0.1988410616875993,Irrelevant_as_Salafi jihadi
+e0ocuk2e9,Salafi taklidi,Salafi jihadi,0.46100867308963,0.4059795779054063,python/tweetsFromSite/tweets_from_the_site3.csv,"""Dr. Diyy' Jamil Ar-Rahman who is currently working on a well-written project on the life of his father, Shaykh Jamil Ar-Rahman, mentions the courageousness of Shaykh Rab bin Hadi al-Madkhali during the Jihad against the soviets. May Allah have mercy on them.","""Dr. Diyy' Jamil Ar-Rahman who is currently working on a well-written project on the life of his father, Shaykh Jamil Ar-Rahman, mentions the courageousness of Shaykh Rab bin Hadi al-Madkhali during the Jihad against the soviets. May Allah have mercy on them.",0.1330117490049636,0.4059795779054063,0.46100867308963,Salafi taklidi_as_Salafi jihadi
+dn0q6rlpk,Irrelevant,Salafi jihadi,0.4603764150353268,0.3853617070338941,python/tweetsFromSite/tweets_from_site4.csv,"""This person since the overthrow of Assad regime did a 180.
+
+While under Assad regime, he refused to talk about politics (No problem) but continued on with his agenda against Salafis and justified Boutis stances. 
+
+Since the liberation of Assad regime","""This person since the overthrow of Assad regime did a 180. While under Assad regime, he refused to talk about politics (No problem) but continued on with his agenda against Salafis and justified Boutis stances. Since the liberation of Assad regime",0.4603764150353268,0.3853617070338941,0.154261877930779,Irrelevant_as_Salafi jihadi
+evtgl9e0t,Salafi jihadi,Irrelevant,0.458614233843668,0.2440941882909291,python/tweetsFromSite/tweets_from_site4.csv,"New crazy laws under the Sufi regime in Afghanistan: 
+
+Attributes of a Da'e below : 
+ Must be a Muslim and from the Hanafi school of thought 
+
+ Prohibiting a non-Hanafi from preaching
+
+[ Basically if you are a salafi / ahlul hadith then you have no right preach ]",New crazy laws under the Sufi regime in Afghanistan: Attributes of a Da'e below : Must be a Muslim and from the Hanafi school of thought Prohibiting a non-Hanafi from preaching [ Basically if you are a salafi / ahlul hadith then you have no right preach ],0.458614233843668,0.2440941882909291,0.2972915778654029,Salafi jihadi_as_Irrelevant
+lf51g3jrm,Salafi taklidi,Salafi jihadi,0.4575814049407031,0.4575814049407031,python/tweetsFromSite/tweets_from_site5.csv,"""The devil-hearted ruler... 
+
+There are many wicked Khariji Muslims who deliberately twist the narrations regarding the obedience to rulers. Or, they cite the ones that they allege support their revolutionary tendencies and ignore the ones which expose them and their lies. 
+
+Be careful of these people. 
+
+If you live in Muslim country that has a Muslim ruler, then listen and obey in that which is good and don't obey him in disobedience. 
+
+Don't speak ill of him in public and don't advise him from pulpits.
+
+Make Duaa for him and not against him. 
+
+Don't incite the masses against him and call for revolts and corruption. 
+
+If you live among the Kuffaar, then remain silent as you have no right to discuss our affairs nor is there any weight for the opinion of a hypocrite who pays taxes to the Kuffaar, pledges allegiance to them and helps them in their evil ways by neighboring them and residing amongst them. 
+
+Fear Allaah and adhere to the Sunnah.""","""The devil-hearted ruler... There are many wicked Khariji Muslims who deliberately twist the narrations regarding the obedience to rulers. Or, they cite the ones that they allege support their revolutionary tendencies and ignore the ones which expose them and their lies. Be careful of these people. If you live in Muslim country that has a Muslim ruler, then listen and obey in that which is good and don't obey him in disobedience. Don't speak ill of him in public and don't advise him from pulpits. Make Duaa for him and not against him. Don't incite the masses against him and call for revolts and corruption. If you live among the Kuffaar, then remain silent as you have no right to discuss our affairs nor is there any weight for the opinion of a hypocrite who pays taxes to the Kuffaar, pledges allegiance to them and helps them in their evil ways by neighboring them and residing amongst them. Fear Allaah and adhere to the Sunnah.""",0.2262290621396776,0.4575814049407031,0.3161895329196192,Salafi taklidi_as_Salafi jihadi
+rj8czsso9,Salafi taklidi,Irrelevant,0.4555192262048976,0.1289150388401351,python/tweetsFromSite/tweets_from_the_site3.csv,"""*JOIN US TOMORROW*
+
+    
+ 
+A double lecture evening event at Masjid As-Sunnah tomorrow 29th July 2024, starting at 7pm inshAllh.
+
+Details in the posters below:
+
+Masjid As-Sunnah 
+3 Paternoster Lane
+Bradford
+BD7 3DS
+01274 501 736","""*JOIN US TOMORROW* A double lecture evening event at Masjid As-Sunnah tomorrow 29th July 2024, starting at 7pm inshAllh. Details in the posters below: Masjid As-Sunnah 3 Paternoster Lane Bradford BD7 3DS 01274 501 736",0.4555192262048976,0.1289150388401351,0.4155657349549672,Salafi taklidi_as_Irrelevant
+4ggrfnghu,Salafi taklidi,Salafi jihadi,0.4496361514824548,0.4496361514824548,python/tweetsFromSite/tweets_from_the_site3.csv,"The Legacy of Shaykh Ehsan Elahi Zahir and his war against the Rafidha!
+
+Sh. Ibrahim Al-Muhaymid",The Legacy of Shaykh Ehsan Elahi Zahir and his war against the Rafidha! Sh. Ibrahim Al-Muhaymid,0.2036395141998899,0.4496361514824548,0.3467243343176553,Salafi taklidi_as_Salafi jihadi
+x5zudbl30,Salafi jihadi,Salafi taklidi,0.4461043953858304,0.3262005132419127,python/tweetsFromSite/tweets_from_site5.csv,"Shaykh Abu Al al-asan said,
+
+Dont be surprised by the actions, behavior or stances of the Madkhilahfor they are vile traitors.
+
+If a person becomes slave to the ruler, then expect from him every evil action.
+
+A Madkhal feels no shame to act as a pimp for his authority.","Shaykh Abu Al al-asan said, Dont be surprised by the actions, behavior or stances of the Madkhilahfor they are vile traitors. If a person becomes slave to the ruler, then expect from him every evil action. A Madkhal feels no shame to act as a pimp for his authority.",0.2276950913722568,0.3262005132419127,0.4461043953858304,Salafi jihadi_as_Salafi taklidi
+izm1ngshr,Salafi taklidi,Irrelevant,0.4457298615021727,0.1954899736769679,python/tweetsFromSite/tweets_from_site5.csv,"""One of the first things I ever heard our bro Hasan Sumali say is: The 1st call of every innovator is 2 separate the people from the Scholars""","""One of the first things I ever heard our bro Hasan Sumali say is: The 1st call of every innovator is 2 separate the people from the Scholars""",0.4457298615021727,0.1954899736769679,0.3587801648208594,Salafi taklidi_as_Irrelevant
+om0ej33p1,Salafi jihadi,Irrelevant,0.4453433705335741,0.1847943031622881,python/tweetsFromSite/tweets_from_site4.csv,"""Si ibn Taymiyyah tait vivant aujourdhui il taurait dclar mcrant""","""Si ibn Taymiyyah tait vivant aujourdhui il taurait dclar mcrant""",0.4453433705335741,0.1847943031622881,0.3698623263041378,Salafi jihadi_as_Irrelevant
+bqf88a3dw,Salafi taklidi,Irrelevant,0.4447751762234487,0.2352849854570171,python/tweetsFromSite/tests_from_site4.csv,"""Dear brother Adnan
+
+And then will probably start attacking wahabis and accuse our ulema of kufr.
+
+lol""","""Dear brother Adnan And then will probably start attacking wahabis and accuse our ulema of kufr. lol""",0.4447751762234487,0.2352849854570171,0.319939838319534,Salafi taklidi_as_Irrelevant
+u6mc1joom,Irrelevant,Salafi jihadi,0.4410271796205932,0.4410271796205932,python/tweetsFromSite/tweets_from_site4.csv,"""Anyone that sees the UAE as a legitimate Muslim government that one is obliged to hear and obey, is politically and theologically ignorant, and hes a Madkhali.""","""Anyone that sees the UAE as a legitimate Muslim government that one is obliged to hear and obey, is politically and theologically ignorant, and hes a Madkhali.""",0.3931985175978234,0.4410271796205932,0.1657743027815834,Irrelevant_as_Salafi jihadi
+r4g6w7kjd,Irrelevant,Salafi jihadi,0.4362145660554513,0.4026478335233794,python/tweetsFromSite/tweets_from_site4.csv,"""""BREAKING: The United Arab Emirates said it quit OPEC and OPEC+, dealing a heavy blow to the oil exporting groups and their de facto leader, Saudi Arabia, at a time when the Iran war has caused a historic energy shock and unsettled the global economy  
+""
+--------------
+
+Bin Bayyah (ft Faris Hammadi) VS Sulaymaan ar-Ruhayli showdown pending.","""""BREAKING: The United Arab Emirates said it quit OPEC and OPEC+, dealing a heavy blow to the oil exporting groups and their de facto leader, Saudi Arabia, at a time when the Iran war has caused a historic energy shock and unsettled the global economy "" -------------- Bin Bayyah (ft Faris Hammadi) VS Sulaymaan ar-Ruhayli showdown pending.",0.4362145660554513,0.4026478335233794,0.1611376004211692,Irrelevant_as_Salafi jihadi
+6wattvw9f,Salafi taklidi,Salafi jihadi,0.4348158564741388,0.3610143533905822,python/tweetsFromSite/tweets_from_the_site3.csv,"""""Lines in encouraging the soul towards good written by Shaykh Ahmad bin Yahya An-Najmi, at the request of Shaykh Abdullah bin Aqeel during a visit to his house     
+""
+--------------
+
+Here is a beautiful poem by the Shaykhs son aswell","""""Lines in encouraging the soul towards good written by Shaykh Ahmad bin Yahya An-Najmi, at the request of Shaykh Abdullah bin Aqeel during a visit to his house "" -------------- Here is a beautiful poem by the Shaykhs son aswell",0.2041697901352789,0.3610143533905822,0.4348158564741388,Salafi taklidi_as_Salafi jihadi
+ijlxrm5i8,Irrelevant,Salafi taklidi,0.4327551765348888,0.1691268269497751,python/tweetsFromSite/tweets_from_the_site1.csv,"""Ustdh Abd al-Raman asan has pre recorded content with the AMAU that will be uploaded on the AMAU channel for the next few months.
+
+Likewise all of his content on the AMAU course website will remain.
+
+But nothing new from Ustdh Abd al-Raman asan will be recorded for the AMAU from this point onwards."",","""Ustdh Abd al-Raman asan has pre recorded content with the AMAU that will be uploaded on the AMAU channel for the next few months. Likewise all of his content on the AMAU course website will remain. But nothing new from Ustdh Abd al-Raman asan will be recorded for the AMAU from this point onwards."",",0.3981179965153359,0.1691268269497751,0.4327551765348888,Irrelevant_as_Salafi taklidi
+9q35xi450,Irrelevant,Salafi jihadi,0.4327407214151687,0.4327407214151687,python/tweetsFromSite/tweets_from_site5.csv,"""      
+
+This Hadith Qudsi is a severe warning against those who transgress and wage war against the Awliy of Allah. Its referring to a normal Wali, imagine the fate of those who wage war against the Messenger? 
+
+The previous Zindq accused the Messenger of being a Mushrik before Rislah  , and he committed suicide a couple of weeks after. This Zindq now has committed compounded Riddah, some short months after his same vile accusation. 
+
+Let this be a warning for these rabid Zanadiqa, to withhold their tongue and repent for their heresy.""",""" This Hadith Qudsi is a severe warning against those who transgress and wage war against the Awliy of Allah. Its referring to a normal Wali, imagine the fate of those who wage war against the Messenger? The previous Zindq accused the Messenger of being a Mushrik before Rislah , and he committed suicide a couple of weeks after. This Zindq now has committed compounded Riddah, some short months after his same vile accusation. Let this be a warning for these rabid Zanadiqa, to withhold their tongue and repent for their heresy.""",0.3829458653797244,0.4327407214151687,0.1843134132051068,Irrelevant_as_Salafi jihadi
+pl65z8m0o,Salafi taklidi,Salafi jihadi,0.4265520889453993,0.4233084275257496,python/tweetsFromSite/tweets_from_site4.csv,"""This is Kufr and one who utters such a statement is a Kafir.""","""This is Kufr and one who utters such a statement is a Kafir.""",0.4265520889453993,0.4233084275257496,0.1501394835288509,Salafi taklidi_as_Salafi jihadi
+5g5kznyf8,Irrelevant,Salafi taklidi,0.4241453818178753,0.2555285014287087,python/tweetsFromSite/tweets_from_the_site3.csv,"Increasing in our supplications during these last ten blessed nights for our brothers and sisters wherever they may be,asking Allh to grant the Muslims wellbeing, safety, & guidance, both the general folk & the rulers. And asking Him, al-Ghaffr, to forgive our brothers & sisters who have passed away & those who are living.","Increasing in our supplications during these last ten blessed nights for our brothers and sisters wherever they may be,asking Allh to grant the Muslims wellbeing, safety, & guidance, both the general folk & the rulers. And asking Him, al-Ghaffr, to forgive our brothers & sisters who have passed away & those who are living.",0.320326116753416,0.2555285014287087,0.4241453818178753,Irrelevant_as_Salafi taklidi
+xr18wy18k,Salafi taklidi,Salafi jihadi,0.4227001377016372,0.3685372251877377,python/tweetsFromSite/tests_from_site4.csv,"""Shaykh Muqbil
+
+- Am*rica imposed how Muslim countries interact with Isr*el
+
+- Govts speak &amp; against Isr*el &amp; cry for the Palestinians but this is all lies 
+
+- Govts have nothing to do with struggle in the path of Allah
+
+- Govts will not liberate Palestine, Muslims will
+
+Khaariji?","""Shaykh Muqbil - Am*rica imposed how Muslim countries interact with Isr*el - Govts speak &amp; against Isr*el &amp; cry for the Palestinians but this is all lies - Govts have nothing to do with struggle in the path of Allah - Govts will not liberate Palestine, Muslims will Khaariji?",0.4227001377016372,0.3685372251877377,0.2087626371106251,Salafi taklidi_as_Salafi jihadi
+ulw313uqb,Irrelevant,Salafi taklidi,0.4218411345223234,0.2236206488572159,python/tweetsFromSite/tweets_from_the_site1.csv,"""May Allah reward our brothers who keep the House of Allah clean and tidy. A righteous act with no fame or notoriety attached. May Allah accept it from them and reward the one who wrote this kind message.,","""May Allah reward our brothers who keep the House of Allah clean and tidy. A righteous act with no fame or notoriety attached. May Allah accept it from them and reward the one who wrote this kind message.,",0.3545382166204606,0.2236206488572159,0.4218411345223234,Irrelevant_as_Salafi taklidi
+674wd7bg6,Salafi taklidi,Irrelevant,0.4210958622900674,0.2634084126761816,python/tweetsFromSite/tweets_from_the_site1.csv,"""After years of unjustly targeting brothers and scholars, one of SPUBs leaders is now crying foul as he faces the same attacks. How sad.,62.0","""After years of unjustly targeting brothers and scholars, one of SPUBs leaders is now crying foul as he faces the same attacks. How sad.,62.0",0.4210958622900674,0.2634084126761816,0.3154957250337511,Salafi taklidi_as_Irrelevant
+jh204axib,Salafi taklidi,Salafi jihadi,0.4208291902138149,0.4208291902138149,python/tweetsFromSite/tests_from_site4.csv,"""Fakhr al-Dn al-Rz against Sufi Quburis.
+
+In his Tafsir, he draws a parallel between grave worshippers in his time, and ancient idolaters, affirming the prohibition of supplicating to other than God. Below is his commentary on two verses:
+
+1/10","""Fakhr al-Dn al-Rz against Sufi Quburis. In his Tafsir, he draws a parallel between grave worshippers in his time, and ancient idolaters, affirming the prohibition of supplicating to other than God. Below is his commentary on two verses: 1/10",0.3787680563422568,0.4208291902138149,0.2004027534439283,Salafi taklidi_as_Salafi jihadi
+ks4koas3u,Salafi taklidi,Irrelevant,0.4200675289791011,0.2724988828973975,python/tweetsFromSite/tweets_from_site5.csv,"""""@PenofthePaladin @meowbundi What khariji level is this 
+""
+--------------
+
+These hardocre Takfiris, including Ridvan, are mentally unstable
+We either take them too seriously or mock them or both
+Most are attention seekers and engaging with them only fuels that
+Better to ignore or block
+Lost individuals unlikely to ever live normal lives
+Allah help them","""""@USER @USER What khariji level is this "" -------------- These hardocre Takfiris, including Ridvan, are mentally unstable We either take them too seriously or mock them or both Most are attention seekers and engaging with them only fuels that Better to ignore or block Lost individuals unlikely to ever live normal lives Allah help them",0.4200675289791011,0.2724988828973975,0.3074335881235014,Salafi taklidi_as_Irrelevant
+wggs4710x,Salafi taklidi,Irrelevant,0.4187828230013307,0.3054126632698408,python/tweetsFromSite/tweets_from_site5.csv,"""""Daniel is right. The Mu'tazila who held that view and the Karramis who held the view of the Quran being Muhdath (emergent) are not Kuffar. They are Mubtadi'ah. That's the dominant position of the Sunni schools.
+
+""
+--------------
+
+Sufyn ibn Uyaynah  :
+
+ The Quran is the speech of Allah . 
+
+ Whoever says that it is created is a disbeliever,
+
+ And whoever doubts the disbelief of such a person is also a disbeliever.","""""Daniel is right. The Mu'tazila who held that view and the Karramis who held the view of the Quran being Muhdath (emergent) are not Kuffar. They are Mubtadi'ah. That's the dominant position of the Sunni schools. "" -------------- Sufyn ibn Uyaynah : The Quran is the speech of Allah . Whoever says that it is created is a disbeliever, And whoever doubts the disbelief of such a person is also a disbeliever.",0.4187828230013307,0.3054126632698408,0.2758045137288284,Salafi taklidi_as_Irrelevant
+teun9534g,Salafi taklidi,Salafi jihadi,0.41749182936548,0.41749182936548,python/tweetsFromSite/tweets_from_site5.csv,"True #Islam is found in wholehearted submission to Allahhonoring His commands, steering clear of His prohibitions, and placing Him above fleeting desires and the whispers of Shaytan.
+
+The more a Muslim embodies this submission, the more refined and complete their #Iman becomes.","True #Islam is found in wholehearted submission to Allahhonoring His commands, steering clear of His prohibitions, and placing Him above fleeting desires and the whispers of Shaytan. The more a Muslim embodies this submission, the more refined and complete their #Iman becomes.",0.4017915413846759,0.41749182936548,0.180716629249844,Salafi taklidi_as_Salafi jihadi
+9gtbkzgqu,Salafi taklidi,Salafi jihadi,0.4172409427432585,0.382510518538726,python/tweetsFromSite/tweets_from_the_site1.csv,"""Shaykh li al-Fawzn speaks about those who allow the disbelievers into the lands of muslims when assisting them against the muslims and how this is disbelief even if he hates their religion.
+
+Interestingly, he then speaks about those who bring them in and enabled them to build churches and the likes, and this is what he says :
+
+_
+
+Shaykh Sulaymn ibn Abd Allh ibn Muammad ibn Abd al Wahhb said: [That if someone openly displays their] agreement with their religion [of the Mushrikin]
+
+Shaykh li al-Fawzn said: Meaning: He enabled them [the mushrikin] to establish churches in the lands of the Muslims, and granted them freedom, and said to the Muslims: Do not prevent them from anything; whatever they request from you, comply with it. This is mudhanah, because our religion forbids this.
+
+
+
+Shaykh Sulaymn ibn Abd Allh ibn Muammad ibn Abd al-Wahhb said: [And if he does this then] indeed he is a disbeliever like them.
+
+Shaykh li al-Fawzn commentates: Because he enabled the [religion of the] disbelievers and was pleased with their religion, and he forewent what the religion of Islm obliged upon him  namely disassociating the religion of the disbelievers and disavowing it. He did not disavow it; rather, he permitted it, justified it, and granted them freedom [to establish their religion] in the lands of the Muslims.
+
+Shaykh Sulaymn ibn Abd Allh ibn Muammad ibn Abd al-Wahhb said: [And if he does this then indeed he is a disbeliever like them] even if he detests their religion and hates them.
+
+Shaykh li al-Fawzn commentates: Meaning: if he loves their religion, then this makes him a disbeliever (kfir), an apostate, if he establish them. And if he establishes them while he hates their religion, then this act of his constitutes apostasy from Islm, because he has assisted them against the Muslims.
+
+        (31,32)"",","""Shaykh li al-Fawzn speaks about those who allow the disbelievers into the lands of muslims when assisting them against the muslims and how this is disbelief even if he hates their religion. Interestingly, he then speaks about those who bring them in and enabled them to build churches and the likes, and this is what he says : _ Shaykh Sulaymn ibn Abd Allh ibn Muammad ibn Abd al Wahhb said: [That if someone openly displays their] agreement with their religion [of the Mushrikin] Shaykh li al-Fawzn said: Meaning: He enabled them [the mushrikin] to establish churches in the lands of the Muslims, and granted them freedom, and said to the Muslims: Do not prevent them from anything; whatever they request from you, comply with it. This is mudhanah, because our religion forbids this. Shaykh Sulaymn ibn Abd Allh ibn Muammad ibn Abd al-Wahhb said: [And if he does this then] indeed he is a disbeliever like them. Shaykh li al-Fawzn commentates: Because he enabled the [religion of the] disbelievers and was pleased with their religion, and he forewent what the religion of Islm obliged upon him namely disassociating the religion of the disbelievers and disavowing it. He did not disavow it; rather, he permitted it, justified it, and granted them freedom [to establish their religion] in the lands of the Muslims. Shaykh Sulaymn ibn Abd Allh ibn Muammad ibn Abd al-Wahhb said: [And if he does this then indeed he is a disbeliever like them] even if he detests their religion and hates them. Shaykh li al-Fawzn commentates: Meaning: if he loves their religion, then this makes him a disbeliever (kfir), an apostate, if he establish them. And if he establishes them while he hates their religion, then this act of his constitutes apostasy from Islm, because he has assisted them against the Muslims. (31,32)"",",0.2002485387180154,0.382510518538726,0.4172409427432585,Salafi taklidi_as_Salafi jihadi
+ed7nnok3r,Salafi taklidi,Salafi jihadi,0.4139977659005541,0.4139977659005541,python/tweetsFromSite/tweets_from_site4.csv,"""A questioner asks: What is the ruling on offering congratulations and gifts on the occasion of Valentines Day, which falls in mid-February each year?
+
+All praise is due to Allah, and peace and blessings be upon the Messenger of Allah and upon his family and companions. As for what follows:
+
+This holiday is a festival of the kuffar and Mushrikeen. Even if it is called Valentines Day, it is a festival claimed by the Greeks, an ancient festival for a deity they worshipped besides Allah. 
+
+Whether this holiday was for a deity they worshipped or merely for what they call and claim to be love, then congratulating others on it, celebrating this day, and honoring it is forbidden and not permissible.
+
+We, the people of Islam, have only two Eids: Eid al-Fitr and Eid al-Adha. It is not permissible to congratulate others for any Eid besides these two. So congratulating others on this day and honoring it is not allowed; it is forbidden. You are not permitted to congratulate anyone on it, nor are you permitted to accept congratulations from anyone on this day. Rather, it is obligatory upon you and every Muslim to reject anyone who congratulates you on this day and to clarify to people that congratulating others on this day is forbidden and not permissible, and that it is a form of imitating the Kuffar and Mushrikeen in their false festivals, which are based on falsehood, disbelief, immorality, and wickedness.
+
+How can they claim it is a day of love and magnify love while they are among the most hostile people toward Islam and Muslims, waging war against the religion of Allah and against the people of Islam? A Muslim should not be deceived by their labels or slogans. 
+
+These Kuffar and wicked people are among the furthest from what is called love. They are the ones killing us, killing our brothers in Syria, Iraq, and everywhere, yet they claim this day is Valentines Day.
+
+Therefore, it is not permissible to congratulate others on this day, nor is it permissible for a Muslim to honor it, give gifts on it, or accept gifts on it. It is a forbidden day; honoring it, celebrating it, and offering congratulations for such false festivals is forbidden.
+
+We have only two Eids: Eid al-Fitr and Eid al-Adha, and these are the ones in which it is permissible to rejoice.
+
+Likewise, commercial shops that sell gifts such as flowers, teddy bears, and similar items on this day, some people even change their pages or displays to red or use symbols associated with celebrating this day, selling flowers or anything that assists in honoring this day is not permissible. It is forbidden and is considered helping in falsehood. 
+
+Allah says: Cooperate in righteousness and piety, and do not cooperate in sin and transgression.
+
+Whoever sells such flowers with the intention of honoring that day, his sale is forbidden, and the money he earns from it is unlawful. Every body nourished by unlawful earnings, the Fire is more deserving of it. So it is not permissible to take such money, nor to sell flowers, change displays, alter slogans, or use symbols such as roses or the color red for this day, for these are forbidden and reprehensible matters.
+
+It is obligatory upon a Muslim to honor the symbols of Allah, to honor the religion of Allah, to show disavowal of these Kuffar and wicked people, and to distinguish himself from them in their festivals and their false, misguided beliefs. For resemblance in outward matters leads to resemblance in inward matters.
+
+We ask Allah for well-being and safety. 
+
+Shaykh Khalid al Fulaij (may Allah free him)""","""A questioner asks: What is the ruling on offering congratulations and gifts on the occasion of Valentines Day, which falls in mid-February each year? All praise is due to Allah, and peace and blessings be upon the Messenger of Allah and upon his family and companions. As for what follows: This holiday is a festival of the kuffar and Mushrikeen. Even if it is called Valentines Day, it is a festival claimed by the Greeks, an ancient festival for a deity they worshipped besides Allah. Whether this holiday was for a deity they worshipped or merely for what they call and claim to be love, then congratulating others on it, celebrating this day, and honoring it is forbidden and not permissible. We, the people of Islam, have only two Eids: Eid al-Fitr and Eid al-Adha. It is not permissible to congratulate others for any Eid besides these two. So congratulating others on this day and honoring it is not allowed; it is forbidden. You are not permitted to congratulate anyone on it, nor are you permitted to accept congratulations from anyone on this day. Rather, it is obligatory upon you and every Muslim to reject anyone who congratulates you on this day and to clarify to people that congratulating others on this day is forbidden and not permissible, and that it is a form of imitating the Kuffar and Mushrikeen in their false festivals, which are based on falsehood, disbelief, immorality, and wickedness. How can they claim it is a day of love and magnify love while they are among the most hostile people toward Islam and Muslims, waging war against the religion of Allah and against the people of Islam? A Muslim should not be deceived by their labels or slogans. These Kuffar and wicked people are among the furthest from what is called love. They are the ones killing us, killing our brothers in Syria, Iraq, and everywhere, yet they claim this day is Valentines Day. Therefore, it is not permissible to congratulate others on this day, nor is it permissible for a Muslim to honor it, give gifts on it, or accept gifts on it. It is a forbidden day; honoring it, celebrating it, and offering congratulations for such false festivals is forbidden. We have only two Eids: Eid al-Fitr and Eid al-Adha, and these are the ones in which it is permissible to rejoice. Likewise, commercial shops that sell gifts such as flowers, teddy bears, and similar items on this day, some people even change their pages or displays to red or use symbols associated with celebrating this day, selling flowers or anything that assists in honoring this day is not permissible. It is forbidden and is considered helping in falsehood. Allah says: Cooperate in righteousness and piety, and do not cooperate in sin and transgression. Whoever sells such flowers with the intention of honoring that day, his sale is forbidden, and the money he earns from it is unlawful. Every body nourished by unlawful earnings, the Fire is more deserving of it. So it is not permissible to take such money, nor to sell flowers, change displays, alter slogans, or use symbols such as roses or the color red for this day, for these are forbidden and reprehensible matters. It is obligatory upon a Muslim to honor the symbols of Allah, to honor the religion of Allah, to show disavowal of these Kuffar and wicked people, and to distinguish himself from them in their festivals and their false, misguided beliefs. For resemblance in outward matters leads to resemblance in inward matters. We ask Allah for well-being and safety. Shaykh Khalid al Fulaij (may Allah free him)""",0.2291367339361091,0.4139977659005541,0.3568655001633367,Salafi taklidi_as_Salafi jihadi
+4tacc1jfe,Salafi taklidi,Irrelevant,0.4129022267158357,0.2156317740320439,python/tweetsFromSite/tweets_from_site5.csv,"""[ Document] Ab Nar al-Sijz and ull al-awdith
+Link:","""[ Document] Ab Nar al-Sijz and ull al-awdith Link:",0.4129022267158357,0.2156317740320439,0.3714659992521202,Salafi taklidi_as_Irrelevant
+kl20g4th3,Salafi taklidi,Salafi jihadi,0.4124359959335312,0.4124359959335312,python/tweetsFromSite/tweets_from_site5.csv,"The new shauyk of @salafidawahmcr  @AbdullahJallow9 @DawahTH  fawaz madkhali 
+
+An example of fawaz Facebook  page where he spreads tabloid news as if your watching bbc news worse he makes dua against the entire Muslim nation of emirates  he says may Allah not grant them safety this is an entire Muslim nation ?!!!!  
+
+In reality we know they dont rate fawaz they only supporting him becasue abu iyaad has said we are going down this way so their tassub has lead them to follow him !",The new shauyk of @USER @USER @USER fawaz madkhali An example of fawaz Facebook page where he spreads tabloid news as if your watching bbc news worse he makes dua against the entire Muslim nation of emirates he says may Allah not grant them safety this is an entire Muslim nation ?!!!! In reality we know they dont rate fawaz they only supporting him becasue abu iyaad has said we are going down this way so their tassub has lead them to follow him !,0.3870712355677437,0.4124359959335312,0.2004927684987251,Salafi taklidi_as_Salafi jihadi
+xm0zma5hp,Salafi jihadi,Salafi taklidi,0.4103764668765599,0.2626969287895159,python/tweetsFromSite/tweets_from_site5.csv,""""" Abu khaled al-Faransi / Stalwart in his faith ""
+
+- IRAQ .",""""" Abu khaled al-Faransi / Stalwart in his faith "" - IRAQ .",0.3269266043339241,0.2626969287895159,0.4103764668765599,Salafi jihadi_as_Salafi taklidi
+c67jmc7k9,Irrelevant,Salafi jihadi,0.4101499638491027,0.3443766792584646,python/tweetsFromSite/tweets_from_site5.csv,"Imam Harb Bin Ismail Al Kirmni says ,
+
+Whoever claims that taqlid is not allowed, and that he does not imitate anyone in his religion, then this is the statement of a fsiq, mubtad', and an enemy of Allh and his Messenger () and everything the prophet came with. He only wants to invalidate the sunnah, extinguish knowledge, and to be unique in his opinion, speech, innovation, and disagreement. So upon the one who says this statement is the curse of Allah, the angels, and all people..
+
+      / 
+
+This deen has no place for idiocy or taassub , these people cannot even compare to the likes of the mutaakhirin yet claim to follow the mutaqadimn. Allah protect us from such lack of intellect.","Imam Harb Bin Ismail Al Kirmni says , Whoever claims that taqlid is not allowed, and that he does not imitate anyone in his religion, then this is the statement of a fsiq, mubtad', and an enemy of Allh and his Messenger () and everything the prophet came with. He only wants to invalidate the sunnah, extinguish knowledge, and to be unique in his opinion, speech, innovation, and disagreement. So upon the one who says this statement is the curse of Allah, the angels, and all people.. / This deen has no place for idiocy or taassub , these people cannot even compare to the likes of the mutaakhirin yet claim to follow the mutaqadimn. Allah protect us from such lack of intellect.",0.2454733568924327,0.3443766792584646,0.4101499638491027,Irrelevant_as_Salafi jihadi
+06db4stto,Salafi taklidi,Irrelevant,0.4097027778309612,0.1947401380561897,python/tweetsFromSite/tweets_from_the_site3.csv,"""No one can obtain this knowledge...
+
+ Markaz Ar-Raziyayn Melbourne","""No one can obtain this knowledge... Markaz Ar-Raziyayn Melbourne",0.4097027778309612,0.1947401380561897,0.395557084112849,Salafi taklidi_as_Irrelevant
+soqoj3uny,Irrelevant,Salafi jihadi,0.4082917971136435,0.3937847953857304,python/tweetsFromSite/tweets_from_site5.csv,"""ICNA are honest are about their links to the Muslim Brotherhood
+
+Hassan Al-Banna - founder of Ikhwan
+
+The goal of ICNA, Yaqeen &amp; associates is to present themselves as the spokespeople of Muslims in the West.
+
+That is why many committees are dominated by handpicked individuals.","""ICNA are honest are about their links to the Muslim Brotherhood Hassan Al-Banna - founder of Ikhwan The goal of ICNA, Yaqeen &amp; associates is to present themselves as the spokespeople of Muslims in the West. That is why many committees are dominated by handpicked individuals.",0.4082917971136435,0.3937847953857304,0.1979234075006259,Irrelevant_as_Salafi jihadi
+hpwykzalu,Salafi taklidi,Irrelevant,0.4067617999265958,0.2264260126210871,python/tweetsFromSite/tweets_from_site4.csv,"""Salih alFawzan said
+Partisanship to madhhabs, individuals and tribes isn't allowed
+The Muslim follows the truth with whoever it is
+He doesn't show blind loyalty, nor leave the truth that is with his opponent
+The Muslim turns to truth wherever it may be
+ Inat al-Mustafd, 2/115.""","""Salih alFawzan said Partisanship to madhhabs, individuals and tribes isn't allowed The Muslim follows the truth with whoever it is He doesn't show blind loyalty, nor leave the truth that is with his opponent The Muslim turns to truth wherever it may be Inat al-Mustafd, 2/115.""",0.4067617999265958,0.2264260126210871,0.366812187452317,Salafi taklidi_as_Irrelevant
+hddn0fx6g,Irrelevant,Salafi taklidi,0.4010670767394308,0.2174840969983789,python/tweetsFromSite/tweets_from_site5.csv,"al-Muallim al-Yamn said,
+
+Know that Allh,  , may cause some of the sincere people to fall into a certain mistake as a trial for others: will they follow the truth and leave that persons statement, or will they be deceived by his virtue and status? That person is","al-Muallim al-Yamn said, Know that Allh, , may cause some of the sincere people to fall into a certain mistake as a trial for others: will they follow the truth and leave that persons statement, or will they be deceived by his virtue and status? That person is",0.3814488262621902,0.2174840969983789,0.4010670767394308,Irrelevant_as_Salafi taklidi
+q16oobs9m,Salafi jihadi,Salafi taklidi,0.4000013819663216,0.2391073119259832,python/tweetsFromSite/tweets_from_site5.csv,"""Do They Seek Honour &amp; Power Through The Disbelievers?  
+Abu Hanzala
+A good reminder for the sellouts and traitors","""Do They Seek Honour &amp; Power Through The Disbelievers? Abu Hanzala A good reminder for the sellouts and traitors",0.360891306107695,0.2391073119259832,0.4000013819663216,Salafi jihadi_as_Salafi taklidi
+3brmzdssf,Irrelevant,Salafi jihadi,0.3972054592601464,0.3972054592601464,python/tweetsFromSite/tweets_from_site5.csv,"""Kufr akbar or kufr duna kufr?
+
+The great Sahabi Abdullah Ibn Mas'ud ra was asked about the ruling of bribery? He said: its Suht (Unlawful gains). He was asked about it in hukm(i.e. Taking a bribe to rule in favour of someone)? He said: its kufr. Then he read ayah of Hukm","""Kufr akbar or kufr duna kufr? The great Sahabi Abdullah Ibn Mas'ud ra was asked about the ruling of bribery? He said: its Suht (Unlawful gains). He was asked about it in hukm(i.e. Taking a bribe to rule in favour of someone)? He said: its kufr. Then he read ayah of Hukm",0.3298659792573995,0.3972054592601464,0.2729285614824541,Irrelevant_as_Salafi jihadi
+09qrgdibn,Salafi taklidi,Irrelevant,0.3971519134238893,0.2533778908858115,python/tweetsFromSite/tweets_from_site5.csv,"""An entire family of five - husband, wife &amp; children entered Islam today 
+
+           
+
+Alhamdu lillah! 
+
+This was @iiinaudio with @hikmahpubs Hassan Somali 
+
+May Allah bless them and make them firm.","""An entire family of five - husband, wife &amp; children entered Islam today Alhamdu lillah! This was @USER with @USER Hassan Somali May Allah bless them and make them firm.",0.3971519134238893,0.2533778908858115,0.3494701956902991,Salafi taklidi_as_Irrelevant
+fct0r8egr,Irrelevant,Salafi jihadi,0.3944270936909796,0.3791369143982001,python/tweetsFromSite/tweets_from_site4.csv,"No bint here is consistent, as soon as it becomes inconvenient for them they compromise like insane. All loud until their bestie does kufr and they wont say shit
+
+Imagine crying about predatory behaviour then supporting the worst of predators","No bint here is consistent, as soon as it becomes inconvenient for them they compromise like insane. All loud until their bestie does kufr and they wont say shit Imagine crying about predatory behaviour then supporting the worst of predators",0.3944270936909796,0.3791369143982001,0.2264359919108201,Irrelevant_as_Salafi jihadi
+t2zo7isdd,Salafi taklidi,Salafi jihadi,0.390974314925098,0.390974314925098,python/tweetsFromSite/tweets_from_the_site1.csv,"""@shababalhanbali Loool, how low will you guys go?
+
+Imam Bukhari literally wrote a whole book on refutation against those who have similar beliefs as the ashaira.
+
+Also in his Sahih he brings some of the salafs statements about the istiwa of Allah, clearly affirming it on its apparent meaning,5.0","""@USER Loool, how low will you guys go? Imam Bukhari literally wrote a whole book on refutation against those who have similar beliefs as the ashaira. Also in his Sahih he brings some of the salafs statements about the istiwa of Allah, clearly affirming it on its apparent meaning,5.0",0.338460191915473,0.390974314925098,0.2705654931594289,Salafi taklidi_as_Salafi jihadi
+5gk1q3kpu,Irrelevant,Salafi jihadi,0.3895012888223336,0.3895012888223336,python/tweetsFromSite/tests_from_site4.csv,"""""The Murtaddn of barely two months ago are welcomed with great fanfare, and [those] who led the fath are in prison without trial (such as the Qd Shaykh Zubayr al-Ghazz). 
+
+The new Syria, they say.""
+""
+--------------
+
+They say when you reach the capital, you have to compromise because of Realpolitik
+But no one wanted them to reach the capital when theyd lose their deen
+
+The purpose of reaching the capital and conquest generally is to establish the deen, not to make excuses for compromising it","""""The Murtaddn of barely two months ago are welcomed with great fanfare, and [those] who led the fath are in prison without trial (such as the Qd Shaykh Zubayr al-Ghazz). The new Syria, they say."" "" -------------- They say when you reach the capital, you have to compromise because of Realpolitik But no one wanted them to reach the capital when theyd lose their deen The purpose of reaching the capital and conquest generally is to establish the deen, not to make excuses for compromising it",0.3638515359841339,0.3895012888223336,0.2466471751935324,Irrelevant_as_Salafi jihadi
+k5ywezxs3,Irrelevant,Salafi taklidi,0.386814683333699,0.2532274364736259,python/tweetsFromSite/tweets_from_site5.csv,"""Suspicious silence concerning Arafat, have not taken a clear open stance against this oppressor, have not freed themselves from him, not a single statement against this oppressor for his oppressions, but they have taken an oppressive stance against Sh. Abu Iyaad which is""","""Suspicious silence concerning Arafat, have not taken a clear open stance against this oppressor, have not freed themselves from him, not a single statement against this oppressor for his oppressions, but they have taken an oppressive stance against Sh. Abu Iyaad which is""",0.359957880192675,0.2532274364736259,0.386814683333699,Irrelevant_as_Salafi taklidi
+slddffo0a,Salafi taklidi,Irrelevant,0.3817749086173995,0.2711258178694692,python/tweetsFromSite/tweets_from_site4.csv,""""" NEW: A Warning Against Ab Iyd Amjad Rafq of Salaf Publications
+
+Read full document here: 
+""
+--------------
+
+Im team Abu Iyad",""""" NEW: A Warning Against Ab Iyd Amjad Rafq of Salaf Publications Read full document here: "" -------------- Im team Abu Iyad",0.3817749086173995,0.2711258178694692,0.3470992735131312,Salafi taklidi_as_Irrelevant
+dmt418vnk,Irrelevant,Salafi jihadi,0.3783264338039119,0.3460098991600837,python/tweetsFromSite/tweets_from_site4.csv,"""TB calling Ali Khamenei a shaheed, and making du for him to attain the highest ranks of Jannah,  (Jannat al-Firdaws).","""TB calling Ali Khamenei a shaheed, and making du for him to attain the highest ranks of Jannah, (Jannat al-Firdaws).",0.3783264338039119,0.3460098991600837,0.2756636670360043,Irrelevant_as_Salafi jihadi
+pgttvo6zi,Irrelevant,Salafi taklidi,0.3732340703342127,0.2560001391381559,python/tweetsFromSite/tests_from_site4.csv,"""Imam Yazid bin Abd Allah al-Basri said:
+
+I read in a book stating that any Muslim who goes to one of the marketplaces and remembers Allah there, Allah will record for him good deeds according to the number of people in the market...
+
+[al-Zuhd of Abd Allah bin al-Mubarak]","""Imam Yazid bin Abd Allah al-Basri said: I read in a book stating that any Muslim who goes to one of the marketplaces and remembers Allah there, Allah will record for him good deeds according to the number of people in the market... [al-Zuhd of Abd Allah bin al-Mubarak]",0.3707657905276314,0.2560001391381559,0.3732340703342127,Irrelevant_as_Salafi taklidi
+h3eu4sfqv,Irrelevant,Salafi taklidi,0.368057230585054,0.2896554445028545,python/tweetsFromSite/tweets_from_site4.csv,"But this does not give us a reason to be harsh in our dawah or be too soft when heresy is taken place . 
+
+May Allah grant us tawfq and hidyah and allow us to be amongst those who act upon our knowledge . 
+If I have made any mistakes , please
+correct me BarakAllah Feekum.","But this does not give us a reason to be harsh in our dawah or be too soft when heresy is taken place . May Allah grant us tawfq and hidyah and allow us to be amongst those who act upon our knowledge . If I have made any mistakes , please correct me BarakAllah Feekum.",0.3422873249120915,0.2896554445028545,0.368057230585054,Irrelevant_as_Salafi taklidi
+zodhpjgo2,Irrelevant,Salafi jihadi,0.3667825077919114,0.3667825077919114,python/tweetsFromSite/tweets_from_the_site1.csv,"""Allah has bestowed upon us the tremendous favor of continuing to discover manuscripts of the works of Ibn Taymiyyah and of his students and followers.
+
+Multiple volumes of his Tafsir works are planned for publication, including one volume being published for the first time.,","""Allah has bestowed upon us the tremendous favor of continuing to discover manuscripts of the works of Ibn Taymiyyah and of his students and followers. Multiple volumes of his Tafsir works are planned for publication, including one volume being published for the first time.,",0.3648233404197902,0.3667825077919114,0.2683941517882984,Irrelevant_as_Salafi jihadi
+nx7hc0sv5,Irrelevant,Salafi taklidi,0.3662787747303473,0.3128469349266143,python/tweetsFromSite/tweets_from_site4.csv,"""Abul Abbas al-Qurtubi said
+
+Likewise, if he (the ruler) abandons the establishment of a pillar from the pillars of the religion such as establishing the prayer, fasting in Ramadan, establishing the Hudood, or prevents this, or if he permits drinking intoxicants or fornication &amp;","""Abul Abbas al-Qurtubi said Likewise, if he (the ruler) abandons the establishment of a pillar from the pillars of the religion such as establishing the prayer, fasting in Ramadan, establishing the Hudood, or prevents this, or if he permits drinking intoxicants or fornication &amp;",0.3208742903430382,0.3128469349266143,0.3662787747303473,Irrelevant_as_Salafi taklidi
+28uyf4un4,Salafi taklidi,Irrelevant,0.3628038226893728,0.2829677216294795,python/tweetsFromSite/tweets_from_the_site3.csv,"There are people who claim/think they have knowledge from the Surooris. 
+
+They read into big topics 
+-      
+-  
+
+Then they come out concluding that Sh Fawzan has contradictory opinions or that he doesnt understand the topic.
+
+Then you see these people come on twitter and say this about the Shaykh, and the others begin to insult him
+
+Even though I am a nobody, I know for a fact he doesnt have contradictory opinions on both topics, you just dont understand it!
+
+Wallahul Mustaan","There are people who claim/think they have knowledge from the Surooris. They read into big topics - - Then they come out concluding that Sh Fawzan has contradictory opinions or that he doesnt understand the topic. Then you see these people come on twitter and say this about the Shaykh, and the others begin to insult him Even though I am a nobody, I know for a fact he doesnt have contradictory opinions on both topics, you just dont understand it! Wallahul Mustaan",0.3628038226893728,0.2829677216294795,0.3542284556811476,Salafi taklidi_as_Irrelevant
+xkgctkfey,Salafi taklidi,Irrelevant,0.3592663459396046,0.3036406637037405,python/tweetsFromSite/tweets_from_the_site1.csv,"""Tolerated Differing and Impermissible Differing in Islam: The Great Imms of Sunnah did not declare those who differed with them in the affairs of permissible ijtihd to be astray and they did not make binding upon others their own opinions,","""Tolerated Differing and Impermissible Differing in Islam: The Great Imms of Sunnah did not declare those who differed with them in the affairs of permissible ijtihd to be astray and they did not make binding upon others their own opinions,",0.3592663459396046,0.3036406637037405,0.3370929903566548,Salafi taklidi_as_Irrelevant
+o268xzbmg,Irrelevant,Salafi taklidi,0.3587338552960266,0.3243591640253309,python/tweetsFromSite/tweets_from_site5.csv,"The munafiqeen are one and the same as the Shia they take the rabbis and monks as gods besides Allah, they will label you khariji for repeating what their scholars who they claim to take from but dont in reality, hijacking these scholars who have nothing to do with them.","The munafiqeen are one and the same as the Shia they take the rabbis and monks as gods besides Allah, they will label you khariji for repeating what their scholars who they claim to take from but dont in reality, hijacking these scholars who have nothing to do with them.",0.3169069806786425,0.3243591640253309,0.3587338552960266,Irrelevant_as_Salafi taklidi
+roycxjt5t,Irrelevant,Salafi jihadi,0.3572452835248224,0.3572452835248224,python/tweetsFromSite/tweets_from_site5.csv,"Imm An-Nawaw   said,
+
+Al-Qdh Iydh said, The scholars have formed a consensus that the leadership (Immah) is not to be contracted to a disbeliever (Kfir) and that if disbelief(Kufr) comes from him, then he is to be removed So if disbelief (Kufr) and changing","Imm An-Nawaw said, Al-Qdh Iydh said, The scholars have formed a consensus that the leadership (Immah) is not to be contracted to a disbeliever (Kfir) and that if disbelief(Kufr) comes from him, then he is to be removed So if disbelief (Kufr) and changing",0.3171736179135492,0.3572452835248224,0.3255810985616283,Irrelevant_as_Salafi jihadi
+mcprxdo6q,Salafi jihadi,Salafi taklidi,0.352599968723723,0.3033996944729318,python/tweetsFromSite/tweets_from_site4.csv,When sheikh uthaymeen was a khariji,When sheikh uthaymeen was a khariji,0.3440003368033452,0.3033996944729318,0.352599968723723,Salafi jihadi_as_Salafi taklidi
+h83hfxyeo,Irrelevant,Salafi taklidi,0.3376092368779156,0.3311679931069427,python/tweetsFromSite/tweets_from_site5.csv,"""Every Muslim who is being slandered by the hypocrites/disbelievers should be defended without a doubt, or offered a word of support at a minimum (even if they dont need it). This is the bare minimum rights that any of the Mashayikh, Mujahideen, or the laymen Muslims have upon their Muslim brothers.
+
+That being said, do not be of those who voluntarily bring heartache or sadness to Muslims, by sharing with them slander against them, that they might otherwise be ignorant of occurring. Even the Prophet     was hurt by the slander/Kufr of Quraysh, Allah   Says:
+
+      
+
+Imam Ibn Jarir At-Tabari   comments on this Ayah and said:
+
+The Exalted says  in His mention  to His Prophet Muhammad : And indeed We know, O Muhammad, that your chest is constricted by what these polytheists of your people say  by their denial of you, their mockery of you, and their mockery of what you have brought to them.
+
+Its also mentioned by Ibn Abee ad-Dunya in his Al-Ishraf:
+
+tim ibn Yay narrated to us, saying: I heard Muammad ibn Yay al-Marwaz say: A man said to Wahb ibn Munabbih, So-and-so has insulted you. He replied: Could the devil find no messenger other than you?
+
+And these are widely cited although I couldnt find a Sanad for them, although due to its meaning, it is worthy of mentioning as a reminder for us all, InshaAllah:
+
+Its said that a man came to a wise man and said: So-and-so has insulted you. He replied: He shot an arrow at me and it did not reach me  so why did you carry the arrow and lodge it in my heart?
+
+And its said that a man came to al-Shfi  may Allah have mercy on him  and said: So-and-so speaks ill of you. He replied: If you are telling the truth, then you are a tale-carrier (Nammm); and if you are lying, then you are a transgressor. So the man was ashamed and left.
+
+Defend your brothers in Islam, without hesitation, but be weary not fall into the trap of Nameemah unintentionally, lest you hurt your brother(s) unintentionally. If anything, if someone gets slandered often, be the bearer of good and positive news instead. Work to spread their Dawah, and make it widespread. Share with them the messages of support that flood social media during the slander, instead of the slander itself. 
+
+Theres a wonderful website  thats been assembled, Allahumma Brek. Every time someone slanders the Shaykh, share this website. Let the hypocrites die in their rage.""","""Every Muslim who is being slandered by the hypocrites/disbelievers should be defended without a doubt, or offered a word of support at a minimum (even if they dont need it). This is the bare minimum rights that any of the Mashayikh, Mujahideen, or the laymen Muslims have upon their Muslim brothers. That being said, do not be of those who voluntarily bring heartache or sadness to Muslims, by sharing with them slander against them, that they might otherwise be ignorant of occurring. Even the Prophet was hurt by the slander/Kufr of Quraysh, Allah Says: Imam Ibn Jarir At-Tabari comments on this Ayah and said: The Exalted says in His mention to His Prophet Muhammad : And indeed We know, O Muhammad, that your chest is constricted by what these polytheists of your people say by their denial of you, their mockery of you, and their mockery of what you have brought to them. Its also mentioned by Ibn Abee ad-Dunya in his Al-Ishraf: tim ibn Yay narrated to us, saying: I heard Muammad ibn Yay al-Marwaz say: A man said to Wahb ibn Munabbih, So-and-so has insulted you. He replied: Could the devil find no messenger other than you? And these are widely cited although I couldnt find a Sanad for them, although due to its meaning, it is worthy of mentioning as a reminder for us all, InshaAllah: Its said that a man came to a wise man and said: So-and-so has insulted you. He replied: He shot an arrow at me and it did not reach me so why did you carry the arrow and lodge it in my heart? And its said that a man came to al-Shfi may Allah have mercy on him and said: So-and-so speaks ill of you. He replied: If you are telling the truth, then you are a tale-carrier (Nammm); and if you are lying, then you are a transgressor. So the man was ashamed and left. Defend your brothers in Islam, without hesitation, but be weary not fall into the trap of Nameemah unintentionally, lest you hurt your brother(s) unintentionally. If anything, if someone gets slandered often, be the bearer of good and positive news instead. Work to spread their Dawah, and make it widespread. Share with them the messages of support that flood social media during the slander, instead of the slander itself. Theres a wonderful website thats been assembled, Allahumma Brek. Every time someone slanders the Shaykh, share this website. Let the hypocrites die in their rage.""",0.3312227700151416,0.3311679931069427,0.3376092368779156,Irrelevant_as_Salafi taklidi

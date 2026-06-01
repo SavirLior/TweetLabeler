@@ -1,0 +1,46 @@
+{
+  "source_files": [
+    "python/tweetsFromSite/tweets_from_site5.csv",
+    "python/tweetsFromSite/tests_from_site4.csv",
+    "python/tweetsFromSite/tweets_from_site4.csv",
+    "python/tweetsFromSite/tweets_from_the_site1.csv",
+    "python/tweetsFromSite/tweets_from_the_site3.csv"
+  ],
+  "seed": 42,
+  "test_size": 0.2,
+  "validation_size_of_train_pool": 0.15,
+  "raw_rows": 2250,
+  "blank_label_rows_removed": 1,
+  "label_conflict_texts_for_review": 12,
+  "label_conflict_rows_for_review": 25,
+  "clean_rows_including_same_label_duplicates": 2224,
+  "same_label_duplicate_rows_removed": 90,
+  "canonical_rows": 2134,
+  "canonical_label_counts": {
+    "Irrelevant": 1155,
+    "Salafi taklidi": 565,
+    "Salafi jihadi": 414
+  },
+  "split_rows": {
+    "train": 1450,
+    "validation": 257,
+    "test": 427
+  },
+  "split_label_counts": {
+    "train": {
+      "Irrelevant": 785,
+      "Salafi taklidi": 384,
+      "Salafi jihadi": 281
+    },
+    "validation": {
+      "Irrelevant": 139,
+      "Salafi taklidi": 68,
+      "Salafi jihadi": 50
+    },
+    "test": {
+      "Irrelevant": 231,
+      "Salafi taklidi": 113,
+      "Salafi jihadi": 83
+    }
+  }
+}

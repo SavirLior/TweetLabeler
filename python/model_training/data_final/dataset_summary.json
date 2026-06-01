@@ -1,0 +1,38 @@
+{
+  "input": "/Users/ofekmazor/Desktop/Final Project/TweetLabeler/python/ELI/all_tweets_plus_site5_final_canonical_readable.csv",
+  "seed": 42,
+  "test_size": 0.2,
+  "validation_size_of_train_pool": 0.15,
+  "raw_rows": 2146,
+  "blank_label_rows_removed": 0,
+  "label_conflict_texts": 0,
+  "label_conflict_rows": 0,
+  "canonical_rows": 2146,
+  "canonical_label_counts": {
+    "Irrelevant": 1176,
+    "Salafi taklidi": 581,
+    "Salafi jihadi": 389
+  },
+  "split_rows": {
+    "train": 1459,
+    "validation": 258,
+    "test": 429
+  },
+  "split_label_counts": {
+    "train": {
+      "Irrelevant": 800,
+      "Salafi taklidi": 395,
+      "Salafi jihadi": 264
+    },
+    "validation": {
+      "Irrelevant": 141,
+      "Salafi taklidi": 70,
+      "Salafi jihadi": 47
+    },
+    "test": {
+      "Irrelevant": 235,
+      "Salafi taklidi": 116,
+      "Salafi jihadi": 78
+    }
+  }
+}

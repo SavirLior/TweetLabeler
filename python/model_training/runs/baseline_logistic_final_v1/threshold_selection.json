@@ -1,0 +1,12 @@
+{
+  "threshold": 0.33,
+  "accuracy": 0.7170542635658915,
+  "macro_f1": 0.6910331277192459,
+  "salafi_jihadi_precision": 0.6333333333333333,
+  "salafi_jihadi_recall": 0.8085106382978723,
+  "salafi_jihadi_f1": 0.7102803738317757,
+  "salafi_jihadi_f2": 0.7661290322580645,
+  "selection_reason": "target_recall_and_precision_floor",
+  "target_recall": 0.8,
+  "min_precision": 0.6
+}

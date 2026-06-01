@@ -1,0 +1,58 @@
+{
+  "run_name": "baseline_logistic_final_v1",
+  "model": "logistic",
+  "text_column": "model_text",
+  "class_weights": {
+    "Irrelevant": 0.7,
+    "Salafi jihadi": 1.8,
+    "Salafi taklidi": 1.15
+  },
+  "threshold_selection": {
+    "threshold": 0.33,
+    "accuracy": 0.7170542635658915,
+    "macro_f1": 0.6910331277192459,
+    "salafi_jihadi_precision": 0.6333333333333333,
+    "salafi_jihadi_recall": 0.8085106382978723,
+    "salafi_jihadi_f1": 0.7102803738317757,
+    "salafi_jihadi_f2": 0.7661290322580645,
+    "selection_reason": "target_recall_and_precision_floor",
+    "target_recall": 0.8,
+    "min_precision": 0.6
+  },
+  "validation": {
+    "accuracy": 0.7403100775193798,
+    "macro_f1": 0.7124624624624625,
+    "weighted_f1": 0.7363476055336521,
+    "salafi_jihadi_precision": 0.7804878048780488,
+    "salafi_jihadi_recall": 0.6808510638297872,
+    "salafi_jihadi_f1": 0.7272727272727273,
+    "salafi_jihadi_f2": 0.6986899563318777
+  },
+  "test": {
+    "accuracy": 0.7156177156177156,
+    "macro_f1": 0.6673522929887491,
+    "weighted_f1": 0.7106673336538177,
+    "salafi_jihadi_precision": 0.6615384615384615,
+    "salafi_jihadi_recall": 0.5512820512820513,
+    "salafi_jihadi_f1": 0.6013986013986014,
+    "salafi_jihadi_f2": 0.5702917771883289
+  },
+  "threshold_validation": {
+    "accuracy": 0.7170542635658915,
+    "macro_f1": 0.6910331277192459,
+    "weighted_f1": 0.7138394540499868,
+    "salafi_jihadi_precision": 0.6333333333333333,
+    "salafi_jihadi_recall": 0.8085106382978723,
+    "salafi_jihadi_f1": 0.7102803738317757,
+    "salafi_jihadi_f2": 0.7661290322580645
+  },
+  "threshold_test": {
+    "accuracy": 0.710955710955711,
+    "macro_f1": 0.6703975459105417,
+    "weighted_f1": 0.7092226929063143,
+    "salafi_jihadi_precision": 0.5869565217391305,
+    "salafi_jihadi_recall": 0.6923076923076923,
+    "salafi_jihadi_f1": 0.6352941176470588,
+    "salafi_jihadi_f2": 0.6683168316831684
+  }
+}

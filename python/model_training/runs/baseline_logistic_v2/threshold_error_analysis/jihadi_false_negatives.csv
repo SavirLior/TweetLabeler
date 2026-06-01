@@ -1,0 +1,64 @@
+tweet_id,label,threshold_prediction,prediction_confidence,jihadi_probability,source_file,text,model_text,prob_Irrelevant,prob_Salafi jihadi,prob_Salafi taklidi
+x5zudbl30,Salafi jihadi,Salafi taklidi,0.4461043953858304,0.3262005132419127,python/tweetsFromSite/tweets_from_site5.csv,"Shaykh Abu Al al-asan said,
+
+Dont be surprised by the actions, behavior or stances of the Madkhilahfor they are vile traitors.
+
+If a person becomes slave to the ruler, then expect from him every evil action.
+
+A Madkhal feels no shame to act as a pimp for his authority.","Shaykh Abu Al al-asan said, Dont be surprised by the actions, behavior or stances of the Madkhilahfor they are vile traitors. If a person becomes slave to the ruler, then expect from him every evil action. A Madkhal feels no shame to act as a pimp for his authority.",0.2276950913722568,0.3262005132419127,0.4461043953858304
+mcprxdo6q,Salafi jihadi,Salafi taklidi,0.352599968723723,0.3033996944729318,python/tweetsFromSite/tweets_from_site4.csv,When sheikh uthaymeen was a khariji,When sheikh uthaymeen was a khariji,0.3440003368033452,0.3033996944729318,0.352599968723723
+u6s1rx8zb,Salafi jihadi,Irrelevant,0.5340634826574984,0.2806177110803517,python/tweetsFromSite/tests_from_site4.csv,"Sheikh   : 
+
+ Beware of defending or praising Tawaghit, otherwise you will be complicit in all their crimes..","Sheikh : Beware of defending or praising Tawaghit, otherwise you will be complicit in all their crimes..",0.5340634826574984,0.2806177110803517,0.1853188062621499
+8622ba448,Salafi jihadi,Irrelevant,0.5472696204084075,0.2793201481889772,python/tweetsFromSite/tweets_from_site4.csv,Turn your comments on you lil madkhali scared chicken  let me expose you and your teacher shamsi,Turn your comments on you lil madkhali scared chicken let me expose you and your teacher shamsi,0.5472696204084075,0.2793201481889772,0.1734102314026153
+edzc2i40j,Salafi jihadi,Irrelevant,0.5393538441075314,0.2775096521419162,python/tweetsFromSite/tweets_from_site4.csv,"""""@warfareanalysis &amp; before that US managed to kill at least 500 000 babies below 5 years old as a result of the blockade 
+""
+--------------
+
+Watch this
+And tell me again you respect the poor Shuyukh that didnt know better and allowed these atrocities to happen via their evil fatwa
+Indirectly they had a hand in the murder of hundred of thousands children  
+May Allah judge them accordingly","""""@USER &amp; before that US managed to kill at least 500 000 babies below 5 years old as a result of the blockade "" -------------- Watch this And tell me again you respect the poor Shuyukh that didnt know better and allowed these atrocities to happen via their evil fatwa Indirectly they had a hand in the murder of hundred of thousands children May Allah judge them accordingly",0.5393538441075314,0.2775096521419162,0.1831365037505523
+78yyt0f6b,Salafi jihadi,Irrelevant,0.5627810273723235,0.2699211931493358,python/tweetsFromSite/tweets_from_site5.csv,"""""Amjad Rafeeq expects people to sign such retractions (see below). Maybe he needs to apply this to himself and draft one up to sign? @AbuIyaadSP 
+""
+--------------
+
+This is hilarious, because they had no problem with this contract for 10 years until their fallout with Abu Iyaad
+
+How am I meant to take you people seriously when you cant even hold your own to account","""""Amjad Rafeeq expects people to sign such retractions (see below). Maybe he needs to apply this to himself and draft one up to sign? @USER "" -------------- This is hilarious, because they had no problem with this contract for 10 years until their fallout with Abu Iyaad How am I meant to take you people seriously when you cant even hold your own to account",0.5627810273723235,0.2699211931493358,0.1672977794783406
+cfi3jhp9y,Salafi jihadi,Irrelevant,0.6104009545849906,0.2689202637928778,python/tweetsFromSite/tweets_from_the_site1.csv,"""""..Dont Deceive The Muslims .. 
+""
+--------------
+
+Funny how this Munafiq is speaking about Iran allying with America what about your Taghut kingdomof Saudi Arabia ya Munafiq 
+(Check thread),","""""..Dont Deceive The Muslims .. "" -------------- Funny how this Munafiq is speaking about Iran allying with America what about your Taghut kingdomof Saudi Arabia ya Munafiq (Check thread),",0.6104009545849906,0.2689202637928778,0.1206787816221315
+xm0zma5hp,Salafi jihadi,Salafi taklidi,0.4103764668765599,0.2626969287895159,python/tweetsFromSite/tweets_from_site5.csv,""""" Abu khaled al-Faransi / Stalwart in his faith ""
+
+- IRAQ .",""""" Abu khaled al-Faransi / Stalwart in his faith "" - IRAQ .",0.3269266043339241,0.2626969287895159,0.4103764668765599
+evtgl9e0t,Salafi jihadi,Irrelevant,0.458614233843668,0.2440941882909291,python/tweetsFromSite/tweets_from_site4.csv,"New crazy laws under the Sufi regime in Afghanistan: 
+
+Attributes of a Da'e below : 
+ Must be a Muslim and from the Hanafi school of thought 
+
+ Prohibiting a non-Hanafi from preaching
+
+[ Basically if you are a salafi / ahlul hadith then you have no right preach ]",New crazy laws under the Sufi regime in Afghanistan: Attributes of a Da'e below : Must be a Muslim and from the Hanafi school of thought Prohibiting a non-Hanafi from preaching [ Basically if you are a salafi / ahlul hadith then you have no right preach ],0.458614233843668,0.2440941882909291,0.2972915778654029
+q16oobs9m,Salafi jihadi,Salafi taklidi,0.4000013819663216,0.2391073119259832,python/tweetsFromSite/tweets_from_site5.csv,"""Do They Seek Honour &amp; Power Through The Disbelievers?  
+Abu Hanzala
+A good reminder for the sellouts and traitors","""Do They Seek Honour &amp; Power Through The Disbelievers? Abu Hanzala A good reminder for the sellouts and traitors",0.360891306107695,0.2391073119259832,0.4000013819663216
+6gkt82s0y,Salafi jihadi,Irrelevant,0.5301074566042178,0.2272672391969975,python/tweetsFromSite/tweets_from_site4.csv,"""Why is it always pro Gulf Mashaykh who say this?
+Very easy
+The Gulf today has same origins as Sykes Picot and colonial creation of Israel by Brit crusaders
+They lived under Pax Britannica and now under Pax Americana
+Thats why day and night they do nothing but attack Palestinians""","""Why is it always pro Gulf Mashaykh who say this? Very easy The Gulf today has same origins as Sykes Picot and colonial creation of Israel by Brit crusaders They lived under Pax Britannica and now under Pax Americana Thats why day and night they do nothing but attack Palestinians""",0.5301074566042178,0.2272672391969975,0.2426253041987846
+vvnjw81td,Salafi jihadi,Irrelevant,0.6601113844671372,0.2027757891916104,python/tweetsFromSite/tests_from_site4.csv,"""@maghribii16 This is simply not true! JNIM also mobilized fighters from central Mali and Burkina Faso and fought alongside Tuareg Sahawat MSA and GATIA.
+
+Nevertheless, IS-Sahel was able to defeat both JNIM and the Tuareg Sahawat at Menaka in 2023:","""@USER This is simply not true! JNIM also mobilized fighters from central Mali and Burkina Faso and fought alongside Tuareg Sahawat MSA and GATIA. Nevertheless, IS-Sahel was able to defeat both JNIM and the Tuareg Sahawat at Menaka in 2023:",0.6601113844671372,0.2027757891916104,0.1371128263412522
+5tppsyss1,Salafi jihadi,Irrelevant,0.6587340413427802,0.2009021997938616,python/tweetsFromSite/tweets_from_the_site1.csv,"""""BREAKING: The U.S. State Department has ordered American diplomats to leave Saudi Arabia after drone attacks near the U.S. Embassy in Riyadh.
+
+Source: NYT""
+""
+--------------
+
+No, please stay put in the Land of Tawheed,","""""BREAKING: The U.S. State Department has ordered American diplomats to leave Saudi Arabia after drone attacks near the U.S. Embassy in Riyadh. Source: NYT"" "" -------------- No, please stay put in the Land of Tawheed,",0.6587340413427802,0.2009021997938616,0.1403637588633582
+om0ej33p1,Salafi jihadi,Irrelevant,0.4453433705335741,0.1847943031622881,python/tweetsFromSite/tweets_from_site4.csv,"""Si ibn Taymiyyah tait vivant aujourdhui il taurait dclar mcrant""","""Si ibn Taymiyyah tait vivant aujourdhui il taurait dclar mcrant""",0.4453433705335741,0.1847943031622881,0.3698623263041378

@@ -1,0 +1,59 @@
+{
+  "accuracy": 0.710955710955711,
+  "macro_f1": 0.6703975459105417,
+  "weighted_f1": 0.7092226929063143,
+  "salafi_jihadi_precision": 0.5869565217391305,
+  "salafi_jihadi_recall": 0.6923076923076923,
+  "salafi_jihadi_f1": 0.6352941176470588,
+  "salafi_jihadi_f2": 0.6683168316831684,
+  "classification_report": {
+    "Irrelevant": {
+      "precision": 0.7941176470588235,
+      "recall": 0.8042553191489362,
+      "f1-score": 0.7991543340380549,
+      "support": 235.0
+    },
+    "Salafi jihadi": {
+      "precision": 0.5869565217391305,
+      "recall": 0.6923076923076923,
+      "f1-score": 0.6352941176470588,
+      "support": 78.0
+    },
+    "Salafi taklidi": {
+      "precision": 0.6262626262626263,
+      "recall": 0.5344827586206896,
+      "f1-score": 0.5767441860465117,
+      "support": 116.0
+    },
+    "accuracy": 0.710955710955711,
+    "macro avg": {
+      "precision": 0.6691122650201935,
+      "recall": 0.6770152566924393,
+      "f1-score": 0.6703975459105417,
+      "support": 429.0
+    },
+    "weighted avg": {
+      "precision": 0.7110646163192083,
+      "recall": 0.710955710955711,
+      "f1-score": 0.7092226929063143,
+      "support": 429.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      189,
+      17,
+      29
+    ],
+    [
+      16,
+      54,
+      8
+    ],
+    [
+      33,
+      21,
+      62
+    ]
+  ]
+}

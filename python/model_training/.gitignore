@@ -1,0 +1,12 @@
+__pycache__/
+.venv/
+models/
+runs/**/checkpoint-*/
+runs/**/best_model/
+runs/**/final_eval_tmp/
+runs/**/*.bin
+runs/**/*.pkl
+runs/**/*.safetensors
+runs/**/optimizer.pt
+runs/**/scheduler.pt
+runs/**/rng_state.pth

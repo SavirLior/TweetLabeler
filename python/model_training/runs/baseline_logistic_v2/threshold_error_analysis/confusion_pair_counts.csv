@@ -1,0 +1,10 @@
+label,threshold_prediction,count
+Irrelevant,Irrelevant,196
+Salafi taklidi,Salafi taklidi,70
+Salafi jihadi,Salafi jihadi,69
+Salafi taklidi,Irrelevant,25
+Irrelevant,Salafi taklidi,18
+Salafi taklidi,Salafi jihadi,18
+Irrelevant,Salafi jihadi,17
+Salafi jihadi,Irrelevant,10
+Salafi jihadi,Salafi taklidi,4

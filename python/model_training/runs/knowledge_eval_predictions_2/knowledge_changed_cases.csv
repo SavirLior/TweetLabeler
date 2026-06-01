@@ -1,0 +1,618 @@
+﻿text,actual_label,iteration_split,predicted_label,Salafi jihadi,Irrelevant,Salafi taklidi,original_probability_Salafi jihadi,original_probability_Irrelevant,original_probability_Salafi taklidi,knowledge_rule_names,knowledge_changed_classification,original_predicted_label
+"""To those who call for Unity with the Rafidha.,",Salafi taklidi,validation,Salafi taklidi,0.2141148149967193,0.3469514846801758,0.4389337003231048,0.2655023634433746,0.430219829082489,0.3042777776718139,tk_rafidah_scholars_context,True,Irrelevant
+"""The Mawlid is an innovation,",Salafi taklidi,train,Salafi taklidi,0.0,0.4263772666454315,0.5736227631568909,0.2372983545064926,0.5042771100997925,0.2584245800971985,tk_mawlid_innovation_context;sj_mawlid_innovation_decrease,True,Irrelevant
+"""We were visited on site by an elderly uncle today who lived across the road. He said since he's got older it has become difficult for him to walk far, and he can longer pray in jama'ah. He said he's been making du'a that Allh opens a Masjid near his house so he can start going for his salah again. 
+
+When we informed him of the salawat, duroos and children's classes we have planned, he became emotional and said he'd inform his family so they can donate so we can open quicker for him to re-establish his prayers in jama'ah after all these years!
+
+This is where your donations will be going inshAllh. Let TODAY be the day! Be the one who is compensated by Allh due to the charity you gave to our Markaz campaign! Donate generously NOW for the sake of Allh! 
+
+Dont delay in clicking this link  & giving a portion of the wealth that Ar-Razq gave you!"",",Irrelevant,train,Salafi taklidi,0.2120113670825958,0.3862928450107574,0.4016957283020019,0.2416929751634597,0.4403738677501678,0.3179332017898559,tk_dawah_orgs_base,True,Irrelevant
+"""Our sister Aafia Siddiqui turns 54 today on March 2nd and spent nearly half her life in prison due to the Taghut Pakistani government surrendering an innocent woman.
+#IAmAafia #SaveAafia #FreeAafiaSiddiqui,",Irrelevant,train,Salafi jihadi,0.3972837328910827,0.3840076923370361,0.2187085598707199,0.32495778799057,0.430088609457016,0.2449535876512527,sj_tawagheet_base,True,Irrelevant
+"""The Salafi position on the UAE's aggression against Sudan. - Shaykh Nizar bin Hashim Al-Abbas.,",Salafi taklidi,train,Salafi taklidi,0.2780467867851257,0.11682890355587,0.6051243543624878,0.4503389596939087,0.1472044140100479,0.402456670999527,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""What is the Nisb of cash money today? How much Zakt do you pay?
+
+Question: How much is a gram of silver today?
+
+Answer: 2.03
+
+Question: What is the Nisb for silver upon which Zakt is paid?
+
+Answer: 595 grams (or above)
+
+Question: What is the Nisb for paper money or money saved in banks?
+
+Answer: Same as the Nisb of silver  i.e., 595 grams (silver).
+
+Question: So, what does that come to today?
+
+Answer: 
+It is 595 grams x 2.03 = 1,207.85 GBP
+(Which is $1,620.03 USD and 1,394.53 EUR)
+
+If you have this amount or aboveand you've had it for a yearyou must pay Zakt upon it.
+
+Conclusion: If you have this amount of cash [or more] in your possession for a year, you are obligated to pay 2.5% on all of it  as Zakt.
+
+Quick Example:
+You have 5,000 in total savings (that you've had for a year): Therefore, you must pay 2.5% of that as your annual Zakt, which comes to 125.
+
+Abu Khadeejah.
+
+Pay online to our UK based registered charity:,",Salafi taklidi,train,Salafi taklidi,0.1222436130046844,0.3931441605091095,0.4846121966838836,0.1760308146476745,0.566127598285675,0.2578415870666504,tk_known_scholars_base;tk_abu_khadeejah_lahmami,True,Irrelevant
+""" 5k, 3 days. Lets clear these  and get closer to saving the Markaz!
+
+A Markaz upon the Sunnah stays standing because people step forward.
+
+5. 50. 500.
+
+The dawah is upheld by those who carry it.
+
+Give what you can. Be written among the builders. 
+
+Donate Tonight",Irrelevant,train,Salafi taklidi,0.14103664457798,0.3744946420192718,0.4844686985015869,0.1805268973112106,0.479353129863739,0.3401199579238891,tk_dawah_orgs_base;tk_donate_markaz_masjid,True,Irrelevant
+"""""The only hypocrite here is you.
+
+I have made not one, but SEVERAL posts stating that the scholars of the Asha'irah and Maturidiyyah are not deviants. 
+
+Perhaps you don't know how to read, or you're purposely lying to people. We will not spare you in the court of Allah.""
+""
+--------------
+
+SubhanAllah!
+
+The scholars of the Ashairah and Maturidiyyah are not innovators??
+
+Below is Shaykh Ibn Baz and Shaykh Ibn Uthaymeen making it crystal clear.",Salafi taklidi,train,Salafi taklidi,0.2560247778892517,0.1028125062584877,0.6411627531051636,0.4840371608734131,0.1542187631130218,0.3617441356182098,tk_known_scholars_base;tk_bidah_innovation_context;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Dr. Diyy' Jamil Ar-Rahman who is currently working on a well-written project on the life of his father, Shaykh Jamil Ar-Rahman, mentions the courageousness of Shaykh Rab bin Hadi al-Madkhali during the Jihad against the soviets. May Allah have mercy on them.",Salafi taklidi,train,Salafi taklidi,0.0,0.0,1.0,0.4360868632793426,0.1395815908908844,0.4243315458297729,sj_madkhali_base;tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease;tk_rabee_positive_context;ir_rabee_positive_context_decrease;sj_rabee_positive_context_decrease,True,Salafi jihadi
+"""The view of Shaykh Muqbil b. Hadi al-Wadi'i, the Muhaddith of Yemen, on Sayyid Qutb.",Salafi taklidi,train,Salafi taklidi,0.277033120393753,0.1313024312257766,0.5916644334793091,0.4490617513656616,0.1654410809278488,0.3854972720146179,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"Shaykh Rab bin Hadi al-Madkhali clarifying the condition of Sayyid Qutb in the presence of Shaykh Ibn Uthaymeen who recommended to his students to read the refutations of the scholars, namely Shaykh Abdullah Ad-Duwayish and Shaykh Rab bin Hadi.",Salafi taklidi,train,Salafi taklidi,0.3374477028846741,0.1083166673779487,0.5542356371879578,0.5053075551986694,0.1397285014390945,0.3549639582633972,sj_madkhali_base;tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"Shaykh Salih al-Usaymi refuting those who call the Ulema 
+- scholars for dollars 
+- government scholars
+and quoting Al-Allamah Salih al-Luhaydan",Salafi taklidi,train,Salafi taklidi,0.3055097758769989,0.1091364473104476,0.5853537917137146,0.4849423170089721,0.1375119239091873,0.3775458037853241,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"By the grace of Allah, we have already reached 10,000 raised! 
+
+But the work is not done yet.
+
+Every contribution big or small gets us closer to securing the Markaz for the benefit of us locally and the dawah worldwide. 
+
+May Allah accept from all who give, share, and support. Keep pushing forward!",Salafi taklidi,train,Salafi taklidi,0.1910678595304489,0.3762724697589874,0.4326596260070801,0.2178173512220382,0.4289506077766418,0.3532319962978363,tk_dawah_orgs_base,True,Irrelevant
+"Alhamdulillah, we are pleased to announce that Shaykh Dr. Abdul-Khaliq Madi (Algeria) is visiting the UK and will be delivering a 4-day conference at Markaz us-Sunnah, in sha Allah.
+
+Sat 1st Feb - Tue 4th Feb 2025 | 2 sessions per evening from 5pm 
+
+The Shaykh will be teaching the book of Shaykh al-Islam Muhammad ibn Abdul-Wahhab, The Excellence of Islam (Fadl al-Islam)
+
+ALL WELCOME
+
+
+
+The Shaykh is from the well known mashayikh of Algeria. He is a holder of a Doctorate in Islamic Sciences, specialising in Hadith and Usul al-Fiqh. He studied in Madinah with many esteemed scholars, including the Muhaddith, Shaykh Hammad ibn Muhammad al-Ansari and the Faqih, Shaykh Muhammad ibn Salih al-Uthaymin.
+
+For more info contact: info@musunnah.com",Salafi taklidi,validation,Salafi taklidi,0.3279333710670471,0.1003230810165405,0.5717436075210571,0.4459893405437469,0.1364393830299377,0.4175712764263153,tk_all_welcome_event;tk_dawah_orgs_base;tk_scholar_material_format,True,Salafi jihadi
+"""""The Prophet  said: If you have no shame then do as you wish 
+
+Would Menk be happy with his daughter dancing with this man? Would he be thinking of the lyrics they dance to? 
+
+Then why is it ok for the rest of the daughters of the Ummah? 
+
+@muftimenk acts with impunity and no shame by endorsing the lyrics of an open sinner, a singer who dances with women in public. 
+
+This is a sick and deranged version of Ill be kind to everyone 
+
+Just like Shareea along with hikma dictates when and where to be harsh, likewise; kindness and tolerance is measured.
+
+May Allah guide this man and stop him from his despicable actions.""
+""
+--------------
+
+Alhamdulillah a much needed response, may Allah reward you.
+
+Many people will reply with ""Why waste your time... why are you judging others..."" 
+
+Read below, and you will realise why this response was necessary:
+
+Ab Idrs al-Khawln ( ):
+
+              .
+
+For me to see a blazing fire in the masjid is more beloved than to see an innovation (bidah) in it that has not been changed.
+
+[Al-Shar wa al-Ibnah: 254]
+
+Shaykh al-Islam Ibn Taymiyyah ( ) said:
+
+""The one who refutes the innovators is a mujahid.""
+
+Al-Awz   said:
+
+If an innovation becomes apparent and the people of knowledge do not repudiate it, then it is [perceived as] a Sunnah!
+
+[Sharaf Ashb Al-Hadth: 1/22]
+
+Ibn Abbs    said:
+
+A man from Ahlus-Sunnah calls to the Sunnah and forbids from innovation!
+
+[Sharh Usl I'tiqd: No.11]",Salafi taklidi,train,Salafi taklidi,0.2776445746421814,0.2567612528800964,0.4655941724777221,0.3442792892456054,0.3183839619159698,0.337336778640747,tk_bidah_innovation_context,True,Salafi jihadi
+"Doubt: Shaykh Muqbil ibn Haadi, was a takfiri or made Takfir on Saudi
+
+Responded by his student, Shaykh AbdulHameed az-Zukuri  :
+
+Yahya Silmi As-Saylani (the Sri Lankan) says:
+Sheikh Muqbils initial opinion, which caused a great uproar, was: The Kingdom of Saudi Arabia is a kafir country. He was firmly set on this statement, announcing it in Friday sermons. Then, when he went to Saudi Arabia before his death, he sat with its scholars, and they convinced him that it is a Salafi country, so he retracted and acknowledged that it is a pure Muslim country. [From the tape: Explanation of My Advice to Ahlus-Sunnah].
+
+Sheikh Abdulhamid Az-Zukari responds:
+So on Friday, the twenty-fifth of Rajab, in the year 1433 AH, we respond to this false statement, falsely and aggressively attributed to our sheikh, our father, and our teacher, Imam Muqbil ibn Hadi Al-Wadii, may Allah Almighty have mercy on himthe one whom Allah, may He be glorified and exalted, blessed and favoured by making him a reviver of this religion alongside other revivers, such as Sheikh Al-Albani, may Allah have mercy on him, Sheikh Ibn Baz, may Allah have mercy on him, and Sheikh Al-Uthaymin, may Allah have mercy on him. We have spoken about his way, his methodology, his biography, and some of what he adhered to in our book Al-Bayan Al-Hasan fi Tarjamat Al-Imam Al-Wadii wa Ma Ahyahu min As-Sunan. And we have responded to those who claim that Sheikh Muqbil, may Allah Almighty have mercy on him, was a takfiri at any time or period in the book Awn Al-Bari li Bayan Hizbiyyati Ibnay Mari wa Man Jara Majrahum wa Radd Takharusat Abdullah Al-Bukhari. In that book, we explained the gist: that Sheikh Muqbil, may Allah Almighty have mercy on him, was never a Haruri or a Khariji; rather, he was a Sunni Salafi ever since Allah, may He be glorified and exalted, blessed him with the knowledge of the creed of the Salaf, Ahlus-Sunnah wal-Jamaah. Thus, he became a caller to it and a reviver of it. 
+
+Among the evidence that shows the falsehood of Yahya Silmis statementthat Sheikh Muqbil, may Allah Almighty have mercy on him, said about the Kingdom of Saudi Arabia that it is a kafir countryare the following matters:
+
+First: Sheikh Muqbil, may Allah Almighty have mercy on him, refuted Osama ibn Laden, refuted Abu Muhammad Al-Maqdisi, refuted Al-Masari, and spoke against Salman, Safar, and those similar to them who hold takfiri statements and deviant methodologies.
+
+Second: We are certain and convinced that our sheikh, may Allah have mercy on him, never said this statement at any time because it contradicts reality, and Sheikh Muqbil was among the people most aware of the condition of the Kingdom of Saudi Arabiamay Allah grant it success and protect it with Tawhid.
+
+Third: Sheikh Muqbil, may Allah have mercy on him, did not apply this description to countries that are less upright and less devoted to spreading good, let alone countries containing graves and shrines worshipped besides Allah, despite his belief that those who engage in grave-worship, those who call upon another god alongside Allah, those who slaughter for other than Allah, and those who make vows for other than Allah are disbelievers.
+
+Fourth: Such an absolute statement is questionable. Even if we were to suppose that in that country there are acts of disbelief, or in Yemen there are acts of disbelief, or in Sudan there are acts of disbelief, or in Iraq there are acts of disbelief, this kind of absolute statementcalling any of the Muslim countries a kafir country outrightis questionable. This claim is contradicted by Sheikh Muqbils tapes, contradicted by the actual stance of Sheikh Muqbil, and contradicted by the students of Sheikh Muqbil.
+
+Fifth: If Sheikh Muqbil had ever uttered this statement or something similar, the scholars would have condemned him for it.",Salafi taklidi,train,Salafi taklidi,0.4494960308074951,0.098169058561325,0.4523348808288574,0.4571734964847564,0.1609972566366195,0.3818292319774627,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease;sj_kufr_shirk_rulers,True,Salafi jihadi
+"""As we enter the last 10 Nights of #Ramadan, were continuing our effort to raise 60,000 for Aston Masjid.
+
+These blessed nights are a chance to give sincerely for the sake of Allah.
+
+ Donating only takes a minute or two: 
+
+Paypal:",Irrelevant,train,Salafi taklidi,0.13855542242527,0.4176386296749115,0.4438059031963348,0.1579532027244568,0.4761080741882324,0.3659387528896332,tk_dawah_orgs_base,True,Irrelevant
+"The Messenger of Allah (may Allah raise his rank and grant him peace) said: 
+
+The best women of the people of Jannah are Khadijah bint Khuwaylid (the Prophets wife), Fatimah bint Muhammad (the Prophets daughter) Maryam bint Imran (Prophet Isas mother) and Asiyah bint Muzahim - the wife of Firawn. 
+
+[Silsilah al-Ahadith al-Sahihah of al-Albani (v. 4 p. 13 no. 1508)]",Salafi taklidi,train,Salafi taklidi,0.254476249217987,0.3705323040485382,0.3749914765357971,0.2697448134422302,0.3927642107009887,0.3374909460544586,tk_known_scholars_base,True,Irrelevant
+"""No one can obtain this knowledge...
+
+ Markaz Ar-Raziyayn Melbourne",Salafi taklidi,train,Salafi taklidi,0.2020121067762375,0.3445845544338226,0.4534033238887787,0.230293795466423,0.3928263783454895,0.3768798112869262,tk_dawah_orgs_base,True,Irrelevant
+"Those who want Ramadan to end so they can
+
+Shaykh Salih al-Fawzan",Salafi taklidi,train,Salafi taklidi,0.3075011670589447,0.1295081675052642,0.5629906058311462,0.4874514639377594,0.1631802916526794,0.3493681848049164,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"4. Shaking hands with non-Mahram (unrelated) women: This is an affliction that has become widespread, and no one has escaped it except those whom Allah has shown mercy. It is prohibited due to what was narrated by Abdullah bin Al-Shikhkhir who said: I heard Ma'qil bin Yasar say: The Messenger of Allah, peace and blessings be upon him, said: (For one of you to be stabbed in the head with an iron needle is better for him than to touch a woman who is not permissible for him.)  Narrated by Al-Tabarani in Al-Mu'jam Al-Kabeer (486).
+Sheikh Al-Albani, may Allah have mercy on him, said:
+> (And in the hadith, there is a severe threat for the one who touches a woman who is not permissible for him; thus, it contains evidence for the prohibition of shaking hands with women, because that is undoubtedly included in touching.)  As-Silsilah As-Saheehah (1/448).
+> 
+> (So this hadith indicates explicitly the prohibition of touching a non-Mahram woman, and from this is: shaking hands; as the Lawgiver has attached a severe threat to touching a woman who is not permissible for him, which is: being stabbed with an iron needle. Attaching a severe threat to an action indicates its prohibition.)  Al-Musarahah fi Ahkam Al-Musafahah (p.62).
+> 
+5. Free mixing of men and women: This often occurs in parks and recreational areas, and there is much evidence regarding the prohibition of the free mixing of men and women, so the Muslim must be wary of that. From Abu Usaid Malik bin Rabi'ah, may Allah be pleased with him, that he heard the Messenger of Allah, peace and blessings be upon him, saywhile he was coming out of the mosque, and men and women had mixed in the street: (Draw back, for you must not walk in the middle of the street; keep to the sides of the street. So women used to cling to the wall so much that their garments would catch on the wall due to their clinging to it.)  Narrated by Abu Dawud (5272).
+Sheikh Muhammad bin Ibrahim, the former Grand Mufti of the Saudi Lands, said:
+> (And the point of evidence is: that if the Messenger of Allahpeace and blessings be upon him and his familyprevented mixing in the street because it leads to temptation, then how can it be said that mixing is permissible elsewhere?!)  Majmoo Fatawa wa Rasa'il (10/42).
+> 
+Ali bin Abi Talib, may Allah be pleased with him, said: (Do you not feel ashamed or have jealousy? For it has reached me that your women go out into the markets, crowding the 'Ulooj (1).)  Narrated by Ahmad (1118).
+(1) Al-'Ulooj: Plural of 'Ilj, which refers to a disbelieving man of non-Arab descent.
+Sheikh Al-Islam Ibn Taymiyyah, may Allah have mercy on him, said:
+> (And it was from the Sunnah of the Prophetpeace and blessings be upon him and his familyand the Sunnah of his successors to separate men and women... because the mixing of one group with the other is a cause for temptation; for when men mix with women, it is like mixing fire and wood.)  Al-Istiqamah (1/360).
+> 
+6. Women leaving their homes perfumed and scented: This action is not permissible; rather, it has come in the hadith that whoever does this is a fornicator. From Abu Musa Al-Ash'ari who said: The Messenger of Allah - peace and blessings be upon him - said: (Any woman who puts on perfume and passes by a people so they can smell her fragrance, is a fornicator.)  Narrated by An-Nasa'i (9361), and Ibn Khuzaymah (1681), and Al-Albani said: Its chain of narration is Hasan (good).
+Sheikh Al-Albani, may Allah have mercy on him, said:
+> (Al-Haytami mentioned in 'Az-Zawajir' 2/37 that a woman leaving her home perfumed and adorned is among the major sins, even if her husband permitted her.)  Jilbab Al-Mar'ah Al-Muslimah (p.139).
+>",Salafi taklidi,train,Salafi taklidi,0.104877196252346,0.2560634911060333,0.6390593647956848,0.2573157846927643,0.3840952217578888,0.3585889935493469,tk_known_scholars_base;tk_bidah_innovation_context;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Irrelevant
+"In a Al-Bukhr, from Ab Ubayd, the freed slave of Ibn Azhar, who said: I witnessed the two Eids with Uthmn ibn Affn on a Friday. He performed the prayer before delivering the sermon, then said: O people, today two Eids have coincided for you. Whoever among the residents of the outskirts (Al-awl) wishes to wait for the Jumu'ah, let him do so; whoever wishes to return home, I give him permission.
+
+Based on these authentic prophetic traditions and reliable reports from the pious predecessors, the majority of scholars have concluded the following:
+
+First: Whoever attends the Eid prayer is granted a concession from attending the Jumu'ah prayer. He may instead pray the Dhuhr prayer at its time. However, if he chooses to attend the Jumuah prayer with the congregation, that is more virtuous and better.
+
+Second: Whoever did not attend the Eid prayer is not included in the concession. Therefore, the obligation of Jumuah remains upon him, and he must go to the masjid for the Jumuah prayer. If the minimum number required to establish Jumu'ah is not found, he performs Dhuhr instead.
+
+Third: The Imm of the masjid is obliged to hold the Jumuah prayer that day, so that those who wish to attend it or those who did not attend the Eid prayer may do so. This is the explicit statement of the Prophet : Indeed, we are going to establish Jumuah prayer.
+
+Fourth: Whoever attended the Eid prayer and avails himself of the concession not to attend Jumuah must pray Dhuhr. The Dhuhr prayer does not fall away under any circumstance, because what is lifted is the obligation of Jumuahnot of Dhuhr. Those upon whom Jumuah is not obligatorysuch as the sick, the traveller, women, and childrenare unanimously required by the scholars to perform Dhuhr.
+
+Fifth: The opinion that whoever attends the Eid prayer is exempt from both the Jumuah and the Dhuhr prayers for that day is a weak opinion, though attributed to some Companions such as Ibn Az-Zubayr and Ibn Abbs (may Allh be pleased with them). This conclusion may be explained in several ways:
+
+First, perhaps those who held this view were unaware of the adths that explicitly grant a concession from attending Jumuah, but affirm the obligation of Dhuhr for those who do not attend Jumuah.
+
+Second, Ibn Az-Zubayr may have combined the Eid and Jumuah prayers at the time of the early Jumuah (before the sun reached its zenith). This is supported by a narration from Jbir ibn Abdullh (may Allh be pleased with him): We used to perform the prayer with the Messenger of Allh , then return and let our camels rest. This was reported by Muslim. Also, Sahl (may Allh be pleased with him) said: We would neither nap nor eat lunch until after Jumuah. This is the position of Imm Amad and Isq ibn Rhawayh (may Allh have mercy on them).
+
+Additional evidence indicating that Ibn Az-Zubayr did this includes narrations such as: A ibn Ab Rab said: Ibn Az-Zubayr led us in the Eid prayer on a Friday early in the morning. We then went for Jumuah, but he did not come out to us, so we prayed individually. Ibn Abbs was in A-if, and when he returned and we told him, he said: He followed the Sunnah. In another narration: A Friday and Eid coincided under Ibn Az-Zubayr, who said: Two Eids have come together in one day. So he combined them into one, prayed two rakahs early in the morning, and did not add anything until he prayed Ar.
+
+This is a clear and explicit text that he included the Jumuah within the Eid prayer. And whoever performs the Jumuah does not then perform Dhuhr. Therefore, when this was reported to Ibn Abbs, he said: He acted upon the Sunnah.
+
+This, dear brothers and sisters, is a concise yet beneficial explanation regarding the concurrence of Jumuah and Eid. I ask Allh, the Exalted, to have guided me to speak in accordance with the Sunnah and to have brought clarity on this issue to the general Muslim public...",Irrelevant,train,Salafi taklidi,0.2310778349637985,0.3733669817447662,0.3955552279949188,0.2449424862861633,0.3957689702510834,0.3592885136604309,tk_known_scholars_base,True,Irrelevant
+""" The bid'ah of the Murji'ah is more harmful than that of the Khawarij. 
+
+The scholars of Ahl al-Sunnah warned strongly about the bid'ah of Irja, to the extent that many of the Salaf considered it more dangerous than the innovation of the Khawarij.
+
+Why?
+
+ The Khawarij reach a limit in misguidance, but the Murji'ah have no boundary; they gradually strip the religion away, piece by piece.
+
+ The Murji'ah open the door to zandaqah (heresy) and disbelief, by emptying iman of action.
+
+ They corrupt the understanding of the religion while appearing outwardly agreeable, even aligning with rulers and worldly interests.
+
+ They widen the door to false interpretations, distorting the texts without restraint.
+
+ They give false security to sinners, claiming salvation despite wrongdoing, resembling the Jews who said:
+
+  ""The Fire will not touch us except for a number of days."" (al-Baqarah: 80)
+
+Because of this, many of the Salaf (such as al-Nakha'i) said:
+
+""Fitnat al-Murji'ah is more feared upon this Ummah than that of the Azariqah (extreme Khawarij).""
+
+And others said:
+
+""The Khawarij are more excusable to me than the Murji'ah.""
+
+The reality is that both groups are harmful, but:
+
+ The Khawarij corrupt through extremism and rebellion.
+ The Murjiah corrupt the very foundation of iman itself.
+
+And corruption of the foundation is more severe.
+
+ al-Khorasaniya - Shaykh 'Abd al-Aziz al-Turayfi""",Salafi taklidi,train,Salafi taklidi,0.3437387645244598,0.1569007486104965,0.49936044216156,0.4262360632419586,0.1945569366216659,0.3792069554328918,tk_bidah_innovation_context,True,Salafi jihadi
+"""Abu khadeejah talking about unfair tabdee is like AMJ talking about the khawarij.
+
+Abu khadeejah literally makes tabdee on the vast majority of salafi scholarship.""",Salafi taklidi,validation,Salafi taklidi,0.3127446174621582,0.1210012212395668,0.5662541389465332,0.4503522515296936,0.17424176633358,0.3754059374332428,tk_known_scholars_base;tk_abu_khadeejah_lahmami,True,Salafi jihadi
+"""He was clearly being consistent with the ones who accuse Ibn Abd al Barr of kufr. 
+
+Those who accuse the students of imam Ahmad as mujassima 
+
+Those who say the salaf were logically incoherent 
+
+All Asharis, maybe the same as the kid in the video..""",Salafi taklidi,train,Salafi taklidi,0.4054164588451385,0.1377875357866287,0.4567959606647491,0.5027164220809937,0.1708565503358841,0.3264269828796386,tk_bidah_innovation_context,True,Salafi jihadi
+"""The only hypocrite here is you.
+
+I have made not one, but SEVERAL posts stating that the scholars of the Asha'irah and Maturidiyyah are not deviants. 
+
+Perhaps you don't know how to read, or you're purposely lying to people. We will not spare you in the court of Allah.""",Irrelevant,train,Salafi taklidi,0.2905500829219818,0.2910313010215759,0.4184185862541199,0.3602821230888366,0.3608788251876831,0.2788390815258026,tk_bidah_innovation_context,True,Irrelevant
+"Sheikh Muhammad Ibn 'Abdul-Wahhab  : 
+
+""Meaning of kfr bit-Taghut is to reject everything which is worshipped instead of Allah and to testify that such is on kfr and misguidance, to hate him, even if he is you father or brother. One who says: ""I'm worshipping only Allah",Irrelevant,train,Salafi jihadi,0.3999089300632477,0.291504293680191,0.308586835861206,0.3278979659080505,0.3264847695827484,0.3456172347068786,sj_tawagheet_base,True,Salafi taklidi
+"if that is not possible, except for a group (Tifah), then it is obligatory upon them (i.e. agroup) to rise up and remove the disbeliever (Kfir). And that is not obligatory concerning the innovator, unless they assume that they are able (to do so). Then if the inability is",Irrelevant,train,Salafi taklidi,0.2060857564210891,0.3791680932044983,0.4147461354732513,0.2555463314056396,0.4701684415340423,0.274285227060318,tk_bidah_innovation_context,True,Irrelevant
+"What group of muslim claimants are still following this guy?
+
+Own up!
+
+Sufis?
+Shias?
+Asharis?
+Maturidis?
+Kharijis?
+Liberals?
+Ikhwanis?
+Ahmadis?
+Hadith rejectors?
+
+Why on earth does he have 84k followers?",Salafi taklidi,train,Salafi taklidi,0.4078878462314605,0.1657472401857376,0.4263648986816406,0.5057809352874756,0.2055265754461288,0.2886925041675567,tk_bidah_innovation_context,True,Salafi jihadi
+"""An Incident in a Connecticut Coffee Shop About Shaykh Muqbil: A Short Story 
+
+May Allah have mercy upon the Shaykh.",Salafi taklidi,train,Salafi taklidi,0.2692035734653473,0.113741360604763,0.6170550584793091,0.4715009331703186,0.1569630801677703,0.371535986661911,tk_known_scholars_base;tk_scholar_material_format;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""In 1989
+
+Sh Albani to Sh Saleh:
+
+Takfiris love you
+
+...
+
+Sh Saleh l-Shaykh on kufr of Libya, Egypt, Tunisia, Syria, Kuwait govs:
+
+Now there are two issues [of major kufr]: I have given examples of the firstnamely, the issue of takm by the sharah.",Salafi taklidi,validation,Salafi taklidi,0.3544946908950805,0.1253042966127395,0.5202010273933411,0.5466632843017578,0.157883420586586,0.295453280210495,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Shaykh Muqbil
+
+- Am*rica imposed how Muslim countries interact with Isr*el
+
+- Govts speak &amp; against Isr*el &amp; cry for the Palestinians but this is all lies 
+
+- Govts have nothing to do with struggle in the path of Allah
+
+- Govts will not liberate Palestine, Muslims will
+
+Khaariji?",Salafi taklidi,train,Salafi taklidi,0.334815114736557,0.167708545923233,0.4974763095378876,0.521867036819458,0.2113127708435058,0.2668201625347137,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Al Fawzan gives the excuse of ignorance for the lay person who falls into shirk without knowing",Salafi taklidi,train,Salafi taklidi,0.2524223923683166,0.3613865971565246,0.3861910402774811,0.2675677239894867,0.383069783449173,0.3493624925613403,tk_known_scholars_base,True,Irrelevant
+"""Taraweeh is Bidah But:
+
+This is a pure Sunnah according to the Shias
+
+#TaraweehIsBidahBut",Irrelevant,train,Salafi taklidi,0.2763522565364837,0.277414321899414,0.4462334513664245,0.3426767885684967,0.3439937531948089,0.3133294582366943,tk_bidah_innovation_context,True,Irrelevant
+"""""@KItreal512 @Ba_ups56 Stop protecting and prove your argument , how does saying Allah ""hand isn't like  x,you and z"" negates apparent meaning  Don't be scared jahmi 
+""
+--------------
+
+Ashari ibn Zani's Guide to Online Debate:
+
+1. Block your opponent if you can't prove how  negating tashbih is negating apparent meaning",Salafi taklidi,train,Salafi taklidi,0.2194520235061645,0.3145313858985901,0.466016560792923,0.2721205055713653,0.3900189399719238,0.3378605544567108,tk_bidah_innovation_context,True,Irrelevant
+"""Imam Abu Hanifah and Qadi Abu Yusuf   both agreed anyone who says, The Quran is created is a kafir.
+Mukhatasar Al-Uluw li Imam Dhahabi with the tahqiq of Al-Albani, p.156",Salafi taklidi,train,Salafi taklidi,0.2694445550441742,0.1631334125995636,0.5674220323562622,0.4395001232624054,0.2055480927228927,0.3549517393112182,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Sheikh Ibn Baz   said: When I lost my sight as a child, I heard my aunt say to my mother, thinking I was asleep, ""Poor Abdul Aziz, how will he get a job to support himself?"".
+
+- He later became the Grand Mufti of the Kingdom, Chairman of the Council of Senior Scholars, Chairman of the Islamic Jurisprudence Academy, and winner of the King Faisal Prize for Service to Islam""",Irrelevant,validation,Salafi taklidi,0.1418264210224151,0.2868582010269165,0.5713154673576355,0.2787012755870819,0.3614413142204284,0.3598574697971344,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Irrelevant
+"""i wonder if this ignoramus, will be laughing when shaykh ibn baz and al-rajihi and other than them said the same. or any of the najdi scholars. this fool who has masquerading as a salafi when in reality he is amongst the worst of murji'ah on this app who lies and distorts the matter of udhr bil jahl to reject the outward ruling. rather he is on the manhaj of dawud ibn jirjis. which we will show on replies.",Salafi jihadi,train,Salafi taklidi,0.4518286287784576,0.0939330831170082,0.4542382955551147,0.5487063527107239,0.1390209645032882,0.312272697687149,tk_known_scholars_base;sj_call_themselves_salafi_but;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Shaykh Muqbil never mentioned specific rulers., absolute copium, here he called specific people Tawagheet. The brainlets have 2 options
+
+1. Claim he retracted these statements (They are all on his website) &amp; admit he was a Khariji before this.
+
+2. Accept that this was his view."",",Salafi jihadi,train,Salafi taklidi,0.4178210496902466,0.1249115541577339,0.4572674036026001,0.5565930604934692,0.1723779439926147,0.2710290253162384,tk_known_scholars_base;sj_tawagheet_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""""..Dont Deceive The Muslims .. 
+""
+--------------
+
+Funny how this Munafiq is speaking about Iran allying with America what about your Taghut kingdomof Saudi Arabia ya Munafiq 
+(Check thread),",Salafi jihadi,validation,Salafi jihadi,0.4217572212219238,0.3531838059425354,0.2250589728355407,0.3523680865764618,0.3955658674240112,0.252066045999527,sj_tawagheet_base,True,Irrelevant
+"""Rabi is known for slandering Sayyid Qutb ( ) over earlier mistakes. Sayyid Qutb was a man whom Allah blessed with eloquence and many have benefited from his works, especially his Tafsir.
+
+Now read what Shaykh Bakr Abu Zayd said about Rabi in comparison",Salafi jihadi,train,Salafi taklidi,0.360629141330719,0.1136490255594253,0.5257218480110168,0.5543926954269409,0.1431977748870849,0.3024095296859741,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""""Hilarious thing is yasir al Hanafi is sectarian in chief. Doesnt have the best manners.
+
+Asharis and quburis are so hypocritical. They despise us in every way but pretend to be cordial""
+""
+--------------
+
+Dont forget asharis and quburist sympathisers that I can violate the hell outta you mandem. 
+
+But I know that thats not the way someone should engage with. 
+
+The plan is to respond to evil and vile behaviour with one that isnt the same level",Salafi jihadi,train,Salafi taklidi,0.3885126709938049,0.2188760191202163,0.3926112949848175,0.4817557036876678,0.2714062631130218,0.2468380033969879,tk_bidah_innovation_context,True,Salafi jihadi
+"""""You need to do a basic text on Muslim aqeedah before you teach me adab.
+
+Adab has its place and time.
+
+When people like you, under the cover of adab, cheer for enemies then adab is put aside. 
+
+I asked you for an adab podcast on this, you ignored.
+
+Clearly adab is not working. 
+""
+--------------
+
+Hilarious thing is yasir al Hanafi is sectarian in chief. Doesnt have the best manners.
+
+Asharis and quburis are so hypocritical. They despise us in every way but pretend to be cordial",Salafi jihadi,validation,Salafi taklidi,0.3893453478813171,0.1699826270341873,0.4406720399856567,0.4827882349491119,0.210778459906578,0.3064333498477936,tk_bidah_innovation_context,True,Salafi jihadi
+"""Surely, anyone who knows of the actions of Muhammad al-Eesa, and ascribes Islam to him  let alone believes him to be a senior scholar [of Islam]  has not smelt the scent of Islam. This goes without mentioning those that fund and promote his activities of heresy. (i.e., MBS and co.), and how that itself is enough proof for the Riddah of these enemies of Islam.
+
+Two possible options for Fawzan:
+
+1) He knows Muhammad al-Eesa is a Murtad, but cant say anything because hes afraid of those who inserted him in this position (i.e., MBS & co.). If he cant call out or fix such blatant Kufr, then his appointment is nothing more than a spectacle.
+
+2) He doesnt know the reality of Muhammad al-Eesa, and thus affirms Islam for him. The problem with this, is that how can a Mufti of a land, be so ignorant of who and whats going on in that very land. Moreover, how can the leader of the committee of senior scholars, be so ignorant of the blatant and out in the open Zandaqa of the very members of that committee. Again, it just goes back to his appointment being nothing more than a spectacle.
+
+A shame, Fawzan who is on the doorstep of his coffin, may Allah destroy him  and only Allah Knows when he will perish  cant even take a simple stand of truth, publicly, so that the truth is not clouded nor lost. What will he meet Allah with, to counter his decades worth of legitimizing the thrones of the Tawagheet who fight Islam and the Muslims?!
+
+His current trajectory, and we ask Allah for Salmah, appears to follow in the footsteps of a [Temu] Balm, and be like how Allah Describes:
+
+                             
+
+And had We willed, We would surely have elevated him therewith but he clung to the earth and followed his own vain desire. So his parable is the parable of a dog: if you drive him away, he lolls his tongue out, or if you leave him alone, he (still) lolls his tongue out. Such is the parable of the people who reject Our Ayt (proofs, evidence, verses, lessons, signs, revelations, etc.). So relate the stories, perhaps they may reflect. [7:176]
+
+What a terrible fate awaits the evil scholars that legitimize the Tawagheet. Verily, they themselves are Tawagheet,   .""",Salafi jihadi,validation,Salafi jihadi,0.5661181807518005,0.1761779338121414,0.2577039003372192,0.2935842871665954,0.3112034797668457,0.3952122330665588,tk_known_scholars_base;sj_tawagheet_base;sj_zandaqa_attack_rulers_scholars;sj_kufr_shirk_rulers,True,Salafi taklidi
+"""In a book written about Shaykh Muqbil, a student compiled a vast number of Golden quotes of the Shaykh. Below are some quotes that would get anyone else labelled &amp; refuted.
+
+I believe that the majority of the rulers of the Muslims have become a calamity upon Islam.",Salafi jihadi,train,Salafi taklidi,0.3761629462242126,0.1362885236740112,0.4875485301017761,0.573965311050415,0.1717235296964645,0.2543111741542816,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""We didnt leave a life of kufr, chasing women, Grandmas comfortable inheritance, etc. just to embrace Islaam, and get impressed by fcuking Taghut Tate, Neek Fuentes &amp; and all these other lame trash bags . You have got to be kidding me.""",Salafi jihadi,train,Salafi jihadi,0.4207924008369446,0.414498507976532,0.1647091656923294,0.3512874841690063,0.4642383158206939,0.1844742596149444,sj_tawagheet_base,True,Irrelevant
+"""Hamas Is Not Going To Give Victory To Islaam  Shaykh Muqbil Bin Hadi Al-Wadiee",Salafi taklidi,validation,Salafi taklidi,0.3340153694152832,0.1550821214914322,0.5109025239944458,0.5208593606948853,0.1954034715890884,0.2837371826171875,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""NEW VIDEO
+
+#NEW | THE RAFIDHAH | The People of Shirk & Kufr
+
+ YouTube Link: 
+
+This video  InshaAllah  reveals the unfiltered and true creed of the Rafidhah, also known as the Ithna-Ashariyyah, Imamiyyah, or Jafariyyah  by uncovering their beliefs through their own mother-books. I make Dua to Allah, that after watching this video in full  which includes their sourced heresies, as well as the decisive statements of the Salaf regarding them  one realizes with certainty, that the religion of the Rawafidh (Ithna-Ashariyyah), has nothing to do with Islam, rather, it is a deviant, pagan religion dressed in islamic terminology.
+
+I ask Allah to accept this minuscule effort, and place the Ajr of it, in the book of deeds of every Muslim from Ahlul Sunnah. 
+
+I ask you all to make Dua for family and children, that he make them of the healthy, rightly guided Awliya of Allah, and to make us all of the inhabitants of the highest levels of Firdaws.
+
+  """,Salafi taklidi,train,Salafi taklidi,0.3723104894161224,0.1274718046188354,0.5002176761627197,0.461665004491806,0.1580650359392166,0.3802699744701385,tk_bidah_innovation_context,True,Salafi jihadi
+Al Fawzan gives the excuse of ignorance for the lay person who falls into shirk without knowing,Salafi taklidi,train,Salafi taklidi,0.2501049637794494,0.357333242893219,0.3925618231296539,0.2651112377643585,0.3787732124328613,0.3561155200004577,tk_known_scholars_base,True,Irrelevant
+"""  Will the Madakhilah call the Teacher of Rabee al-Madkhali a Khariji?
+
+Imam Muhammad al-Amin al-Shinqiti said:
+
+""And it is strange that someone rules by something other than Allah's legislation and then claims Islam""
+
+  (Idah al-Quran bil-Quran, vol. 3, pg. 41)",Salafi jihadi,train,Salafi taklidi,0.3728267252445221,0.157742902636528,0.4694303572177887,0.5509465336799622,0.2034883648157119,0.2455651760101318,sj_madkhali_base;tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Hamas is not going to give victory to Islam,
+
+Those who will are the ones upon Quran and Sunnah.
+
+Hamas are Hizbis with them is the Ikhwani and the Rafidhi
+
+If they had any victory then thereafter they would start killing one another
+
+- Allamah Muqbil ibn Hadi al-Wadi'i",Salafi taklidi,train,Salafi taklidi,0.3610846102237701,0.1369301080703735,0.5019852519035339,0.4694100320339203,0.1780091524124145,0.3525808453559875,tk_known_scholars_base;tk_rafidah_scholars_context,True,Salafi jihadi
+"""Who was ash-Shaykh, al-Allmah, Ubayd al-Jbir?
+
+He is the Shaykh and Allmah, Ubayd bin Abd Allh bin Sulaymn al-Jbir al-Hamadn, and Ban Jbir is among the tribes of arb of the ijz.
+He was born in the town of al-Faqr in al-Far valley in the region of Madnah in 1357 AH (1938). At the age of eight, he moved with his father to Mahd al-Dhahab, where he acquired the first stages of his education. His father moved there in order to work. He remained in education at this location for eight years. After that, he returned to al-Far valley. Then in 1376 AH (1956) he settled in Madnah and, due to family circumstances, was unable to study for a period of time.
+
+Then in the year 1381 AH (1961), he resumed his studies, starting with Dr al-adth al-Madaniyyah. Then he joined al-Mahad al-Ilm and stayed there for five years. He got married before joining the Faculty of Sharah in the Islamic University of Madnah in 1388 AH (1968). He graduated four years later in 1392 AH (1972), excelling in his grade.
+From his teachers through the course of his studies include: Shaykh Sayf al-Ramn bin Amad, Shaykh Ammr bin Abd Allh, Shaykh Abd al-Ramn bin Abd Allh al-Ajln, Shaykh umayd al-zim, Shaykh ammd al-Anr and Shaykh Abd al-Musin al-Abbad.
+
+After that, he was an imm in Masjid al-Sabt in Madnah between 1387-1392 AH. Then he was a teacher at Umar bin Abd al-Aziz Intermediate School in Jeddah from 1392 AH to 1396 AH. After that, the Shaykh worked as a caller for Markaz al-Dawah wal-Irshd, assisting the director of the centre, Shaykh Abd al-Azz bin Bz, in his presence and acting on his behalf in his absence from the end of 1396 AH to 1404 AH (1976-1983).
+Then he was a teacher at the Islmic University between the end of 1407 AH to 1414 AH. During his presence there, he also attained a Masters in the subject of tafsr. After a few years serving at the Community Service Centre affiliated with the Islmic University, the Shaykh then retired in 1417 AH (1996).
+
+After this the Shaykh continued his lectures and lessons, with students from the Islmic University frequenting his home and benefiting from his knowledge, advice and wisdom. During this period, the Shaykh also aided the Salafi dawah tremendously, particularly in the West by way of fatherly advice, clarifications, admonitions and refutations of the people of falsehood and their false innovated principles. The Shaykh had a very strong relationship with the students of knowledge from Maktabah Salafiyyah, Birmingham. The Shaykh has many beneficial works in the field of aqdah, manhaj, and fiqh. Shaykh Rab bin Hd (may Allh have mercy on him) said of the Shaykh: Shaykh Ubayd is from the esteemed scholars of the Salafs, and he is known for piety, abstinence and speaking with truth.
+
+Shaykh Ubayd was also praised and commended by other Major Scholars such as Shaykh Amad al-Najm and Shaykh Zayd al-Madkhal (may Allh have mercy on them).
+The Shaykh (may Allh have mercy on him) passed away at the age of 84 on 28 Rab al-Thn 1444 AH, corresponding to 22 November 2022. May Allh shower him with mercy and reward him greatly for his service to Islm, the Muslims and the Salaf dawah.
+
+Some of this great scholars works:",Salafi taklidi,train,Salafi taklidi,0.2294933646917343,0.1290220320224762,0.6414845585823059,0.4212907254695892,0.1806308478116989,0.398078441619873,tk_known_scholars_base;tk_dawah_orgs_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+""" 
+
+Asalamualaikum wa rahmatullahi wa barakaatuhu 
+
+We hope and pray you are in the best of eemaan. The masjid has some great news to share, and we pray this assists in us pushing on and spreading the dawa more throughout Manchester. 
+
+We are in the process of finalising a lease on a brand-new bookshop and dawa centre. Its not been easy to find something but we have tried to find the best place possible to accommodate both enough books, free literature as well as allowing small sittings and potentially lessons in the future by taken adjacent buildings.
+
+We will announce the location in due course due to the sensitive nature of negotiations. However as we are at the stage of agreeing terms we thought to bring this to your attention so that you may contribute to such a blessed dawa centric activity. 
+
+Sahl bin Sa'd (May Allah be pleased with him) reported: The Prophet () said to 'Ali (May Allah be pleased with him), ""By Allah, if a single person is guided by Allah through you, it will be better for you than a whole lot of red camels."" Recorded in Al-Bukhari and Muslim (Riyad as-Salihin 1379).
+
+In order to set up the bookshop we estimate that it will cost us approximately 42,000. This includes the legal fees, deposit on the building, the full refurbishment costs (electrical, plumbing, lighting, flooring, ceiling) furniture fixings, signage (external and internal) and then most important of all the books to stock and dawa material; as well as further stock to sell in order to raise funds to sustain the centre.
+
+Please note our goal is only to make enough money so that it can carry out its main purpose, which is to call to Islam. Alongside the weekly city centre dawa stall we have, this will hopefully form a good central hub for people who are maybe new to Islam or want more information.
+ 
+So we ask that you donate generously if you are able, to this noble cause of spreading Islam and teaching it to people - and rectifying the basics of the religion and assisting Muslims all over Manchester to return to the sunnah.
+
+ :
+MANCHESTER BOOKSTORE LTD
+Account number: 21981312
+Sort code: 04-06-05
+
+ :
+
+
+:
+Manchesterbookstore@outlook.com
+
+  -",Irrelevant,train,Salafi taklidi,0.1760537475347519,0.3991385996341705,0.424807608127594,0.2007012665271759,0.4550179839134216,0.3442806899547577,tk_donate_markaz_masjid,True,Irrelevant
+"""Re: Ruling/Advice on divorcing disobedient wife who doesn't wear proper Hijab.
+
+- Shaykh Salih al-Fawzan  .",Salafi taklidi,train,Salafi taklidi,0.2706249356269836,0.1407182663679123,0.5886567831039429,0.4409874081611633,0.1773050129413604,0.3817075788974762,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""One of the first things I ever heard our bro Hasan Sumali say is: The 1st call of every innovator is 2 separate the people from the Scholars""",Salafi taklidi,train,Salafi taklidi,0.1722196340560913,0.4107950627803802,0.4169853031635284,0.2135523557662964,0.509385883808136,0.2770617604255676,tk_bidah_innovation_context,True,Irrelevant
+"""Increase sending salawat upon the Prophet 
+
+Shaykh Sulayman al-Alwan said:
+
+Abundant Salawat upon the Prophet  are a sign of love for him. And the more the heart increases in love for the Prophet , the more it strives to embody his character and follow his actions.",Salafi jihadi,train,Salafi jihadi,0.6390648484230042,0.1867597550153732,0.1741754710674286,0.3235655128955841,0.2465228736400604,0.4299116134643554,sj_jihadi_scholars_base;sj_jihadi_scholars_reverence;tk_jihadi_scholars_reverence_decrease,True,Salafi taklidi
+"""Shaykh Salim Bamihriz   warns against Ahmed Musa Jibril calling him a Dajjal and a Deviant Khariji
+
+Shaykh Salim   is from the students of Sh Ibn Baz  , Sh Ibn Uthaymin  , Sh Muqbil   and others.
+
+His short biography in the next tweet.",Salafi taklidi,train,Salafi taklidi,0.3262966275215149,0.0969203934073448,0.5767830014228821,0.5502893328666687,0.1337501406669616,0.315960556268692,tk_known_scholars_base;tk_scholar_material_format;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Now don't come to me with the 8th naqid al Islam, shaykh an najmee has already refuted this doubt
+
+Subhaan Allah, this video really pierces  into the heart! The one living in kaafir countries, suffering oppression would understand
+
+- Shaykh Abu khadeejah  ( )",Salafi taklidi,validation,Salafi taklidi,0.2481308877468109,0.0987429693341255,0.6531261801719666,0.4799126386642456,0.1511851400136947,0.3689022660255432,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease;tk_abu_khadeejah_lahmami,True,Salafi jihadi
+These Arab apostate rulers should wear bangles and lipstick.,Salafi jihadi,validation,Salafi jihadi,0.4953319132328033,0.3606037497520447,0.1440643370151519,0.3035580217838287,0.497633159160614,0.1988087743520736,sj_kufr_shirk_rulers,True,Irrelevant
+"""""Why are Salafis having a meltdown from this Salafi kid making Takfeer of IbnTaymia? He's just been consistent with what u guys taught him. Why are you upset about IT being thrown under the bus but not other Imams? 
+""
+--------------
+
+He was clearly being consistent with the ones who accuse Ibn Abd al Barr of kufr. 
+
+Those who accuse the students of imam Ahmad as mujassima 
+
+Those who say the salaf were logically incoherent 
+
+All Asharis, maybe the same as the kid in the video..",Salafi taklidi,train,Salafi taklidi,0.4245278835296631,0.1338353008031845,0.4416367709636688,0.5264145731925964,0.1659557819366455,0.3076295852661133,tk_bidah_innovation_context,True,Salafi jihadi
+"""The school of dilution and adaptation 
+
+Question:
+What do you mean by the dilution (tamyee) and adaptation (tatwee) that you mentioned?
+
+Shaykh Abu Yahya al-Libi (may Allah have mercy upon him) said:
+
+This approach is one of the afflictions that has befallen our Islamic Ummah in this age, and many have been tested by it, those described as thinkers, enlightened individuals, moderates, or centrists.
+
+The reality of this methodology is the dilution of the truths of the deen and their reshaping and subjugation so that they conform to understandings, perspectives, and convictions that its proponents have adopted, especially in matters where they feel there is conflict or tension with ideas promoted by Westerners.
+
+So you find these adapters sparing no effort and leaving no means unused to try to prove that Islam agrees with Western ideas, matches their rulings, or even preceded them in what they have proposed.
+
+Unfortunately, this contagion has affected many Muslim scholars and preachers, to the point that some of them have become leaders of this school, those scholars upon whom Allah placed the responsibility of conveying His message to people as it is, without distortion or deception, and who should not be swayed by desire or fear.
+
+As Allah the Exalted said:
+
+Those who convey the messages of Allah and fear Him, and do not fear anyone except Allah. And sufficient is Allah as a Reckoner.
+
+This school of dilution and adaptation has made all matters of the deen into an open domain, freely entered by their intellects, polluted by their ideas, and subjected to their research, without any restraint or trustworthiness holding them back.
+
+This is a great calamity of our time.
+
+The Quran has already clarified this reality and exposed the inner motives of such people, namely deviation and corruption of the heart, which can be summarized as infatuation with Western culture, and being carried away by intellectual temptation.
+
+Allah says:
+
+As for those in whose hearts is deviation, they follow what is ambiguous, seeking Fitna and seeking its interpretation.
+
+The Prophet (salallahu alayhi wa salam) recited this verse and then said:
+
+If you see those who follow what is ambiguous, they are the ones Allah has named, so beware of them.
+
+Therefore, a Muslim, so that his deen remains sound and he protects himself from deviation and getting lost in paths of misguidance, must beware of such people and not be deceived by names, titles, or fame.
+
+What they are doing is polluting our Islamic sources and corrupting our pure concepts, which Islam was keen to preserve in their independence, in terminology, meanings, and substance, so that no impurity would enter and disturb this pure spring.
+
+In this regard, there is the incident when the Prophet (salallahu alayhi wa salam) was approached by Umar (may Allah be pleased with him), who said:
+We hear statements from the Jews that we find appealing, should we write some of them down?
+
+The Prophet (salallahu alayhi wa salam) replied:
+
+Are you becoming confused as the Jews and Christians became confused? I have brought it to you pure and clear. If Musa were alive, he would have no choice but to follow me.
+
+Today, you see that whenever a Western thinker praises something from Islam, it is taken as proof of the truth of the message, as though we are in need of such endorsements.
+Even worse, and more dangerous, is that the situation has reversed, these people of such thinking now reshape Islamic meanings so that they serve as evidence for the correctness of many aspects of Western culture, even when that culture fundamentally contradicts Islam in both concepts and terminology.
+
+I believe we are in need of a thorough study of the foundations and principles of this deviant and manipulative school, in order to uproot it and expose its danger to the core principles of the religion, the extent to which it corrupts its concepts, ......
+
+Continued  """,Salafi jihadi,train,Salafi jihadi,0.7200523018836975,0.1651919186115265,0.1147556826472282,0.3612121343612671,0.22941654920578,0.4093713164329529,sj_abu_yahya_al_libi_base;sj_abu_yahya_al_libi_reverence_quote;tk_abu_yahya_al_libi_decrease,True,Salafi taklidi
+"""Imam Ahmad was asked if the people of Paradise will see Allah, speak to Him, and if He will speak to them.
+
+Ahmad bin Hanbal said:
+
+Yes, He will look at them, and they will look at Him. He will speak to them, and they will speak to Him, however He wills and whenever He wills.",Salafi taklidi,train,Salafi taklidi,0.0,0.3704608380794525,0.6295391917228699,0.1880795508623123,0.4933999180793762,0.3185205161571502,tk_aqida_wasitiyya_creed_context;ir_aqida_wasitiyya_creed_decrease;sj_aqida_wasitiyya_creed_decrease,True,Irrelevant
+"""Algerians &amp; Libyans are all donkeys except those whom Allah has mercy upon.
+
+- Madkhali Shaykh of Spubs Ubayd al-Jaabiri",Salafi taklidi,train,Salafi taklidi,0.3571684062480926,0.1271784156560897,0.5156532526016235,0.5307472348213196,0.1640601605176925,0.3051926493644714,sj_madkhali_base;tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Various Manhaj Benefits From Shaykh Rabee Al-Madkhali
+
+All the Articles/PDFs contained with this Link are a Must Read for Every Person of Sunnah in order to Comprehend Principles and Implement the Sound &amp; Upright Methodology Accordingly.",Salafi taklidi,train,Salafi taklidi,0.304976612329483,0.1196901723742485,0.5753332376480103,0.4634198248386383,0.1544003188610077,0.382179856300354,sj_madkhali_base;tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""""Uzbekistan is rolling out Islamic banking system. 
+
+ The main principle of the Islamic banking system is ban on interest. Money cannot generate profit simply by being lent. 
+""
+--------------
+
+The blessing of having a neighbour that establishes Islam while youre not interested in harming him 
+Youll adapt
+May Allah guide ppl of Uzbekistan to establish sharia completely and help them to get rid off those who wont let go from secularism and tribalism",Irrelevant,train,Salafi jihadi,0.5579372048377991,0.3052845597267151,0.1367781907320022,0.3545883893966675,0.4457154870033264,0.1996961534023285,sj_democracy_taghut,True,Irrelevant
+"""Shaykh Saleh al-Fawzan recommending students read the book of Saleh al-Munajjid saying it is well needed and praising Allaah for making him an aider of the haqq
+ """,Salafi taklidi,train,Salafi taklidi,0.2718797922134399,0.1267009675502777,0.6014192700386047,0.4425685405731201,0.159643217921257,0.3977882266044616,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Shuyukh:
+
+Nasir al-Fahd
+Sulayman al-Alwan
+Al al-Khudayr
+Abdullah as-Sad
+Hamad al-Humaydi 
+Hamoud Ibn Uqla ash-Shuaybi
+Abdullah Bin Humaid
+
+And many more from the righteous of the ummah, may Allah preserve those who are alive and have mercy upon those who are dead""",Salafi jihadi,train,Salafi jihadi,0.4316543936729431,0.2120261788368225,0.356319397687912,0.3748198449611664,0.2332288026809692,0.3919513523578644,sj_jihadi_scholars_base,True,Salafi taklidi
+Context : Madkhali tiktokers staying consistent with the principles learned from Shamsi at Salafi Publications @ameeniooo,Salafi taklidi,train,Salafi taklidi,0.3990296721458435,0.1231765449047088,0.47779381275177,0.4368647038936615,0.1441165506839752,0.4190187454223633,sj_madkhali_base;tk_dawah_orgs_base,True,Salafi jihadi
+"""One of my favourite portions in the Nuniyyah is where Ibn al-Qayyim addresses the Ash'ari claim that Salafis resemble the khawarij.
+
+Dhul Khuwaysira used his flawed logic to try correct Rasulullah .
+
+Who else puts flawed reasoning above the apparent of the Quran and Sunnah?""",Salafi taklidi,train,Salafi taklidi,0.3655712902545929,0.1454757452011108,0.4889529645442962,0.4533084034919739,0.1803899258375167,0.3663016855716705,tk_bidah_innovation_context,True,Salafi jihadi
+Tonight's class inshaaAllah will begin at 830pm to allow those fasting to reach Markaz Muaadh on time.,Salafi taklidi,train,Salafi taklidi,0.2254239022731781,0.3769203126430511,0.3976557552814483,0.2569832503795624,0.4296891391277313,0.3133275806903839,tk_dawah_orgs_base,True,Irrelevant
+"""The Principle of a just person, a seeker of truth is always Shaykh Rabee (rahimahullah)",Salafi taklidi,train,Salafi taklidi,0.0,0.0085940202698111,0.9914059638977052,0.4991940259933471,0.1586685180664062,0.3421373963356018,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease;tk_rabee_positive_context;ir_rabee_positive_context_decrease;sj_rabee_positive_context_decrease,True,Salafi jihadi
+"This girl became Salafi I asked her why and she said she cant be asked making up for years of missed prayers. Then she started quoting sheikh Muqbil to me
+
+Owari da",Salafi taklidi,validation,Salafi taklidi,0.2474779486656189,0.1740835756063461,0.5784384608268738,0.4118221998214721,0.2193453013896942,0.3688324987888336,tk_known_scholars_base;tk_known_scholars_reverence;sj_known_taklidi_scholars_reverence_decrease,True,Salafi jihadi
+"""Dans les commentaires de la Aqida al-Wasitiya du shaykh Ali Al Khudayr, il explique la croyance envers les anges et leur place dans la croyance.
+
+La foi aux anges fait partie des piliers de la foi et repose sur ce quAllah et Son Messager  ont inform du monde invisible.",Salafi taklidi,validation,Salafi jihadi,0.4469976723194122,0.2783982753753662,0.2746041119098663,0.2923867404460907,0.4814055860042572,0.2262075990438461,sj_jihadi_scholars_base;sj_jihadi_scholars_reverence;tk_jihadi_scholars_reverence_decrease;tk_aqida_wasitiyya_creed_context;ir_aqida_wasitiyya_creed_decrease;sj_aqida_wasitiyya_creed_decrease,True,Irrelevant
+"""Don't undermine the seriousness of associating and prompting deviants and innovators. 
+Mufti Menk, Assim AlHakeem and Abu Taymiyah are guilty of watering down Islaam. 
+Pretending that this is a trivial issue is treacherous and dangerous. 
+Be careful who you listen to and who you collaborate with.""",Salafi taklidi,train,Salafi taklidi,0.188446432352066,0.3339498341083526,0.4776037335395813,0.2336735725402832,0.4140978157520294,0.3522286415100097,tk_bidah_innovation_context,True,Irrelevant
+"""Democracy is Shirk and the Deen of the enemies of Islam.
+
+#KufrDemocracy
+#DontVote
+#TheHukmIsForAllahAlone",Salafi jihadi,validation,Salafi jihadi,0.6103619933128357,0.2489988058805465,0.1406391859054565,0.3616280555725097,0.4079526662826538,0.2304193079471588,sj_kufr_shirk_rulers;sj_democracy_taghut,True,Irrelevant
+"""Throwback Tweet from Habib Ali Jifri, after the Ahlus Sunnah conference in Chechnya, he said that there will be a 7 principles of Takfir conference refuting Qutbis &amp; their principles which include Haakimiyyah, al-Wala wal-Bara &amp; Khilaafah.",Irrelevant,train,Salafi taklidi,0.4145083129405975,0.1470402479171753,0.4384514093399048,0.5057001709938049,0.1793891042470932,0.3149107694625854,tk_all_welcome_event;tk_scholar_material_format,True,Salafi jihadi
+"""""No one has any right over Allah to deserve anything from Him.
+
+- Al Tufi 
+""
+--------------
+
+8th Century AH - Ibn Rajab accuses at-Tf of being an ashari for his views on al-Kasb and doing tawl of the Sift etc.
+
+15th Century AH - An X account named after Ibn Rajab is posting sections of at-Tfs incorrect views on al-Kasb, which was one of the reasons Ibn Rajab accused him in the first place.",Irrelevant,train,Salafi taklidi,0.3331084549427032,0.2010488659143448,0.4658426344394684,0.413054496049881,0.2493005990982055,0.337644875049591,tk_bidah_innovation_context,True,Salafi jihadi

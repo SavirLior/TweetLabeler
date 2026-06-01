@@ -1,0 +1,27 @@
+{
+  "run_name": "baseline_logistic_v1",
+  "model": "logistic",
+  "class_weights": {
+    "Irrelevant": 0.7,
+    "Salafi jihadi": 1.8,
+    "Salafi taklidi": 1.15
+  },
+  "validation": {
+    "accuracy": 0.7392996108949417,
+    "macro_f1": 0.6900862001533143,
+    "weighted_f1": 0.7305523714005683,
+    "salafi_jihadi_precision": 0.6530612244897959,
+    "salafi_jihadi_recall": 0.64,
+    "salafi_jihadi_f1": 0.6464646464646465,
+    "salafi_jihadi_f2": 0.642570281124498
+  },
+  "test": {
+    "accuracy": 0.775175644028103,
+    "macro_f1": 0.7412624938020304,
+    "weighted_f1": 0.7718209595181287,
+    "salafi_jihadi_precision": 0.7142857142857143,
+    "salafi_jihadi_recall": 0.6626506024096386,
+    "salafi_jihadi_f1": 0.6875,
+    "salafi_jihadi_f2": 0.6723716381418093
+  }
+}
