@@ -781,7 +781,7 @@ async def evaluate_tweets_with_fusion_model(
     *,
     batch_size: int = 16,
 ) -> list[TweetEvaluation]:
-    """Evaluate tweet text with the local model in ./model_export_exp_76_iter_153."""
+    """Evaluate tweet text with the configured local model export."""
     await asyncio.sleep(0)
     return get_local_classifier().predict(tweets_list, batch_size=batch_size)
 

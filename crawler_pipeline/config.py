@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 APIFY_ACTOR_ID = "apidojo/tweet-scraper"
-MODEL_EXPORT_DIR = Path(__file__).resolve().parent / "model_export_exp_76_iter_153"
+MODEL_EXPORT_DIR = Path(__file__).resolve().parent / "model_export_exp_87_iter_180"
 MODEL_DIR = MODEL_EXPORT_DIR / "model"
 
 DEFAULT_TWEET_LANGUAGE = "en"
