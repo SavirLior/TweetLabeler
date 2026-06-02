@@ -1045,19 +1045,19 @@ def main() -> None:
         "--discovery-limit",
         type=int,
         default=DEFAULT_DISCOVERY_LIMIT,
-        help="Number of keyword-discovery tweets to evaluate.",
+        help="Number of initial keyword-discovery tweets/users to evaluate.",
     )
     parser.add_argument(
         "--profile-limit",
         type=int,
         default=DEFAULT_DEEP_DIVE_TWEET_LIMIT,
-        help="Minimum clean profile tweets required for user classification.",
+        help="Clean profile tweet target for each triggered user's deep dive.",
     )
     parser.add_argument(
         "--overfetch-multiplier",
         type=float,
         default=PROFILE_OVERFETCH_MULTIPLIER,
-        help="Raw profile fetch multiplier. Default 1.5, so profile-limit 100 fetches 150 raw tweets.",
+        help="Raw profile fetch multiplier. Default 1.5, so profile-limit 150 fetches 225 raw tweets.",
     )
     parser.add_argument(
         "--min-profile-tweets",
@@ -1069,13 +1069,13 @@ def main() -> None:
         "--min-positive-tweets",
         type=int,
         default=USER_JIHADI_TWEET_THRESHOLD,
-        help="Minimum Salafi jihadi profile tweets required.",
+        help="Minimum Salafi jihadi profile tweets required in addition to the ratio rule.",
     )
     parser.add_argument(
         "--ratio",
         type=float,
         default=POSITIVE_RATIO_THRESHOLD,
-        help="Minimum Salafi jihadi positive ratio required.",
+        help="Minimum Salafi jihadi positive ratio required. Default 0.10.",
     )
     parser.add_argument(
         "--tweet-language",

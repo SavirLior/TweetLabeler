@@ -112,30 +112,30 @@ def evidence_docs(total, positive, *, offset=0):
 
 
 class CrawlerMongoStoreTests(unittest.TestCase):
-    def test_classification_threshold_uses_ratio_and_minimum_positive_count(self):
+    def test_classification_threshold_uses_ten_percent_ratio_and_minimum_profile_size(self):
         ninety_nine_with_many_positive = calculate_classification_score(
             evidence_docs(99, 20),
-            positive_ratio_threshold=0.12,
-            min_positive_tweets=8,
+            positive_ratio_threshold=0.10,
+            min_positive_tweets=0,
             min_evaluated_tweets=100,
         )
         self.assertEqual(ninety_nine_with_many_positive["status"], STATUS_INSUFFICIENT_DATA)
 
-        eleven_of_one_hundred = calculate_classification_score(
-            evidence_docs(100, 11),
-            positive_ratio_threshold=0.12,
-            min_positive_tweets=8,
+        nine_of_one_hundred = calculate_classification_score(
+            evidence_docs(100, 9),
+            positive_ratio_threshold=0.10,
+            min_positive_tweets=0,
             min_evaluated_tweets=100,
         )
-        self.assertEqual(eleven_of_one_hundred["status"], STATUS_NOT_SALAFI_JIHADI)
+        self.assertEqual(nine_of_one_hundred["status"], STATUS_NOT_SALAFI_JIHADI)
 
-        twelve_of_one_hundred = calculate_classification_score(
-            evidence_docs(100, 12),
-            positive_ratio_threshold=0.12,
-            min_positive_tweets=8,
+        ten_of_one_hundred = calculate_classification_score(
+            evidence_docs(100, 10),
+            positive_ratio_threshold=0.10,
+            min_positive_tweets=0,
             min_evaluated_tweets=100,
         )
-        self.assertEqual(twelve_of_one_hundred["status"], STATUS_SALAFI_JIHADI)
+        self.assertEqual(ten_of_one_hundred["status"], STATUS_SALAFI_JIHADI)
 
     def test_save_user_deep_dive_writes_only_crawler_collections_and_is_idempotent(self):
         fake_db = FakeDb()
