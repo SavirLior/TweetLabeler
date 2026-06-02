@@ -1,0 +1,19 @@
+{
+  "model_type": "bert_multi_class_with_validation_balanced",
+  "experiment_model_type": "bert_multi_class_with_validation_balanced",
+  "project_id": 58,
+  "project_name": "only check",
+  "experiment_name": "upload the round 5 tweets without knowledge yet",
+  "experiment_id": 87,
+  "iteration_id": 180,
+  "iteration_number": 3,
+  "export_name": "only_check_upload_the_round_5_tweets_without_knowledge_yet_iteration_3",
+  "labels": [
+    "Salafi jihadi",
+    "Irrelevant",
+    "Salafi taklidi"
+  ],
+  "max_length": 128,
+  "prediction_type": "single_label",
+  "temperature": 2.0
+}
