@@ -44,8 +44,10 @@ try:
         DEFAULT_TWEET_LANGUAGE,
         DEFAULT_USER_TWEET_LIMIT,
         JIHADI_LABEL_TOKEN,
+        KEYWORDS_FILE,
         MODEL_DIR,
         MODEL_EXPORT_DIR,
+        FINAL_JIHADI_USERS_FILE,
     )
     from .mongo_store import (
         CrawlerMongoStore,
@@ -72,8 +74,10 @@ except ImportError:  # Allows running this file directly from crawler_pipeline/.
         DEFAULT_TWEET_LANGUAGE,
         DEFAULT_USER_TWEET_LIMIT,
         JIHADI_LABEL_TOKEN,
+        KEYWORDS_FILE,
         MODEL_DIR,
         MODEL_EXPORT_DIR,
+        FINAL_JIHADI_USERS_FILE,
     )
     from mongo_store import (
         CrawlerMongoStore,
@@ -889,6 +893,49 @@ def serialize_evidence_for_storage(evidence: EvaluatedTweet) -> dict[str, Any]:
     }
 
 
+def read_keywords_file(path: str | Path = KEYWORDS_FILE) -> list[str]:
+    """Read keyword/search terms from a text file, one per line."""
+    keywords_path = Path(path)
+    if not keywords_path.exists():
+        raise FileNotFoundError(f"Keywords file was not found: {keywords_path}")
+
+    keywords: list[str] = []
+    seen: set[str] = set()
+    with keywords_path.open(encoding="utf-8") as keywords_file:
+        for line in keywords_file:
+            keyword = line.strip()
+            if not keyword or keyword.startswith("#"):
+                continue
+            key = keyword.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            keywords.append(keyword)
+
+    if not keywords:
+        raise ValueError(f"Keywords file is empty: {keywords_path}")
+
+    return keywords
+
+
+def write_final_jihadi_users_file(
+    usernames: Iterable[str],
+    path: str | Path = FINAL_JIHADI_USERS_FILE,
+) -> None:
+    """Write the final verified positive usernames to a text file."""
+    output_path = Path(path)
+    usernames_by_key: dict[str, str] = {}
+    for username in usernames:
+        normalized = normalize_username(username)
+        if normalized:
+            usernames_by_key.setdefault(normalized.casefold(), normalized)
+
+    unique_usernames = sorted(usernames_by_key.values(), key=str.casefold)
+    with output_path.open("w", encoding="utf-8") as output_file:
+        for username in unique_usernames:
+            output_file.write(f"{username}\n")
+
+
 async def run_pipeline(
     keywords: Iterable[str],
     *,
@@ -1040,7 +1087,21 @@ async def run_pipeline(
 def main() -> None:
     """CLI entry point for local pipeline execution."""
     parser = argparse.ArgumentParser(description="Run the Twitter/X crawler pipeline.")
-    parser.add_argument("keywords", nargs="+", help="Keyword(s) to search on Twitter/X.")
+    parser.add_argument(
+        "keywords",
+        nargs="*",
+        help="Optional keyword(s) to search. Defaults to --keywords-file.",
+    )
+    parser.add_argument(
+        "--keywords-file",
+        default=str(KEYWORDS_FILE),
+        help="Text file containing search keywords, one per line.",
+    )
+    parser.add_argument(
+        "--output-file",
+        default=str(FINAL_JIHADI_USERS_FILE),
+        help="Text file to write final Salafi jihadi usernames to.",
+    )
     parser.add_argument(
         "--discovery-limit",
         type=int,
@@ -1089,9 +1150,10 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
 
+    keywords = args.keywords or read_keywords_file(args.keywords_file)
     verified_users = asyncio.run(
         run_pipeline(
-            args.keywords,
+            keywords,
             discovery_limit=args.discovery_limit,
             deep_dive_tweet_limit=args.profile_limit,
             user_jihadi_threshold=args.min_positive_tweets,
@@ -1101,10 +1163,12 @@ def main() -> None:
             tweet_language=args.tweet_language or None,
         )
     )
+    write_final_jihadi_users_file(verified_users.keys(), args.output_file)
     if verified_users:
         print("Positive users:", ", ".join(sorted(verified_users)))
     else:
         print("No positive users found.")
+    print(f"Final positive user list written to: {args.output_file}")
 
 
 if __name__ == "__main__":

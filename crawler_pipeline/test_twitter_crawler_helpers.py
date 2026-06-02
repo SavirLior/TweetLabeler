@@ -1,11 +1,23 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 try:
     from . import twitter_crawler
-    from .twitter_crawler import build_discovered_tweets_from_items, calculate_overfetch_limit
+    from .twitter_crawler import (
+        build_discovered_tweets_from_items,
+        calculate_overfetch_limit,
+        read_keywords_file,
+        write_final_jihadi_users_file,
+    )
 except ImportError:
     import twitter_crawler
-    from twitter_crawler import build_discovered_tweets_from_items, calculate_overfetch_limit
+    from twitter_crawler import (
+        build_discovered_tweets_from_items,
+        calculate_overfetch_limit,
+        read_keywords_file,
+        write_final_jihadi_users_file,
+    )
 
 
 class TwitterCrawlerHelperTests(unittest.TestCase):
@@ -54,6 +66,33 @@ class TwitterCrawlerHelperTests(unittest.TestCase):
             self.assertTrue(twitter_crawler.is_training_user("@//YsiMmunye"))
         finally:
             twitter_crawler._training_usernames = original_training_usernames
+
+    def test_keywords_file_ignores_comments_blanks_and_duplicates(self):
+        with TemporaryDirectory() as directory:
+            keywords_path = Path(directory) / "keywords.txt"
+            keywords_path.write_text(
+                "# ignored\n\nfirst keyword\nFirst Keyword\nsecond keyword\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                read_keywords_file(keywords_path),
+                ["first keyword", "second keyword"],
+            )
+
+    def test_final_jihadi_users_file_writes_sorted_normalized_usernames(self):
+        with TemporaryDirectory() as directory:
+            output_path = Path(directory) / "final_jihadi_users.txt"
+
+            write_final_jihadi_users_file(
+                ["@BetaUser", "alphaUser", "@betauser"],
+                output_path,
+            )
+
+            self.assertEqual(
+                output_path.read_text(encoding="utf-8").splitlines(),
+                ["alphaUser", "BetaUser"],
+            )
 
 
 if __name__ == "__main__":
