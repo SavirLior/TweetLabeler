@@ -9,7 +9,8 @@ import os
 import csv
 import io
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 MASTERPASS = "mazor102030"
 
 app = Flask(__name__, static_folder="dist", static_url_path="")
@@ -38,11 +39,19 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://edenoren772_db_user:Ofek772468
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "tweetlabeler")
 MONGO_TWEETS_COLLECTION = os.getenv("MONGO_TWEETS_COLLECTION", "tweets")
 MONGO_USERS_COLLECTION = os.getenv("MONGO_USERS_COLLECTION", "users")
+CRAWLER_RUNS_COLLECTION = "crawler_runs"
+CRAWLER_USERS_COLLECTION = "crawler_users"
+CRAWLER_USER_RUNS_COLLECTION = "crawler_user_runs"
+CRAWLER_EVIDENCE_COLLECTION = "crawler_tweet_evidence"
 
 mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = mongo_client[MONGO_DB_NAME]
 tweets_collection = db[MONGO_TWEETS_COLLECTION]
 users_collection = db[MONGO_USERS_COLLECTION]
+crawler_runs_collection = db[CRAWLER_RUNS_COLLECTION]
+crawler_users_collection = db[CRAWLER_USERS_COLLECTION]
+crawler_user_runs_collection = db[CRAWLER_USER_RUNS_COLLECTION]
+crawler_evidence_collection = db[CRAWLER_EVIDENCE_COLLECTION]
 db_initialized = False
 session_tokens = {}
 HASH_PREFIXES = ("pbkdf2:", "scrypt:", "argon2:")
@@ -56,6 +65,16 @@ UNRESOLVED_FINAL_LABELS = {
 }
 MODEL_PROBABILITY_PREFIX = "label_"
 MODEL_DATA_FIELDS = ("model_decision", "modelProbabilities")
+CRAWLER_STATUS_VALUES = {
+    "salafi_jihadi",
+    "not_salafi_jihadi",
+    "insufficient_data",
+}
+CRAWLER_MODEL_LABELS = {
+    "Salafi jihadi",
+    "Salafi taklidi",
+    "Irrelevant",
+}
 
 # Helper functions
 def init_db():
@@ -407,6 +426,178 @@ def serialize_tweet(tweet_doc):
     return serialized
 
 
+def is_admin_request():
+    username = request.headers.get("X-Username")
+    role = request.headers.get("X-User-Role")
+    session_token = request.headers.get("X-Session-Token")
+    if not username or not session_token or role != "admin":
+        return False
+
+    session = session_tokens.get(session_token)
+    return bool(
+        session
+        and session.get("username") == username
+        and session.get("role") == "admin"
+    )
+
+
+def require_admin_request():
+    if is_admin_request():
+        return None
+    return jsonify({"success": False, "error": "Admin access required"}), 403
+
+
+def serialize_mongo_value(value):
+    if isinstance(value, ObjectId):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, list):
+        return [serialize_mongo_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: serialize_mongo_value(item) for key, item in value.items()}
+    return value
+
+
+def parse_crawler_date(value):
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str) and value.strip():
+        clean_value = value.strip()
+        try:
+            parsed = parsedate_to_datetime(clean_value)
+        except (TypeError, ValueError):
+            try:
+                parsed = datetime.fromisoformat(clean_value.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+    else:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def crawler_evidence_sort_key(doc):
+    source = doc.get("source") if isinstance(doc.get("source"), dict) else {}
+    return (
+        parse_crawler_date(source.get("created_at"))
+        or parse_crawler_date(doc.get("collected_at"))
+        or datetime.min.replace(tzinfo=timezone.utc)
+    )
+
+
+def get_pagination_args(default_limit=50, max_limit=200):
+    try:
+        limit = int(request.args.get("limit", default_limit))
+    except (TypeError, ValueError):
+        limit = default_limit
+    try:
+        offset = int(request.args.get("cursor", 0) or 0)
+    except (TypeError, ValueError):
+        offset = 0
+
+    return min(max(limit, 1), max_limit), max(offset, 0)
+
+
+def build_crawler_users_query(args):
+    query = {}
+    status = args.get("status")
+    search = (args.get("search") or "").strip()
+
+    if status and status != "all":
+        if status not in CRAWLER_STATUS_VALUES:
+            return None
+        query["current_status"] = status
+
+    if search:
+        query["$or"] = [
+            {"username": {"$regex": search, "$options": "i"}},
+            {"username_key": {"$regex": search, "$options": "i"}},
+        ]
+
+    return query
+
+
+def apply_crawler_evidence_filters(query, args):
+    run_id = (args.get("runId") or "").strip()
+    label = (args.get("label") or "").strip()
+
+    if run_id and run_id != "all":
+        query["run_id"] = run_id
+
+    if label and label != "all":
+        if label not in CRAWLER_MODEL_LABELS:
+            return False
+        query["model_label"] = label
+    elif args.get("positiveOnly") == "true":
+        query["flagged"] = True
+
+    return True
+
+
+def build_crawler_users_csv_rows(users):
+    rows = []
+    for user in users:
+        score = user.get("latest_score") or {}
+        thresholds = user.get("latest_thresholds") or {}
+        rows.append(
+            [
+                user.get("username", ""),
+                user.get("username_key", ""),
+                user.get("current_status", ""),
+                score.get("positive_count", ""),
+                score.get("evaluated_count", ""),
+                score.get("positive_ratio", ""),
+                thresholds.get("positive_ratio_threshold", ""),
+                thresholds.get("min_positive_tweets", ""),
+                thresholds.get("min_profile_evaluated_tweets", ""),
+                user.get("latest_run_id", ""),
+                user.get("last_seen_at", ""),
+                "; ".join(user.get("discovered_by_keywords") or []),
+            ]
+        )
+    return rows
+
+
+def build_crawler_evidence_csv_rows(evidence_docs):
+    rows = []
+    for doc in evidence_docs:
+        source = doc.get("source") if isinstance(doc.get("source"), dict) else {}
+        probabilities = doc.get("probabilities") or {}
+        rows.append(
+            [
+                doc.get("username", ""),
+                doc.get("phase", ""),
+                source.get("created_at") or doc.get("collected_at", ""),
+                doc.get("model_label", ""),
+                doc.get("confidence", ""),
+                doc.get("flagged", ""),
+                probabilities.get("Salafi jihadi", ""),
+                probabilities.get("Salafi taklidi", ""),
+                probabilities.get("Irrelevant", ""),
+                doc.get("tweet_url", ""),
+                doc.get("text", ""),
+            ]
+        )
+    return rows
+
+
+def csv_download_response(filename, header, rows):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(header)
+    writer.writerows(rows)
+    payload = ("\ufeff" + output.getvalue()).encode("utf-8-sig")
+    return send_file(
+        io.BytesIO(payload),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
 def build_round_filter_condition(round_value):
     requested_round = max(1, int(round_value))
     exact_values = [requested_round, str(requested_round)]
@@ -658,6 +849,239 @@ def list_tweet_rounds():
                 "currentRound": current_round,
                 "totalRounds": len(normalized_rounds),
             }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/users", methods=["GET"])
+def list_crawler_users():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        limit, offset = get_pagination_args(default_limit=50, max_limit=200)
+        query = build_crawler_users_query(request.args)
+        if query is None:
+            return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+
+        projection = {
+            "_id": 1,
+            "username_key": 1,
+            "username": 1,
+            "current_status": 1,
+            "latest_run_id": 1,
+            "latest_score": 1,
+            "latest_thresholds": 1,
+            "last_seen_at": 1,
+            "first_seen_at": 1,
+            "discovered_by_keywords": 1,
+        }
+        total = crawler_users_collection.count_documents(query)
+        docs = list(
+            crawler_users_collection.find(query, projection)
+            .sort([("last_seen_at", -1), ("_id", -1)])
+            .skip(offset)
+            .limit(limit)
+        )
+        next_offset = offset + len(docs)
+
+        return jsonify(
+            {
+                "items": [serialize_mongo_value(doc) for doc in docs],
+                "nextCursor": str(next_offset) if next_offset < total else None,
+                "hasMore": next_offset < total,
+                "total": total,
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/users/<username_key>/evidence", methods=["GET"])
+def list_crawler_user_evidence(username_key):
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        limit, offset = get_pagination_args(default_limit=100, max_limit=300)
+        query = {"username_key": username_key}
+        if not apply_crawler_evidence_filters(query, request.args):
+            return jsonify({"success": False, "error": "Invalid crawler evidence label"}), 400
+
+        projection = {
+            "_id": 1,
+            "run_id": 1,
+            "username_key": 1,
+            "username": 1,
+            "phase": 1,
+            "tweet_key": 1,
+            "tweet_id": 1,
+            "tweet_url": 1,
+            "text": 1,
+            "model_label": 1,
+            "flagged": 1,
+            "confidence": 1,
+            "probabilities": 1,
+            "source.created_at": 1,
+            "source.like_count": 1,
+            "source.retweet_count": 1,
+            "source.reply_count": 1,
+            "format_version": 1,
+            "is_retweet": 1,
+            "is_quote": 1,
+            "source_text_kind": 1,
+            "collected_at": 1,
+        }
+        docs = list(crawler_evidence_collection.find(query, projection))
+        docs.sort(key=crawler_evidence_sort_key, reverse=True)
+        page_docs = docs[offset : offset + limit]
+        next_offset = offset + len(page_docs)
+
+        return jsonify(
+            {
+                "items": [serialize_mongo_value(doc) for doc in page_docs],
+                "nextCursor": str(next_offset) if next_offset < len(docs) else None,
+                "hasMore": next_offset < len(docs),
+                "total": len(docs),
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/users/<username_key>/runs", methods=["GET"])
+def list_crawler_user_runs(username_key):
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        docs = list(
+            crawler_user_runs_collection.find(
+                {"username_key": username_key},
+                {
+                    "_id": 1,
+                    "run_id": 1,
+                    "username_key": 1,
+                    "username": 1,
+                    "status": 1,
+                    "score": 1,
+                    "thresholds": 1,
+                    "created_at": 1,
+                    "trigger_tweet_keys": 1,
+                    "evidence_tweet_keys": 1,
+                },
+            ).sort("created_at", -1)
+        )
+        return jsonify({"items": [serialize_mongo_value(doc) for doc in docs]})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/export/users.csv", methods=["GET"])
+def export_crawler_users_csv():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        query = build_crawler_users_query(request.args)
+        if query is None:
+            return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+
+        users = list(
+            crawler_users_collection.find(
+                query,
+                {
+                    "_id": 0,
+                    "username_key": 1,
+                    "username": 1,
+                    "current_status": 1,
+                    "latest_run_id": 1,
+                    "latest_score": 1,
+                    "latest_thresholds": 1,
+                    "last_seen_at": 1,
+                    "discovered_by_keywords": 1,
+                },
+            ).sort([("last_seen_at", -1), ("username_key", 1)])
+        )
+        header = [
+            "username",
+            "username_key",
+            "status",
+            "positive_count",
+            "evaluated_count",
+            "positive_ratio",
+            "ratio_threshold",
+            "min_positive_tweets",
+            "min_profile_evaluated_tweets",
+            "latest_run_id",
+            "last_seen_at",
+            "keywords",
+        ]
+        return csv_download_response(
+            "crawler_users.csv",
+            header,
+            build_crawler_users_csv_rows(users),
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/export/evidence.csv", methods=["GET"])
+def export_crawler_evidence_csv():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    username_key = (request.args.get("usernameKey") or "").strip()
+    if not username_key:
+        return jsonify({"success": False, "error": "usernameKey is required"}), 400
+
+    try:
+        query = {"username_key": username_key}
+        if not apply_crawler_evidence_filters(query, request.args):
+            return jsonify({"success": False, "error": "Invalid crawler evidence label"}), 400
+
+        evidence_docs = list(
+            crawler_evidence_collection.find(
+                query,
+                {
+                    "_id": 0,
+                    "username": 1,
+                    "phase": 1,
+                    "tweet_url": 1,
+                    "text": 1,
+                    "model_label": 1,
+                    "flagged": 1,
+                    "confidence": 1,
+                    "probabilities": 1,
+                    "source.created_at": 1,
+                    "collected_at": 1,
+                },
+            )
+        )
+        evidence_docs.sort(key=crawler_evidence_sort_key, reverse=True)
+        header = [
+            "username",
+            "phase",
+            "tweet_date",
+            "model_label",
+            "confidence",
+            "flagged",
+            "prob_salafi_jihadi",
+            "prob_salafi_taklidi",
+            "prob_irrelevant",
+            "tweet_url",
+            "text",
+        ]
+        return csv_download_response(
+            f"crawler_evidence_{username_key}.csv",
+            header,
+            build_crawler_evidence_csv_rows(evidence_docs),
         )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

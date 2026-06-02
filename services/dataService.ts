@@ -104,6 +104,113 @@ export type TweetRoundsResponse = {
   totalRounds: number;
 };
 
+export type CrawlerStatus =
+  | "salafi_jihadi"
+  | "not_salafi_jihadi"
+  | "insufficient_data";
+
+export type CrawlerModelLabel =
+  | "Salafi jihadi"
+  | "Salafi taklidi"
+  | "Irrelevant";
+
+export type CrawlerScore = {
+  positive_count?: number;
+  evaluated_count?: number;
+  positive_ratio?: number;
+  profile_positive_count?: number;
+  profile_evaluated_count?: number;
+};
+
+export type CrawlerThresholds = {
+  positive_ratio_threshold?: number;
+  min_positive_tweets?: number;
+  min_profile_evaluated_tweets?: number;
+};
+
+export type CrawlerUser = {
+  _id?: string;
+  username_key: string;
+  username: string;
+  current_status: CrawlerStatus;
+  latest_run_id?: string;
+  latest_score?: CrawlerScore;
+  latest_thresholds?: CrawlerThresholds;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  discovered_by_keywords?: string[];
+};
+
+export type CrawlerUserRun = {
+  _id?: string;
+  run_id: string;
+  username_key: string;
+  username: string;
+  status?: CrawlerStatus;
+  score?: CrawlerScore;
+  thresholds?: CrawlerThresholds;
+  created_at?: string;
+  trigger_tweet_keys?: string[];
+  evidence_tweet_keys?: string[];
+};
+
+export type CrawlerEvidence = {
+  _id?: string;
+  run_id?: string;
+  username_key: string;
+  username: string;
+  phase: "keyword_trigger" | "profile_deep_dive" | string;
+  tweet_key?: string;
+  tweet_id?: string;
+  tweet_url?: string;
+  text: string;
+  model_label?: string;
+  flagged?: boolean;
+  confidence?: number;
+  probabilities?: Record<string, number>;
+  source?: {
+    created_at?: string;
+    like_count?: number;
+    retweet_count?: number;
+    reply_count?: number;
+  };
+  format_version?: string;
+  is_retweet?: boolean;
+  is_quote?: boolean;
+  source_text_kind?: string;
+  collected_at?: string;
+};
+
+export type CrawlerUserPageResponse = {
+  items: CrawlerUser[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  total: number;
+};
+
+export type CrawlerEvidencePageResponse = {
+  items: CrawlerEvidence[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  total: number;
+};
+
+export type CrawlerUserQuery = {
+  status?: CrawlerStatus | "all";
+  search?: string;
+  limit?: number;
+  cursor?: string;
+};
+
+export type CrawlerEvidenceQuery = {
+  usernameKey: string;
+  positiveOnly?: boolean;
+  runId?: string;
+  label?: CrawlerModelLabel | "all";
+  limit?: number;
+  cursor?: string;
+};
+
 export type TweetDelta = {
   set?: Record<string, unknown>;
   unset?: string[];
@@ -166,6 +273,44 @@ const buildTweetDelta = (tweet: Tweet): TweetDelta => {
   };
 };
 
+const buildCrawlerUserParams = (q: CrawlerUserQuery) => {
+  const params = new URLSearchParams();
+  if (q.status && q.status !== "all") params.set("status", q.status);
+  if (q.search) params.set("search", q.search);
+  if (q.limit) params.set("limit", String(q.limit));
+  if (q.cursor) params.set("cursor", q.cursor);
+  return params;
+};
+
+const downloadApiFile = async (endpoint: string, filename: string) => {
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    method: "GET",
+    headers: {
+      ...(apiAuthUser?.sessionToken
+        ? {
+            "X-Username": encodeURIComponent(apiAuthUser.username),
+            "X-User-Role": encodeURIComponent(apiAuthUser.role),
+            "X-Session-Token": encodeURIComponent(apiAuthUser.sessionToken),
+          }
+        : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Export failed: ${response.status} ${response.statusText}`);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 export const getTweetPage = async (
   q: TweetPageQuery,
   signal?: AbortSignal,
@@ -192,6 +337,75 @@ export const getTweetRounds = async (
   signal?: AbortSignal,
 ): Promise<TweetRoundsResponse> => {
   return apiRequest<TweetRoundsResponse>("/tweets/rounds", "GET", undefined, signal);
+};
+
+export const getCrawlerUsers = async (
+  q: CrawlerUserQuery,
+  signal?: AbortSignal,
+): Promise<CrawlerUserPageResponse> => {
+  const params = buildCrawlerUserParams(q);
+  return apiRequest<CrawlerUserPageResponse>(
+    `/crawler/users${params.toString() ? `?${params.toString()}` : ""}`,
+    "GET",
+    undefined,
+    signal,
+  );
+};
+
+export const getCrawlerEvidence = async (
+  q: CrawlerEvidenceQuery,
+  signal?: AbortSignal,
+): Promise<CrawlerEvidencePageResponse> => {
+  const params = new URLSearchParams();
+  if (q.positiveOnly) params.set("positiveOnly", "true");
+  if (q.runId && q.runId !== "all") params.set("runId", q.runId);
+  if (q.label && q.label !== "all") params.set("label", q.label);
+  if (q.limit) params.set("limit", String(q.limit));
+  if (q.cursor) params.set("cursor", q.cursor);
+  return apiRequest<CrawlerEvidencePageResponse>(
+    `/crawler/users/${encodeURIComponent(q.usernameKey)}/evidence${
+      params.toString() ? `?${params.toString()}` : ""
+    }`,
+    "GET",
+    undefined,
+    signal,
+  );
+};
+
+export const getCrawlerUserRuns = async (
+  usernameKey: string,
+  signal?: AbortSignal,
+): Promise<{ items: CrawlerUserRun[] }> => {
+  return apiRequest<{ items: CrawlerUserRun[] }>(
+    `/crawler/users/${encodeURIComponent(usernameKey)}/runs`,
+    "GET",
+    undefined,
+    signal,
+  );
+};
+
+export const exportCrawlerUsersCsv = async (
+  q: Pick<CrawlerUserQuery, "status" | "search">,
+) => {
+  const params = buildCrawlerUserParams(q);
+  await downloadApiFile(
+    `/crawler/export/users.csv${params.toString() ? `?${params.toString()}` : ""}`,
+    `crawler_users_${new Date().toISOString().slice(0, 10)}.csv`,
+  );
+};
+
+export const exportCrawlerEvidenceCsv = async (
+  usernameKey: string,
+  filters: { positiveOnly?: boolean; runId?: string; label?: CrawlerModelLabel | "all" } = {},
+) => {
+  const params = new URLSearchParams({ usernameKey });
+  if (filters.positiveOnly) params.set("positiveOnly", "true");
+  if (filters.runId && filters.runId !== "all") params.set("runId", filters.runId);
+  if (filters.label && filters.label !== "all") params.set("label", filters.label);
+  await downloadApiFile(
+    `/crawler/export/evidence.csv?${params.toString()}`,
+    `crawler_evidence_${usernameKey}_${new Date().toISOString().slice(0, 10)}.csv`,
+  );
 };
 
 export const patchTweetDelta = async (
