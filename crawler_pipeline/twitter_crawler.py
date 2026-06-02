@@ -22,10 +22,15 @@ from typing import Any, Iterable
 
 import torch
 from apify_client import ApifyClient
-from dotenv import load_dotenv
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 try:
     from .config import (
@@ -90,9 +95,11 @@ PROFILE_OVERFETCH_MULTIPLIER = DEFAULT_PROFILE_OVERFETCH_MULTIPLIER
 MIN_PROFILE_EVALUATED_TWEETS = DEFAULT_MIN_PROFILE_EVALUATED_TWEETS
 USER_JIHADI_TWEET_THRESHOLD = DEFAULT_MIN_POSITIVE_TWEETS
 POSITIVE_RATIO_THRESHOLD = DEFAULT_POSITIVE_RATIO_THRESHOLD
+TRAINING_USERS_FILE = Path(__file__).resolve().parent / "training_users.txt"
 
 logger = logging.getLogger(__name__)
 _local_classifier: "LocalTweetClassifier | None" = None
+_training_usernames: set[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -264,8 +271,45 @@ def build_apify_client(api_token: str = APIFY_API_TOKEN) -> ApifyClient:
 
 
 def normalize_username(username: str) -> str:
-    """Normalize a Twitter/X username to a bare handle without the @ prefix."""
-    return username.strip().lstrip("@")
+    """Normalize a Twitter/X username to a bare handle."""
+    return username.strip().lstrip("@/").rstrip("/")
+
+
+def username_key(username: str) -> str:
+    """Return the case-insensitive key used for username comparisons."""
+    return normalize_username(username).casefold()
+
+
+def load_training_usernames() -> set[str]:
+    """Load training-list usernames once so crawler runs skip known users quickly."""
+    global _training_usernames
+    if _training_usernames is not None:
+        return _training_usernames
+
+    if not TRAINING_USERS_FILE.exists():
+        logger.warning("Training users file was not found: %s", TRAINING_USERS_FILE)
+        _training_usernames = set()
+        return _training_usernames
+
+    usernames: set[str] = set()
+    with TRAINING_USERS_FILE.open(encoding="utf-8") as training_file:
+        for line in training_file:
+            value = line.strip()
+            if not value or value.startswith("#"):
+                continue
+            key = username_key(value)
+            if key:
+                usernames.add(key)
+
+    _training_usernames = usernames
+    logger.info("Loaded %s training users to skip.", len(_training_usernames))
+    return _training_usernames
+
+
+def is_training_user(username: str) -> bool:
+    """Return True when a normalized username is already in training_users.txt."""
+    key = username_key(username)
+    return bool(key and key in load_training_usernames())
 
 
 def extract_author_username(tweet_item: dict[str, Any]) -> str | None:
@@ -392,6 +436,9 @@ def build_discovered_tweet(tweet_item: dict[str, Any]) -> DiscoveredTweet | None
     formatted_result = format_tweet_text(tweet_item)
     if not username or not formatted_result.formatted:
         return None
+    if is_training_user(username):
+        logger.info("Skipping @%s because it is already in training_users.txt.", username)
+        return None
 
     formatted = formatted_result.formatted
     tweet_id = extract_tweet_id(tweet_item)
@@ -430,6 +477,7 @@ def empty_filter_counts(scope: str = "") -> dict[str, int]:
         "filtered_arabic": 0,
         "filtered_empty_text": 0,
         "filtered_short_text": 0,
+        "filtered_training_user": 0,
     }
 
 
@@ -457,6 +505,15 @@ def build_discovered_tweets_from_items(
 
     for item in items:
         counts[raw_key] += 1
+        username = extract_author_username(item)
+        if username and is_training_user(username):
+            counts["filtered_training_user"] += 1
+            logger.info(
+                "Skipping @%s because it is already in training_users.txt.",
+                username,
+            )
+            continue
+
         formatted_result = format_tweet_text(item)
         if not formatted_result.formatted:
             increment_filter_count(counts, formatted_result.filter_reason)

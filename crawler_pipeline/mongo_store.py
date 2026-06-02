@@ -13,10 +13,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from dotenv import load_dotenv
 from pymongo import ASCENDING, DESCENDING, MongoClient
 
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 try:
     from .config import (
