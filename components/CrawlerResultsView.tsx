@@ -192,16 +192,17 @@ export const CrawlerResultsView: React.FC = () => {
   const [evidence, setEvidence] = useState<CrawlerEvidence[]>([]);
   const [evidenceCursor, setEvidenceCursor] = useState<string | null>(null);
   const [evidenceTotal, setEvidenceTotal] = useState(0);
-  const [evidenceLabelCounts, setEvidenceLabelCounts] = useState<
-    Partial<Record<CrawlerModelLabel, number>>
-  >({});
+  const [evidenceLabelCounts, setEvidenceLabelCounts] = useState<Record<string, number>>({});
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceError, setEvidenceError] = useState("");
   const [labelFilter, setLabelFilter] = useState<EvidenceLabelFilter>("all");
   const [showStats, setShowStats] = useState(true);
   const [exporting, setExporting] = useState<"users" | "evidence" | null>(null);
 
-  const loadUsers = async (mode: "replace" | "append" = "replace") => {
+  const loadUsers = async (
+    mode: "replace" | "append" = "replace",
+    signal?: AbortSignal,
+  ) => {
     setUsersLoading(true);
     setUsersError("");
     try {
@@ -210,7 +211,8 @@ export const CrawlerResultsView: React.FC = () => {
         search: search.trim(),
         limit: USER_PAGE_SIZE,
         cursor: mode === "append" ? usersCursor || undefined : undefined,
-      });
+      }, signal);
+      if (signal?.aborted) return;
       setUsers((prev) =>
         mode === "append" ? [...prev, ...response.items] : response.items,
       );
@@ -227,13 +229,18 @@ export const CrawlerResultsView: React.FC = () => {
         });
       }
     } catch (error) {
+      if (signal?.aborted) return;
       setUsersError(error instanceof Error ? error.message : "שגיאה בטעינת משתמשים");
     } finally {
+      if (signal?.aborted) return;
       setUsersLoading(false);
     }
   };
 
-  const loadEvidence = async (mode: "replace" | "append" = "replace") => {
+  const loadEvidence = async (
+    mode: "replace" | "append" = "replace",
+    signal?: AbortSignal,
+  ) => {
     if (!selectedUser) return;
 
     setEvidenceLoading(true);
@@ -245,7 +252,8 @@ export const CrawlerResultsView: React.FC = () => {
         label: labelFilter,
         limit: EVIDENCE_PAGE_SIZE,
         cursor: mode === "append" ? evidenceCursor || undefined : undefined,
-      });
+      }, signal);
+      if (signal?.aborted) return;
       setEvidence((prev) =>
         mode === "append" ? [...prev, ...response.items] : response.items,
       );
@@ -253,16 +261,19 @@ export const CrawlerResultsView: React.FC = () => {
       setEvidenceTotal(response.total);
       setEvidenceLabelCounts(response.labelCounts || {});
     } catch (error) {
+      if (signal?.aborted) return;
       setEvidenceError(error instanceof Error ? error.message : "שגיאה בטעינת evidence");
     } finally {
+      if (signal?.aborted) return;
       setEvidenceLoading(false);
     }
   };
 
-  const loadUserRuns = async (user: CrawlerUser) => {
+  const loadUserRuns = async (user: CrawlerUser, signal?: AbortSignal) => {
     setRunsLoading(true);
     try {
-      const response = await getCrawlerUserRuns(user.username_key);
+      const response = await getCrawlerUserRuns(user.username_key, signal);
+      if (signal?.aborted) return;
       setUserRuns(response.items);
       setSelectedRunId((current) => {
         if (
@@ -280,27 +291,44 @@ export const CrawlerResultsView: React.FC = () => {
         return response.items[0]?.run_id || user.latest_run_id || "all";
       });
     } catch {
+      if (signal?.aborted) return;
       setUserRuns([]);
       setSelectedRunId(user.latest_run_id || "all");
     } finally {
+      if (signal?.aborted) return;
       setRunsLoading(false);
     }
   };
 
   useEffect(() => {
+    const controller = new AbortController();
     const timeoutId = window.setTimeout(() => {
-      loadUsers("replace");
+      loadUsers("replace", controller.signal);
     }, 250);
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [statusFilter, search]);
 
   useEffect(() => {
+    if (
+      selectedUser &&
+      selectedRunId !== "all" &&
+      selectedUser.latest_run_id &&
+      selectedRunId !== selectedUser.latest_run_id &&
+      !userRuns.some((run) => run.run_id === selectedRunId)
+    ) {
+      return;
+    }
+    const controller = new AbortController();
     setEvidence([]);
     setEvidenceCursor(null);
     setEvidenceTotal(0);
     setEvidenceLabelCounts({});
-    loadEvidence("replace");
-  }, [selectedUser?.username_key, selectedRunId, labelFilter]);
+    loadEvidence("replace", controller.signal);
+    return () => controller.abort();
+  }, [selectedUser?.username_key, selectedRunId, labelFilter, userRuns]);
 
   useEffect(() => {
     if (!selectedUser) {
@@ -309,10 +337,12 @@ export const CrawlerResultsView: React.FC = () => {
       setLabelFilter("all");
       return;
     }
+    const controller = new AbortController();
     setUserRuns([]);
     setSelectedRunId(selectedUser.latest_run_id || "all");
     setLabelFilter("all");
-    loadUserRuns(selectedUser);
+    loadUserRuns(selectedUser, controller.signal);
+    return () => controller.abort();
   }, [selectedUser?.username_key]);
 
   const selectedScore = selectedUser?.latest_score || {};
@@ -320,12 +350,13 @@ export const CrawlerResultsView: React.FC = () => {
   const selectedRun = userRuns.find((run) => run.run_id === selectedRunId);
   const activeScore = selectedRun?.score || selectedScore;
   const activeThresholds = selectedRun?.thresholds || selectedThresholds;
-  const allEvidenceLabelCount = evidenceLabelOrder
-    .filter((label): label is CrawlerModelLabel => label !== "all")
-    .reduce((sum, label) => sum + (evidenceLabelCounts[label] || 0), 0);
+  const allEvidenceLabelCount = Object.values(evidenceLabelCounts).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
   const activeEvidenceCount =
     labelFilter === "all"
-      ? allEvidenceLabelCount || evidenceTotal
+      ? evidenceTotal
       : evidenceLabelCounts[labelFilter] ?? evidenceTotal;
 
   const selectedKeywords = useMemo(
@@ -572,7 +603,7 @@ export const CrawlerResultsView: React.FC = () => {
                       </div>
                     </div>
                     <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
-                      <div className="text-xs text-gray-500">Filtered evidence</div>
+                      <div className="text-xs text-gray-500">Evidence shown</div>
                       <div className="font-semibold text-gray-900">{evidenceTotal}</div>
                     </div>
                   </div>
@@ -683,7 +714,15 @@ export const CrawlerResultsView: React.FC = () => {
                   </div>
                 )}
                 {evidence.map((item) => (
-                  <EvidenceItem key={`${item.run_id}-${item.phase}-${item.tweet_key}`} evidence={item} />
+                  <EvidenceItem
+                    key={
+                      item._id ||
+                      `${item.run_id || "-"}-${item.phase || "-"}-${
+                        item.tweet_key || item.tweet_id || item.tweet_url || item.text
+                      }`
+                    }
+                    evidence={item}
+                  />
                 ))}
                 {!evidenceLoading && evidence.length === 0 && (
                   <div className="text-center text-gray-500 py-12">

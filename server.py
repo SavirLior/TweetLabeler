@@ -555,9 +555,8 @@ def get_crawler_evidence_label_counts(username_key, args):
             {"$group": {"_id": "$model_label", "count": {"$sum": 1}}},
         ]
     ):
-        label = row.get("_id")
-        if label in counts:
-            counts[label] = row.get("count", 0)
+        label = row.get("_id") or "Unknown"
+        counts[label] = row.get("count", 0)
     return counts
 
 
