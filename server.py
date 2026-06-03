@@ -517,9 +517,12 @@ def build_crawler_users_query(args):
         query["current_status"] = status
 
     if search:
+        import re
+
+        escaped = re.escape(search)
         query["$or"] = [
-            {"username": {"$regex": search, "$options": "i"}},
-            {"username_key": {"$regex": search, "$options": "i"}},
+            {"username": {"$regex": escaped, "$options": "i"}},
+            {"username_key": {"$regex": escaped, "$options": "i"}},
         ]
 
     return query
