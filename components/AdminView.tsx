@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Tweet, LabelOption } from "../types";
 import { Button } from "./Button";
 import { TweetText } from "./TweetText";
+import { CrawlerResultsView } from "./CrawlerResultsView";
 import { exportToCSV, getAllStudents } from "../services/dataService";
 import {
   Download,
@@ -89,7 +90,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onDeleteAllTweets,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "upload" | "resolutions" | "resolvedConflicts"
+    "dashboard" | "upload" | "resolutions" | "resolvedConflicts" | "crawlerResults"
   >("dashboard");
 
   // Filters
@@ -937,9 +938,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <Upload className="w-4 h-4" />
             העלאת נתונים
           </Button>
+          <Button
+            onClick={() => setActiveTab("crawlerResults")}
+            variant={activeTab === "crawlerResults" ? "primary" : "neutral"}
+            className={`flex items-center gap-2 text-sm ${
+              activeTab !== "crawlerResults" && "bg-white border-transparent"
+            }`}
+          >
+            <Bot className="w-4 h-4" />
+            תוצאות זחלן
+          </Button>
         </div>
       </div>
 
+      {activeTab !== "crawlerResults" && (
       <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
           <div className="flex items-center gap-2">
@@ -980,7 +992,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </div>
         </div>
       </div>
+      )}
 
+      {activeTab !== "crawlerResults" && (
       <div className="flex justify-end gap-2">
         <Button
           onClick={() => {
@@ -1007,6 +1021,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
           שיוך אוטומטי
         </Button>
       </div>
+      )}
+
+      {activeTab === "crawlerResults" && <CrawlerResultsView />}
 
       {/* Auto Assignment Modal */}
       {showAssignModal && (

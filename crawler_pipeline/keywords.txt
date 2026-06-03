@@ -1,33 +1,4 @@
-Abu Bakr al-Baghdadi
-Abu Basir al-Tartusi
-Abu Muhammad al-Maqdisi
-Abu al-Mundhir al-Shinqiti
-Abu al-‘Izz al-Najdi
-Ahl al-Bid'ah
-Ahmad Ashoush
-Ahmad Musa Jibril
-Al-Ghulāt fī Takfir
-Al-Jāmīya
-Al-Kufr bil Taghut
-Al-Salafiyya al-Iblīsiyya
-Al-Takfir bi-l-'Umum
-Al-Walāʼ wa-l-Barāʼ
-Ayman al-Zawahiri
-Bayʿah
-Bayʿah li-amīr
-Bid'a
-Chain of Takfir
-Dar al-Islam
-Dar al-Kufr
-Hamad ibn ‘Atiq
-Hijrah
-Hurras al-Din
-IEA
-Ibn Battah
-Imam al-Awza'i
-Irja'
-Istighathah
-Jahd al-Nussoos
+
 Jamiyya
 Khalid al-Fulaij
 Kufr Akbar
@@ -83,3 +54,33 @@ walā’ li-ahl al-jihād
 Āl Salūl
 Ḥākimiyya
 ‘Ulamā’ al-Salāṭīn
+Abu Bakr al-Baghdadi
+Abu Basir al-Tartusi
+Abu Muhammad al-Maqdisi
+Abu al-Mundhir al-Shinqiti
+Abu al-‘Izz al-Najdi
+Ahl al-Bid'ah
+Ahmad Ashoush
+Ahmad Musa Jibril
+Al-Ghulāt fī Takfir
+Al-Jāmīya
+Al-Kufr bil Taghut
+Al-Salafiyya al-Iblīsiyya
+Al-Takfir bi-l-'Umum
+Al-Walāʼ wa-l-Barāʼ
+Ayman al-Zawahiri
+Bayʿah
+Bayʿah li-amīr
+Bid'a
+Chain of Takfir
+Dar al-Islam
+Dar al-Kufr
+Hamad ibn ‘Atiq
+Hijrah
+Hurras al-Din
+IEA
+Ibn Battah
+Imam al-Awza'i
+Irja'
+Istighathah
+Jahd al-Nussoos

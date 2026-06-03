@@ -1,0 +1,19 @@
+{
+  "model_type": "bert_multi_class_with_validation",
+  "experiment_model_type": "bert_multi_class_with_validation",
+  "project_id": 58,
+  "project_name": "only check",
+  "experiment_name": "check without balanced",
+  "experiment_id": 88,
+  "iteration_id": 181,
+  "iteration_number": 1,
+  "export_name": "only_check_check_without_balanced_iteration_1",
+  "labels": [
+    "Irrelevant",
+    "Salafi jihadi",
+    "Salafi taklidi"
+  ],
+  "max_length": 128,
+  "prediction_type": "single_label",
+  "temperature": 2.0
+}
