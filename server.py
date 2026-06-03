@@ -75,6 +75,11 @@ CRAWLER_MODEL_LABELS = {
     "Salafi taklidi",
     "Irrelevant",
 }
+CRAWLER_MODEL_LABEL_ORDER = (
+    "Salafi jihadi",
+    "Salafi taklidi",
+    "Irrelevant",
+)
 
 # Helper functions
 def init_db():
@@ -537,6 +542,25 @@ def apply_crawler_evidence_filters(query, args):
     return True
 
 
+def get_crawler_evidence_label_counts(username_key, args):
+    query = {"username_key": username_key}
+    run_id = (args.get("runId") or "").strip()
+    if run_id and run_id != "all":
+        query["run_id"] = run_id
+
+    counts = {label: 0 for label in CRAWLER_MODEL_LABEL_ORDER}
+    for row in crawler_evidence_collection.aggregate(
+        [
+            {"$match": query},
+            {"$group": {"_id": "$model_label", "count": {"$sum": 1}}},
+        ]
+    ):
+        label = row.get("_id")
+        if label in counts:
+            counts[label] = row.get("count", 0)
+    return counts
+
+
 def build_crawler_users_csv_rows(users):
     rows = []
     for user in users:
@@ -939,6 +963,7 @@ def list_crawler_user_evidence(username_key):
         docs.sort(key=crawler_evidence_sort_key, reverse=True)
         page_docs = docs[offset : offset + limit]
         next_offset = offset + len(page_docs)
+        label_counts = get_crawler_evidence_label_counts(username_key, request.args)
 
         return jsonify(
             {
@@ -946,6 +971,7 @@ def list_crawler_user_evidence(username_key):
                 "nextCursor": str(next_offset) if next_offset < len(docs) else None,
                 "hasMore": next_offset < len(docs),
                 "total": len(docs),
+                "labelCounts": label_counts,
             }
         )
     except Exception as e:

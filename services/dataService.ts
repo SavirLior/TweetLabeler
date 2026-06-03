@@ -193,6 +193,7 @@ export type CrawlerEvidencePageResponse = {
   nextCursor: string | null;
   hasMore: boolean;
   total: number;
+  labelCounts?: Partial<Record<CrawlerModelLabel, number>>;
 };
 
 export type CrawlerUserQuery = {

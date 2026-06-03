@@ -54,6 +54,20 @@ const evidenceLabelLabels: Record<EvidenceLabelFilter, string> = {
   Irrelevant: "Irrelevant",
 };
 
+const evidenceCountLabels: Record<EvidenceLabelFilter, string> = {
+  all: "הכל",
+  "Salafi jihadi": "גיהאדי",
+  "Salafi taklidi": "תקלידי",
+  Irrelevant: "לא רלוונטי",
+};
+
+const evidenceLabelOrder: EvidenceLabelFilter[] = [
+  "all",
+  "Salafi jihadi",
+  "Salafi taklidi",
+  "Irrelevant",
+];
+
 const formatNumber = (value?: number, digits = 3) => {
   if (typeof value !== "number" || Number.isNaN(value)) return "-";
   return value.toFixed(digits);
@@ -178,6 +192,9 @@ export const CrawlerResultsView: React.FC = () => {
   const [evidence, setEvidence] = useState<CrawlerEvidence[]>([]);
   const [evidenceCursor, setEvidenceCursor] = useState<string | null>(null);
   const [evidenceTotal, setEvidenceTotal] = useState(0);
+  const [evidenceLabelCounts, setEvidenceLabelCounts] = useState<
+    Partial<Record<CrawlerModelLabel, number>>
+  >({});
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceError, setEvidenceError] = useState("");
   const [labelFilter, setLabelFilter] = useState<EvidenceLabelFilter>("all");
@@ -234,6 +251,7 @@ export const CrawlerResultsView: React.FC = () => {
       );
       setEvidenceCursor(response.nextCursor);
       setEvidenceTotal(response.total);
+      setEvidenceLabelCounts(response.labelCounts || {});
     } catch (error) {
       setEvidenceError(error instanceof Error ? error.message : "שגיאה בטעינת evidence");
     } finally {
@@ -280,6 +298,7 @@ export const CrawlerResultsView: React.FC = () => {
     setEvidence([]);
     setEvidenceCursor(null);
     setEvidenceTotal(0);
+    setEvidenceLabelCounts({});
     loadEvidence("replace");
   }, [selectedUser?.username_key, selectedRunId, labelFilter]);
 
@@ -301,6 +320,13 @@ export const CrawlerResultsView: React.FC = () => {
   const selectedRun = userRuns.find((run) => run.run_id === selectedRunId);
   const activeScore = selectedRun?.score || selectedScore;
   const activeThresholds = selectedRun?.thresholds || selectedThresholds;
+  const allEvidenceLabelCount = evidenceLabelOrder
+    .filter((label): label is CrawlerModelLabel => label !== "all")
+    .reduce((sum, label) => sum + (evidenceLabelCounts[label] || 0), 0);
+  const activeEvidenceCount =
+    labelFilter === "all"
+      ? allEvidenceLabelCount || evidenceTotal
+      : evidenceLabelCounts[labelFilter] ?? evidenceTotal;
 
   const selectedKeywords = useMemo(
     () => selectedUser?.discovered_by_keywords || [],
@@ -515,7 +541,7 @@ export const CrawlerResultsView: React.FC = () => {
                 {showStats && (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                     <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
-                      <div className="text-xs text-gray-500">Positive</div>
+                      <div className="text-xs text-gray-500">Profile positive</div>
                       <div className="font-semibold text-gray-900">
                         {activeScore.positive_count ?? "-"} /{" "}
                         {activeScore.evaluated_count ?? "-"}
@@ -546,7 +572,7 @@ export const CrawlerResultsView: React.FC = () => {
                       </div>
                     </div>
                     <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
-                      <div className="text-xs text-gray-500">Evidence</div>
+                      <div className="text-xs text-gray-500">Filtered evidence</div>
                       <div className="font-semibold text-gray-900">{evidenceTotal}</div>
                     </div>
                   </div>
@@ -611,6 +637,42 @@ export const CrawlerResultsView: React.FC = () => {
                       ))}
                     </select>
                   </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {evidenceLabelOrder.map((label) => {
+                    const count =
+                      label === "all"
+                        ? allEvidenceLabelCount || evidenceTotal
+                        : evidenceLabelCounts[label] || 0;
+                    const isActive = labelFilter === label;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setLabelFilter(label)}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                          isActive
+                            ? "border-blue-600 bg-blue-50 text-blue-800"
+                            : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span>{evidenceCountLabels[label]}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 ${
+                            isActive
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <span className="text-xs text-gray-500">
+                    מוצגים עכשיו: {activeEvidenceCount}
+                  </span>
                 </div>
               </div>
 
