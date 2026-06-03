@@ -3,3 +3,12 @@ dist
 .git
 .DS_Store
 *.log
+.env
+__pycache__
+*.pyc
+crawler_pipeline/
+python/
+*.bin
+*.safetensors
+*.pt
+*.pth

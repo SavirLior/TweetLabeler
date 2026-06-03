@@ -13,7 +13,7 @@ WORKDIR /app
 # התקנת ספריות מערכת נחוצות (אם צריך)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    && rm -rf /var/lib/apt/ports/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # העתקת דרישות והתקנה
 COPY requirements.txt .

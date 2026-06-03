@@ -11,8 +11,10 @@ Set APIFY_API_TOKEN in your environment before running against Apify.
 from __future__ import annotations
 
 import asyncio
+import argparse
 import json
 import logging
+import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,20 +24,86 @@ import torch
 from apify_client import ApifyClient
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+try:
+    from .config import (
+        APIFY_ACTOR_ID,
+        DEFAULT_DEEP_DIVE_TWEET_LIMIT,
+        DEFAULT_DISCOVERY_LIMIT,
+        DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
+        DEFAULT_MIN_POSITIVE_TWEETS,
+        DEFAULT_POSITIVE_RATIO_THRESHOLD,
+        DEFAULT_PROFILE_OVERFETCH_MULTIPLIER,
+        DEFAULT_TWEET_LANGUAGE,
+        DEFAULT_USER_TWEET_LIMIT,
+        JIHADI_LABEL_TOKEN,
+        KEYWORDS_FILE,
+        MODEL_DIR,
+        MODEL_EXPORT_DIR,
+        FINAL_JIHADI_USERS_FILE,
+    )
+    from .mongo_store import (
+        CrawlerMongoStore,
+        calculate_classification_score,
+        make_tweet_key,
+    )
+    from .tweet_text_formatter import (
+        FILTER_ARABIC,
+        FILTER_EMPTY_TEXT,
+        FILTER_SHORT_TEXT,
+        format_tweet_text,
+        get_quote_object,
+        get_retweet_object,
+    )
+except ImportError:  # Allows running this file directly from crawler_pipeline/.
+    from config import (
+        APIFY_ACTOR_ID,
+        DEFAULT_DEEP_DIVE_TWEET_LIMIT,
+        DEFAULT_DISCOVERY_LIMIT,
+        DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
+        DEFAULT_MIN_POSITIVE_TWEETS,
+        DEFAULT_POSITIVE_RATIO_THRESHOLD,
+        DEFAULT_PROFILE_OVERFETCH_MULTIPLIER,
+        DEFAULT_TWEET_LANGUAGE,
+        DEFAULT_USER_TWEET_LIMIT,
+        JIHADI_LABEL_TOKEN,
+        KEYWORDS_FILE,
+        MODEL_DIR,
+        MODEL_EXPORT_DIR,
+        FINAL_JIHADI_USERS_FILE,
+    )
+    from mongo_store import (
+        CrawlerMongoStore,
+        calculate_classification_score,
+        make_tweet_key,
+    )
+    from tweet_text_formatter import (
+        FILTER_ARABIC,
+        FILTER_EMPTY_TEXT,
+        FILTER_SHORT_TEXT,
+        format_tweet_text,
+        get_quote_object,
+        get_retweet_object,
+    )
+
 
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "YOUR_APIFY_API_TOKEN")
-APIFY_ACTOR_ID = "apidojo/tweet-scraper"
-MODEL_EXPORT_DIR = Path(__file__).resolve().parent / "model_export_exp_76_iter_153"
-MODEL_DIR = MODEL_EXPORT_DIR / "model"
-DEFAULT_TWEET_LANGUAGE = "en"
-DEFAULT_DISCOVERY_LIMIT = 10
-DEFAULT_USER_TWEET_LIMIT = 10
-DEFAULT_DEEP_DIVE_TWEET_LIMIT = 10
-USER_JIHADI_TWEET_THRESHOLD = 3
-JIHADI_LABEL_TOKEN = "jihadi"
+PROFILE_OVERFETCH_MULTIPLIER = DEFAULT_PROFILE_OVERFETCH_MULTIPLIER
+MIN_PROFILE_EVALUATED_TWEETS = DEFAULT_MIN_PROFILE_EVALUATED_TWEETS
+USER_JIHADI_TWEET_THRESHOLD = DEFAULT_MIN_POSITIVE_TWEETS
+POSITIVE_RATIO_THRESHOLD = DEFAULT_POSITIVE_RATIO_THRESHOLD
+TRAINING_USERS_FILE = Path(__file__).resolve().parent / "training_users.txt"
 
 logger = logging.getLogger(__name__)
 _local_classifier: "LocalTweetClassifier | None" = None
+_training_usernames: set[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -55,6 +123,51 @@ class DiscoveredTweet:
 
     username: str
     text: str
+    tweet_key: str
+    tweet_id: str | None = None
+    tweet_url: str | None = None
+    source: dict[str, Any] | None = None
+    format_version: str | None = None
+    is_retweet: bool = False
+    is_quote: bool = False
+    source_text_kind: str | None = None
+
+
+@dataclass(frozen=True)
+class TweetCollectionResult:
+    """Formatted tweets plus counts for raw and filtered Apify items."""
+
+    tweets: list[DiscoveredTweet]
+    counts: dict[str, int]
+
+
+@dataclass(frozen=True)
+class EvaluatedTweet:
+    """A crawled tweet paired with its model evaluation and crawl phase."""
+
+    tweet: DiscoveredTweet
+    evaluation: TweetEvaluation
+    phase: str
+
+
+@dataclass(frozen=True)
+class UserDeepDiveResult:
+    """The complete model-backed verification result for a Twitter/X user."""
+
+    username: str
+    status: str
+    score: dict[str, Any]
+    trigger_evidence: list[EvaluatedTweet]
+    profile_evidence: list[EvaluatedTweet]
+    profile_counts: dict[str, int]
+
+    @property
+    def all_evidence(self) -> list[EvaluatedTweet]:
+        return [*self.trigger_evidence, *self.profile_evidence]
+
+    @property
+    def all_evaluations(self) -> list[TweetEvaluation]:
+        return [evidence.evaluation for evidence in self.all_evidence]
 
 
 class LocalTweetClassifier:
@@ -162,8 +275,45 @@ def build_apify_client(api_token: str = APIFY_API_TOKEN) -> ApifyClient:
 
 
 def normalize_username(username: str) -> str:
-    """Normalize a Twitter/X username to a bare handle without the @ prefix."""
-    return username.strip().lstrip("@")
+    """Normalize a Twitter/X username to a bare handle."""
+    return username.strip().lstrip("@/").rstrip("/")
+
+
+def username_key(username: str) -> str:
+    """Return the case-insensitive key used for username comparisons."""
+    return normalize_username(username).casefold()
+
+
+def load_training_usernames() -> set[str]:
+    """Load training-list usernames once so crawler runs skip known users quickly."""
+    global _training_usernames
+    if _training_usernames is not None:
+        return _training_usernames
+
+    if not TRAINING_USERS_FILE.exists():
+        logger.warning("Training users file was not found: %s", TRAINING_USERS_FILE)
+        _training_usernames = set()
+        return _training_usernames
+
+    usernames: set[str] = set()
+    with TRAINING_USERS_FILE.open(encoding="utf-8") as training_file:
+        for line in training_file:
+            value = line.strip()
+            if not value or value.startswith("#"):
+                continue
+            key = username_key(value)
+            if key:
+                usernames.add(key)
+
+    _training_usernames = usernames
+    logger.info("Loaded %s training users to skip.", len(_training_usernames))
+    return _training_usernames
+
+
+def is_training_user(username: str) -> bool:
+    """Return True when a normalized username is already in training_users.txt."""
+    key = username_key(username)
+    return bool(key and key in load_training_usernames())
 
 
 def extract_author_username(tweet_item: dict[str, Any]) -> str | None:
@@ -207,6 +357,194 @@ def extract_tweet_text(tweet_item: dict[str, Any]) -> str | None:
     return max(candidates, key=len)
 
 
+def extract_tweet_id(tweet_item: dict[str, Any]) -> str | None:
+    """Extract the tweet id from an Apify tweet result when available."""
+    for key in ("id", "tweetId", "tweet_id", "id_str", "conversationId"):
+        value = tweet_item.get(key)
+        if isinstance(value, (str, int)) and str(value).strip():
+            return str(value).strip()
+
+    for nested_key in ("legacy", "tweet"):
+        nested = tweet_item.get(nested_key)
+        if not isinstance(nested, dict):
+            continue
+        for key in ("id", "tweetId", "tweet_id", "id_str"):
+            value = nested.get(key)
+            if isinstance(value, (str, int)) and str(value).strip():
+                return str(value).strip()
+
+    return None
+
+
+def extract_tweet_url(
+    tweet_item: dict[str, Any],
+    *,
+    username: str,
+    tweet_id: str | None,
+) -> str | None:
+    """Extract or construct a stable X/Twitter status URL."""
+    for key in ("url", "twitterUrl", "tweetUrl", "link"):
+        value = tweet_item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    if tweet_id:
+        return f"https://x.com/{normalize_username(username)}/status/{tweet_id}"
+
+    return None
+
+
+def extract_author_summary(tweet_item: dict[str, Any]) -> dict[str, Any]:
+    author = tweet_item.get("author")
+    if not isinstance(author, dict):
+        return {}
+
+    return {
+        "id": author.get("id") or author.get("userId") or author.get("rest_id"),
+        "username": author.get("userName") or author.get("username") or author.get("screenName"),
+        "name": author.get("name") or author.get("displayName"),
+    }
+
+
+def extract_nested_tweet_summary(tweet_item: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(tweet_item, dict):
+        return None
+
+    username = extract_author_username(tweet_item) or ""
+    tweet_id = extract_tweet_id(tweet_item)
+    return {
+        "tweet_id": tweet_id,
+        "tweet_url": extract_tweet_url(tweet_item, username=username, tweet_id=tweet_id),
+        "lang": tweet_item.get("lang"),
+        "author": extract_author_summary(tweet_item),
+    }
+
+
+def build_compact_source(tweet_item: dict[str, Any], *, username: str, tweet_id: str | None) -> dict[str, Any]:
+    return {
+        "provider": "apify",
+        "actor_id": APIFY_ACTOR_ID,
+        "tweet_id": tweet_id,
+        "tweet_url": extract_tweet_url(tweet_item, username=username, tweet_id=tweet_id),
+        "created_at": tweet_item.get("createdAt") or tweet_item.get("created_at"),
+        "lang": tweet_item.get("lang"),
+        "author": extract_author_summary(tweet_item),
+        "retweet": extract_nested_tweet_summary(get_retweet_object(tweet_item)),
+        "quote": extract_nested_tweet_summary(get_quote_object(tweet_item)),
+    }
+
+
+def build_discovered_tweet(tweet_item: dict[str, Any]) -> DiscoveredTweet | None:
+    """Normalize an Apify tweet item into the crawler's tweet shape."""
+    username = extract_author_username(tweet_item)
+    formatted_result = format_tweet_text(tweet_item)
+    if not username or not formatted_result.formatted:
+        return None
+    if is_training_user(username):
+        logger.info("Skipping @%s because it is already in training_users.txt.", username)
+        return None
+
+    formatted = formatted_result.formatted
+    tweet_id = extract_tweet_id(tweet_item)
+    return DiscoveredTweet(
+        username=username,
+        text=formatted.text,
+        tweet_id=tweet_id,
+        tweet_key=make_tweet_key(username, formatted.text, tweet_id=tweet_id),
+        tweet_url=extract_tweet_url(tweet_item, username=username, tweet_id=tweet_id),
+        source=build_compact_source(tweet_item, username=username, tweet_id=tweet_id),
+        format_version=formatted.format_version,
+        is_retweet=formatted.is_retweet,
+        is_quote=formatted.is_quote,
+        source_text_kind=formatted.source_text_kind,
+    )
+
+
+def calculate_overfetch_limit(
+    target_clean_tweets: int,
+    overfetch_multiplier: float = PROFILE_OVERFETCH_MULTIPLIER,
+) -> int:
+    if target_clean_tweets <= 0:
+        return 0
+    return max(target_clean_tweets, math.ceil(target_clean_tweets * overfetch_multiplier))
+
+
+def add_counts(target: dict[str, int], source: dict[str, int]) -> None:
+    for key, value in source.items():
+        target[key] = target.get(key, 0) + int(value)
+
+
+def empty_filter_counts(scope: str = "") -> dict[str, int]:
+    raw_key = f"raw_{scope}_tweets_seen" if scope else "raw_tweets_seen"
+    return {
+        raw_key: 0,
+        "filtered_arabic": 0,
+        "filtered_empty_text": 0,
+        "filtered_short_text": 0,
+        "filtered_training_user": 0,
+    }
+
+
+def increment_filter_count(counts: dict[str, int], reason: str | None) -> None:
+    if reason == FILTER_ARABIC:
+        counts["filtered_arabic"] += 1
+    elif reason == FILTER_EMPTY_TEXT:
+        counts["filtered_empty_text"] += 1
+    elif reason == FILTER_SHORT_TEXT:
+        counts["filtered_short_text"] += 1
+
+
+def build_discovered_tweets_from_items(
+    items: Iterable[dict[str, Any]],
+    *,
+    scope: str = "",
+    max_clean_tweets: int | None = None,
+    exclude_tweet_keys: set[str] | None = None,
+) -> TweetCollectionResult:
+    counts = empty_filter_counts(scope)
+    raw_key = f"raw_{scope}_tweets_seen" if scope else "raw_tweets_seen"
+    tweets: list[DiscoveredTweet] = []
+    seen: set[tuple[str, str]] = set()
+    excluded_keys = exclude_tweet_keys or set()
+
+    for item in items:
+        counts[raw_key] += 1
+        username = extract_author_username(item)
+        if username and is_training_user(username):
+            counts["filtered_training_user"] += 1
+            logger.info(
+                "Skipping @%s because it is already in training_users.txt.",
+                username,
+            )
+            continue
+
+        formatted_result = format_tweet_text(item)
+        if not formatted_result.formatted:
+            increment_filter_count(counts, formatted_result.filter_reason)
+            continue
+
+        discovered_tweet = build_discovered_tweet(item)
+        if not discovered_tweet:
+            counts["filtered_empty_text"] += 1
+            continue
+        if discovered_tweet.tweet_key in excluded_keys:
+            continue
+
+        dedupe_key = (
+            discovered_tweet.username.casefold(),
+            discovered_tweet.tweet_key,
+        )
+        if dedupe_key in seen:
+            continue
+
+        seen.add(dedupe_key)
+        tweets.append(discovered_tweet)
+        if max_clean_tweets is not None and len(tweets) >= max_clean_tweets:
+            break
+
+    return TweetCollectionResult(tweets=tweets, counts=counts)
+
+
 def run_tweet_scraper(
     client: ApifyClient,
     run_input: dict[str, Any],
@@ -225,7 +563,7 @@ def run_tweet_scraper(
         return [item for item in items if isinstance(item, dict)]#filter out any non-dict items just in case, since we expect each item to be a dict representing a tweet result
     except Exception:
         logger.exception("Apify actor call failed.")
-        return []
+        raise
 
 
 def discover_tweets_by_keywords(
@@ -264,23 +602,44 @@ def discover_tweets_by_keywords(
         run_input["tweetLanguage"] = tweet_language
 
     items = run_tweet_scraper(apify_client, run_input)
+    return build_discovered_tweets_from_items(items, scope="discovery").tweets
 
-    discovered_tweets: list[DiscoveredTweet] = []
-    seen: set[tuple[str, str]] = set()
-    for item in items:
-        username = extract_author_username(item)
-        text = extract_tweet_text(item)
-        if not username or not text:
-            continue
 
-        dedupe_key = (username.casefold(), text.casefold())
-        if dedupe_key in seen:
-            continue
+def discover_tweet_collection_by_keywords(
+    keywords: Iterable[str],
+    *,
+    client: ApifyClient | None = None,
+    max_items: int = DEFAULT_DISCOVERY_LIMIT,
+    tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
+) -> TweetCollectionResult:
+    """Search Twitter/X for keywords and return formatted tweets plus counters."""
+    clean_keywords = [keyword.strip() for keyword in keywords if keyword.strip()]
+    if not clean_keywords:
+        logger.warning("No keywords provided for discovery.")
+        return TweetCollectionResult(
+            tweets=[],
+            counts={
+                **empty_filter_counts("discovery"),
+                "model_discovery_tweets_evaluated": 0,
+            },
+        )
 
-        seen.add(dedupe_key)
-        discovered_tweets.append(DiscoveredTweet(username=username, text=text))
+    apify_client = client or build_apify_client()
+    run_input: dict[str, Any] = {
+        "searchTerms": clean_keywords,
+        "maxItems": max_items,
+        "sort": "Latest",
+        "includeSearchTerms": False,
+        "customMapFunction": "(object) => { return {...object} }",
+    }
 
-    return discovered_tweets
+    if tweet_language:
+        run_input["tweetLanguage"] = tweet_language
+
+    items = run_tweet_scraper(apify_client, run_input)
+    result = build_discovered_tweets_from_items(items, scope="discovery")
+    result.counts["model_discovery_tweets_evaluated"] = len(result.tweets)
+    return result
 
 
 def discover_usernames_by_keywords(
@@ -308,19 +667,21 @@ def discover_usernames_by_keywords(
     return usernames
 
 
-def fetch_recent_tweets_for_user(
+def fetch_recent_tweet_details_for_user(
     username: str,
     *,
     client: ApifyClient | None = None,
     limit: int = DEFAULT_USER_TWEET_LIMIT,
+    overfetch_multiplier: float = PROFILE_OVERFETCH_MULTIPLIER,
+    exclude_tweet_keys: set[str] | None = None,
     tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
-) -> list[str]:
+) -> list[DiscoveredTweet]:
     """Fetch recent tweets for a specific Twitter/X user.
 
     Args:
         username: Twitter/X username with or without an @ prefix.
         client: Optional preconfigured Apify client.
-        limit: Maximum number of tweets to fetch for this user.
+        limit: Clean-tweet target used to calculate the raw Apify fetch limit.
         tweet_language: Optional ISO 639-1 language code filter.
 
     Returns:
@@ -332,9 +693,10 @@ def fetch_recent_tweets_for_user(
         return []
 
     apify_client = client or build_apify_client()
+    raw_limit = calculate_overfetch_limit(limit, overfetch_multiplier)
     run_input: dict[str, Any] = {
         "searchTerms": [f"from:{normalized_username} -filter:retweets"],
-        "maxItems": limit,
+        "maxItems": raw_limit,
         "sort": "Latest",
         "includeSearchTerms": False,
         "customMapFunction": "(object) => { return {...object} }",
@@ -344,20 +706,78 @@ def fetch_recent_tweets_for_user(
         run_input["tweetLanguage"] = tweet_language
 
     items = run_tweet_scraper(apify_client, run_input)
+    return build_discovered_tweets_from_items(
+        items,
+        scope="profile",
+        exclude_tweet_keys=exclude_tweet_keys,
+    ).tweets
 
-    tweets: list[str] = []
-    seen: set[str] = set()
-    for item in items:
-        text = extract_tweet_text(item)
-        if not text:
-            continue
 
-        dedupe_key = text.casefold()
-        if dedupe_key not in seen:
-            seen.add(dedupe_key)
-            tweets.append(text)
+def fetch_recent_tweet_collection_for_user(
+    username: str,
+    *,
+    client: ApifyClient | None = None,
+    limit: int = DEFAULT_USER_TWEET_LIMIT,
+    overfetch_multiplier: float = PROFILE_OVERFETCH_MULTIPLIER,
+    exclude_tweet_keys: set[str] | None = None,
+    tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
+) -> TweetCollectionResult:
+    """Fetch and format recent profile tweets plus raw/filter counters."""
+    normalized_username = normalize_username(username)
+    if not normalized_username:
+        logger.warning("Cannot fetch tweets for an empty username.")
+        return TweetCollectionResult(
+            tweets=[],
+            counts={
+                **empty_filter_counts("profile"),
+                "model_profile_tweets_evaluated": 0,
+            },
+        )
 
-    return tweets
+    apify_client = client or build_apify_client()
+    raw_limit = calculate_overfetch_limit(limit, overfetch_multiplier)
+    run_input: dict[str, Any] = {
+        "searchTerms": [f"from:{normalized_username} -filter:retweets"],
+        "maxItems": raw_limit,
+        "sort": "Latest",
+        "includeSearchTerms": False,
+        "customMapFunction": "(object) => { return {...object} }",
+    }
+
+    if tweet_language:
+        run_input["tweetLanguage"] = tweet_language
+
+    items = run_tweet_scraper(apify_client, run_input)
+    result = build_discovered_tweets_from_items(
+        items,
+        scope="profile",
+        exclude_tweet_keys=exclude_tweet_keys,
+    )
+    result.counts["model_profile_tweets_evaluated"] = len(result.tweets)
+    return result
+
+
+def fetch_recent_tweets_for_user(
+    username: str,
+    *,
+    client: ApifyClient | None = None,
+    limit: int = DEFAULT_USER_TWEET_LIMIT,
+    overfetch_multiplier: float = PROFILE_OVERFETCH_MULTIPLIER,
+    exclude_tweet_keys: set[str] | None = None,
+    tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
+) -> list[str]:
+    """Fetch recent tweet texts for callers that do not need metadata."""
+    return [
+        tweet.text
+        for tweet in fetch_recent_tweet_details_for_user(
+            username,
+            client=client,
+            limit=limit,
+            overfetch_multiplier=overfetch_multiplier,
+            exclude_tweet_keys=exclude_tweet_keys,
+            tweet_language=tweet_language,
+        )
+    ]
 
 
 async def evaluate_tweets_with_fusion_model(
@@ -365,58 +785,155 @@ async def evaluate_tweets_with_fusion_model(
     *,
     batch_size: int = 16,
 ) -> list[TweetEvaluation]:
-    """Evaluate tweet text with the local model in ./model_export_exp_76_iter_153."""
+    """Evaluate tweet text with the configured local model export."""
     await asyncio.sleep(0)
     return get_local_classifier().predict(tweets_list, batch_size=batch_size)
 
 
 async def verify_user_from_triggered_tweet(
     username: str,
+    triggered_tweets: list[DiscoveredTweet],
     initial_evaluations: list[TweetEvaluation],
     *,
     client: ApifyClient,
     deep_dive_tweet_limit: int = DEFAULT_DEEP_DIVE_TWEET_LIMIT,
-    user_jihadi_threshold: int = USER_JIHADI_TWEET_THRESHOLD,
+    min_positive_tweets: int = USER_JIHADI_TWEET_THRESHOLD,
+    min_profile_evaluated_tweets: int = MIN_PROFILE_EVALUATED_TWEETS,
+    positive_ratio_threshold: float = POSITIVE_RATIO_THRESHOLD,
+    profile_overfetch_multiplier: float = PROFILE_OVERFETCH_MULTIPLIER,
     tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
-) -> list[TweetEvaluation]:
-    """Deep-dive a triggered author and return evaluations if the user is verified."""
+) -> UserDeepDiveResult:
+    """Deep-dive a triggered author and return the full verification result."""
     logger.info(
         "Tweet triggered deep dive for @%s. Fetching %s additional recent tweets.",
         username,
         deep_dive_tweet_limit,
     )
 
-    additional_tweets = fetch_recent_tweets_for_user(
+    trigger_evidence = [
+        EvaluatedTweet(tweet=tweet, evaluation=evaluation, phase="keyword_trigger")
+        for tweet, evaluation in zip(triggered_tweets, initial_evaluations)
+    ]
+    seen_tweet_keys = {evidence.tweet.tweet_key for evidence in trigger_evidence}
+    profile_collection = fetch_recent_tweet_collection_for_user(
         username,
         client=client,
         limit=deep_dive_tweet_limit,
+        overfetch_multiplier=profile_overfetch_multiplier,
+        exclude_tweet_keys=seen_tweet_keys,
         tweet_language=tweet_language,
     )
+    additional_tweets = profile_collection.tweets
     additional_evaluations = await evaluate_tweets_with_fusion_model(
-        additional_tweets,
+        [tweet.text for tweet in additional_tweets],
         batch_size=16,
     )
-    all_evaluations = [*initial_evaluations, *additional_evaluations]
-    jihadi_count = sum(evaluation.flagged for evaluation in all_evaluations)
-
-    if jihadi_count >= user_jihadi_threshold:
-        logger.warning(
-            "@%s officially classified as a Jihadi user: %s/%s evaluated tweets "
-            "were classified as Jihadi.",
-            username,
-            jihadi_count,
-            len(all_evaluations),
+    profile_evidence: list[EvaluatedTweet] = []
+    for tweet, evaluation in zip(additional_tweets, additional_evaluations):
+        seen_tweet_keys.add(tweet.tweet_key)
+        profile_evidence.append(
+            EvaluatedTweet(
+                tweet=tweet,
+                evaluation=evaluation,
+                phase="profile_deep_dive",
+            )
         )
-        return all_evaluations
 
-    logger.info(
-        "@%s deep dive complete: %s/%s Jihadi tweets, below user threshold of %s.",
-        username,
-        jihadi_count,
-        len(all_evaluations),
-        user_jihadi_threshold,
+    score = calculate_classification_score(
+        [evidence.evaluation for evidence in profile_evidence],
+        positive_ratio_threshold=positive_ratio_threshold,
+        min_positive_tweets=min_positive_tweets,
+        min_evaluated_tweets=min_profile_evaluated_tweets,
     )
-    return []
+    status = score["status"]
+
+    if status == "salafi_jihadi":
+        logger.warning(
+            "@%s officially classified as a Salafi jihadi user: %s/%s evaluated "
+            "tweets were classified as Salafi jihadi.",
+            username,
+            score["positive_count"],
+            score["evaluated_count"],
+        )
+    else:
+        logger.info(
+            "@%s deep dive complete: status=%s, %s/%s positive tweets.",
+            username,
+            status,
+            score["positive_count"],
+            score["evaluated_count"],
+        )
+
+    return UserDeepDiveResult(
+        username=username,
+        status=status,
+        score=score,
+        trigger_evidence=trigger_evidence,
+        profile_evidence=profile_evidence,
+        profile_counts=profile_collection.counts,
+    )
+
+
+def serialize_evidence_for_storage(evidence: EvaluatedTweet) -> dict[str, Any]:
+    """Convert an evaluated tweet into the Mongo evidence document shape."""
+    return {
+        "tweet_key": evidence.tweet.tweet_key,
+        "tweet_id": evidence.tweet.tweet_id,
+        "tweet_url": evidence.tweet.tweet_url,
+        "text": evidence.tweet.text,
+        "source": evidence.tweet.source,
+        "format_version": evidence.tweet.format_version,
+        "is_retweet": evidence.tweet.is_retweet,
+        "is_quote": evidence.tweet.is_quote,
+        "source_text_kind": evidence.tweet.source_text_kind,
+        "model_label": evidence.evaluation.label,
+        "flagged": evidence.evaluation.flagged,
+        "confidence": evidence.evaluation.confidence,
+        "probabilities": evidence.evaluation.probabilities,
+    }
+
+
+def read_keywords_file(path: str | Path = KEYWORDS_FILE) -> list[str]:
+    """Read keyword/search terms from a text file, one per line."""
+    keywords_path = Path(path)
+    if not keywords_path.exists():
+        raise FileNotFoundError(f"Keywords file was not found: {keywords_path}")
+
+    keywords: list[str] = []
+    seen: set[str] = set()
+    with keywords_path.open(encoding="utf-8") as keywords_file:
+        for line in keywords_file:
+            keyword = line.strip()
+            if not keyword or keyword.startswith("#"):
+                continue
+            key = keyword.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            keywords.append(keyword)
+
+    if not keywords:
+        raise ValueError(f"Keywords file is empty: {keywords_path}")
+
+    return keywords
+
+
+def write_final_jihadi_users_file(
+    usernames: Iterable[str],
+    path: str | Path = FINAL_JIHADI_USERS_FILE,
+) -> None:
+    """Write the final verified positive usernames to a text file."""
+    output_path = Path(path)
+    usernames_by_key: dict[str, str] = {}
+    for username in usernames:
+        normalized = normalize_username(username)
+        if normalized:
+            usernames_by_key.setdefault(normalized.casefold(), normalized)
+
+    unique_usernames = sorted(usernames_by_key.values(), key=str.casefold)
+    with output_path.open("w", encoding="utf-8") as output_file:
+        for username in unique_usernames:
+            output_file.write(f"{username}\n")
 
 
 async def run_pipeline(
@@ -425,71 +942,233 @@ async def run_pipeline(
     discovery_limit: int = DEFAULT_DISCOVERY_LIMIT,
     deep_dive_tweet_limit: int = DEFAULT_DEEP_DIVE_TWEET_LIMIT,
     user_jihadi_threshold: int = USER_JIHADI_TWEET_THRESHOLD,
+    min_profile_evaluated_tweets: int = MIN_PROFILE_EVALUATED_TWEETS,
+    positive_ratio_threshold: float = POSITIVE_RATIO_THRESHOLD,
+    profile_overfetch_multiplier: float = PROFILE_OVERFETCH_MULTIPLIER,
     tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
+    mongo_store: CrawlerMongoStore | None = None,
 ) -> dict[str, list[TweetEvaluation]]:
-    """Run tweet-first discovery, evaluation, and conditional user verification."""
-    
-    client = build_apify_client()
-    discovered_tweets = discover_tweets_by_keywords(
-        keywords,
-        client=client,
-        max_items=discovery_limit,
-        tweet_language=tweet_language,
+    """Run tweet-first discovery, evaluation, user verification, and persistence."""
+    clean_keywords = [keyword.strip() for keyword in keywords if keyword.strip()]
+    store = mongo_store or CrawlerMongoStore()
+    thresholds = {
+        "positive_ratio_threshold": positive_ratio_threshold,
+        "min_positive_tweets": user_jihadi_threshold,
+        "min_profile_evaluated_tweets": min_profile_evaluated_tweets,
+    }
+    raw_profile_fetch_limit = calculate_overfetch_limit(
+        deep_dive_tweet_limit,
+        profile_overfetch_multiplier,
     )
-
-    if not discovered_tweets:
-        logger.warning("No tweets discovered for the provided keywords.")
-        return {}
-
-    initial_evaluations = await evaluate_tweets_with_fusion_model(
-        [discovered_tweet.text for discovered_tweet in discovered_tweets],
-        batch_size=16,
+    run_id = store.start_run(
+        keywords=clean_keywords,
+        params={
+            "discovery_limit": discovery_limit,
+            "profile_tweet_limit": deep_dive_tweet_limit,
+            "profile_overfetch_multiplier": profile_overfetch_multiplier,
+            "raw_profile_fetch_limit": raw_profile_fetch_limit,
+            "positive_ratio_threshold": positive_ratio_threshold,
+            "min_positive_tweets": user_jihadi_threshold,
+            "min_profile_evaluated_tweets": min_profile_evaluated_tweets,
+            "tweet_language": tweet_language,
+        },
     )
-    triggered_evaluations_by_user: dict[str, list[TweetEvaluation]] = {}
-
-    for discovered_tweet, evaluation in zip(discovered_tweets, initial_evaluations):
-        if not evaluation.flagged:
-            continue
-
-        username = discovered_tweet.username
-        triggered_evaluations_by_user.setdefault(username, []).append(evaluation)
-
-    if not triggered_evaluations_by_user:
-        logger.info("No discovered tweets were classified as Jihadi.")
-        return {}
-
     verified_users: dict[str, list[TweetEvaluation]] = {}
-    for username, triggered_evaluations in triggered_evaluations_by_user.items():
-        verified_evaluations = await verify_user_from_triggered_tweet(
-            username,
-            triggered_evaluations,
-            client=client,
-            deep_dive_tweet_limit=deep_dive_tweet_limit,
-            user_jihadi_threshold=user_jihadi_threshold,
-            tweet_language=tweet_language,
-        )
-        if verified_evaluations:
-            verified_users[username] = verified_evaluations
+    counts: dict[str, int] = {
+        "discovered_tweets": 0,
+        "triggered_tweets": 0,
+        "triggered_users": 0,
+        "deep_dived_users": 0,
+        "positive_users": 0,
+        "evidence_tweets": 0,
+        "insufficient_profile_tweet_users": 0,
+        "filtered_arabic": 0,
+        "filtered_empty_text": 0,
+        "filtered_short_text": 0,
+        "raw_discovery_tweets_seen": 0,
+        "model_discovery_tweets_evaluated": 0,
+        "raw_profile_tweets_seen": 0,
+        "model_profile_tweets_evaluated": 0,
+    }
+    errors: list[str] = []
+    status = "completed"
 
-    return verified_users
+    try:
+        client = build_apify_client()
+        discovery_collection = discover_tweet_collection_by_keywords(
+            clean_keywords,
+            client=client,
+            tweet_language=tweet_language,
+            max_items=discovery_limit,
+        )
+        discovered_tweets = discovery_collection.tweets
+        add_counts(counts, discovery_collection.counts)
+
+        counts["discovered_tweets"] = len(discovered_tweets)
+        if not discovered_tweets:
+            logger.warning("No tweets discovered for the provided keywords.")
+            return {}
+
+        initial_evaluations = await evaluate_tweets_with_fusion_model(
+            [discovered_tweet.text for discovered_tweet in discovered_tweets],
+            batch_size=16,
+        )
+        triggered_by_user: dict[str, list[tuple[DiscoveredTweet, TweetEvaluation]]] = {}
+
+        for discovered_tweet, evaluation in zip(discovered_tweets, initial_evaluations):
+            if not evaluation.flagged:
+                continue
+
+            username = discovered_tweet.username
+            triggered_by_user.setdefault(username, []).append(
+                (discovered_tweet, evaluation)
+            )
+
+        counts["triggered_tweets"] = sum(
+            len(triggered_items) for triggered_items in triggered_by_user.values()
+        )
+        counts["triggered_users"] = len(triggered_by_user)
+
+        if not triggered_by_user:
+            logger.info("No discovered tweets were classified as Salafi jihadi.")
+            return {}
+
+        for username, triggered_items in triggered_by_user.items():
+            triggered_tweets = [tweet for tweet, _evaluation in triggered_items]
+            triggered_evaluations = [
+                evaluation for _tweet, evaluation in triggered_items
+            ]
+            deep_dive_result = await verify_user_from_triggered_tweet(
+                username,
+                triggered_tweets,
+                triggered_evaluations,
+                client=client,
+                deep_dive_tweet_limit=deep_dive_tweet_limit,
+                min_positive_tweets=user_jihadi_threshold,
+                min_profile_evaluated_tweets=min_profile_evaluated_tweets,
+                positive_ratio_threshold=positive_ratio_threshold,
+                profile_overfetch_multiplier=profile_overfetch_multiplier,
+                tweet_language=tweet_language,
+            )
+            add_counts(counts, deep_dive_result.profile_counts)
+            counts["deep_dived_users"] += 1
+            if deep_dive_result.status == "insufficient_data":
+                counts["insufficient_profile_tweet_users"] += 1
+            save_result = store.save_user_deep_dive(
+                run_id=run_id,
+                username=username,
+                trigger_evidence=[
+                    serialize_evidence_for_storage(evidence)
+                    for evidence in deep_dive_result.trigger_evidence
+                ],
+                profile_evidence=[
+                    serialize_evidence_for_storage(evidence)
+                    for evidence in deep_dive_result.profile_evidence
+                ],
+                keywords=clean_keywords,
+                thresholds=thresholds,
+            )
+            counts["evidence_tweets"] += int(save_result["evidence_count"])
+
+            if save_result["status"] == "salafi_jihadi":
+                counts["positive_users"] += 1
+                verified_users[username] = deep_dive_result.all_evaluations
+
+        return verified_users
+    except Exception as exc:
+        status = "failed"
+        errors.append(str(exc))
+        logger.exception("Crawler pipeline failed for run %s.", run_id)
+        raise
+    finally:
+        store.finish_run(run_id, counts=counts, errors=errors, status=status)
 
 
 def main() -> None:
-    """Example CLI entry point for local pipeline execution."""
+    """CLI entry point for local pipeline execution."""
+    parser = argparse.ArgumentParser(description="Run the Twitter/X crawler pipeline.")
+    parser.add_argument(
+        "keywords",
+        nargs="*",
+        help="Optional keyword(s) to search. Defaults to --keywords-file.",
+    )
+    parser.add_argument(
+        "--keywords-file",
+        default=str(KEYWORDS_FILE),
+        help="Text file containing search keywords, one per line.",
+    )
+    parser.add_argument(
+        "--output-file",
+        default=str(FINAL_JIHADI_USERS_FILE),
+        help="Text file to write final Salafi jihadi usernames to.",
+    )
+    parser.add_argument(
+        "--discovery-limit",
+        type=int,
+        default=DEFAULT_DISCOVERY_LIMIT,
+        help="Number of initial keyword-discovery tweets/users to evaluate.",
+    )
+    parser.add_argument(
+        "--profile-limit",
+        type=int,
+        default=DEFAULT_DEEP_DIVE_TWEET_LIMIT,
+        help="Clean profile tweet target for each triggered user's deep dive.",
+    )
+    parser.add_argument(
+        "--overfetch-multiplier",
+        type=float,
+        default=PROFILE_OVERFETCH_MULTIPLIER,
+        help="Raw profile fetch multiplier. Default 1.5, so profile-limit 150 fetches 225 raw tweets.",
+    )
+    parser.add_argument(
+        "--min-profile-tweets",
+        type=int,
+        default=MIN_PROFILE_EVALUATED_TWEETS,
+        help="Minimum clean profile tweets that must enter the model.",
+    )
+    parser.add_argument(
+        "--min-positive-tweets",
+        type=int,
+        default=USER_JIHADI_TWEET_THRESHOLD,
+        help="Minimum Salafi jihadi profile tweets required in addition to the ratio rule.",
+    )
+    parser.add_argument(
+        "--ratio",
+        type=float,
+        default=POSITIVE_RATIO_THRESHOLD,
+        help="Minimum Salafi jihadi positive ratio required. Default 0.10.",
+    )
+    parser.add_argument(
+        "--tweet-language",
+        default=DEFAULT_TWEET_LANGUAGE,
+        help="Tweet language sent to Apify. Use an empty value to disable.",
+    )
+    args = parser.parse_args()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
     )
 
-    example_keywords = ["replace with keyword 1", "replace with keyword 2"]
-    asyncio.run(
+    keywords = args.keywords or read_keywords_file(args.keywords_file)
+    verified_users = asyncio.run(
         run_pipeline(
-            example_keywords,
-            discovery_limit=DEFAULT_DISCOVERY_LIMIT,
-            deep_dive_tweet_limit=DEFAULT_DEEP_DIVE_TWEET_LIMIT,
-            user_jihadi_threshold=USER_JIHADI_TWEET_THRESHOLD,
+            keywords,
+            discovery_limit=args.discovery_limit,
+            deep_dive_tweet_limit=args.profile_limit,
+            user_jihadi_threshold=args.min_positive_tweets,
+            min_profile_evaluated_tweets=args.min_profile_tweets,
+            positive_ratio_threshold=args.ratio,
+            profile_overfetch_multiplier=args.overfetch_multiplier,
+            tweet_language=args.tweet_language or None,
         )
     )
+    write_final_jihadi_users_file(verified_users.keys(), args.output_file)
+    if verified_users:
+        print("Positive users:", ", ".join(sorted(verified_users)))
+    else:
+        print("No positive users found.")
+    print(f"Final positive user list written to: {args.output_file}")
 
 
 if __name__ == "__main__":
