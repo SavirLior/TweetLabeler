@@ -179,6 +179,16 @@ export type CrawlerEvidence = {
   is_quote?: boolean;
   source_text_kind?: string;
   collected_at?: string;
+  admin_label?: CrawlerModelLabel;
+  admin_label_by?: string;
+  admin_label_at?: string;
+};
+
+export type CrawlerEvidenceAdminStats = {
+  labeledByAdmin: number;
+  totalWithModelLabel: number;
+  matches: number;
+  accuracy: number | null;
 };
 
 export type CrawlerUserPageResponse = {
@@ -194,6 +204,7 @@ export type CrawlerEvidencePageResponse = {
   hasMore: boolean;
   total: number;
   labelCounts?: Record<string, number>;
+  adminStats?: CrawlerEvidenceAdminStats;
 };
 
 export type CrawlerUserQuery = {
@@ -370,6 +381,22 @@ export const getCrawlerEvidence = async (
     "GET",
     undefined,
     signal,
+  );
+};
+
+export const setCrawlerEvidenceAdminLabel = async (
+  evidenceId: string,
+  adminLabel: CrawlerModelLabel | null,
+): Promise<{
+  success: boolean;
+  item?: CrawlerEvidence;
+  adminStats?: CrawlerEvidenceAdminStats;
+  error?: string;
+}> => {
+  return apiRequest(
+    `/crawler/evidence/${encodeURIComponent(evidenceId)}/admin-label`,
+    "PATCH",
+    { adminLabel },
   );
 };
 

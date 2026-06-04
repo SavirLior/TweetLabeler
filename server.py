@@ -563,6 +563,48 @@ def get_crawler_evidence_label_counts(username_key, args):
     return counts
 
 
+def get_crawler_evidence_admin_stats(username_key, args):
+    match = {
+        "username_key": username_key,
+        "admin_label": {"$in": list(CRAWLER_MODEL_LABEL_ORDER)},
+    }
+    run_id = (args.get("runId") or "").strip()
+    if run_id and run_id != "all":
+        match["run_id"] = run_id
+
+    has_model_label = {"$in": ["$model_label", list(CRAWLER_MODEL_LABEL_ORDER)]}
+    pipeline = [
+        {"$match": match},
+        {
+            "$group": {
+                "_id": None,
+                "labeledByAdmin": {"$sum": 1},
+                "totalWithModelLabel": {"$sum": {"$cond": [has_model_label, 1, 0]}},
+                "matches": {
+                    "$sum": {
+                        "$cond": [
+                            {"$and": [has_model_label, {"$eq": ["$model_label", "$admin_label"]}]},
+                            1,
+                            0,
+                        ]
+                    }
+                },
+            }
+        },
+    ]
+    row = next(iter(crawler_evidence_collection.aggregate(pipeline)), None) or {}
+    labeled_by_admin = int(row.get("labeledByAdmin", 0) or 0)
+    total_with_model_label = int(row.get("totalWithModelLabel", 0) or 0)
+    matches = int(row.get("matches", 0) or 0)
+    accuracy = (matches / total_with_model_label) if total_with_model_label else None
+    return {
+        "labeledByAdmin": labeled_by_admin,
+        "totalWithModelLabel": total_with_model_label,
+        "matches": matches,
+        "accuracy": accuracy,
+    }
+
+
 def build_crawler_users_csv_rows(users):
     rows = []
     for user in users:
@@ -598,6 +640,7 @@ def build_crawler_evidence_csv_rows(evidence_docs):
                 doc.get("phase", ""),
                 source.get("created_at") or doc.get("collected_at", ""),
                 doc.get("model_label", ""),
+                doc.get("admin_label", ""),
                 doc.get("confidence", ""),
                 doc.get("flagged", ""),
                 probabilities.get("Salafi jihadi", ""),
@@ -960,12 +1003,16 @@ def list_crawler_user_evidence(username_key):
             "is_quote": 1,
             "source_text_kind": 1,
             "collected_at": 1,
+            "admin_label": 1,
+            "admin_label_by": 1,
+            "admin_label_at": 1,
         }
         docs = list(crawler_evidence_collection.find(query, projection))
         docs.sort(key=crawler_evidence_sort_key, reverse=True)
         page_docs = docs[offset : offset + limit]
         next_offset = offset + len(page_docs)
         label_counts = get_crawler_evidence_label_counts(username_key, request.args)
+        admin_stats = get_crawler_evidence_admin_stats(username_key, request.args)
 
         return jsonify(
             {
@@ -974,9 +1021,63 @@ def list_crawler_user_evidence(username_key):
                 "hasMore": next_offset < len(docs),
                 "total": len(docs),
                 "labelCounts": label_counts,
+                "adminStats": admin_stats,
             }
         )
     except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/evidence/<evidence_id>/admin-label", methods=["PATCH"])
+def set_crawler_evidence_admin_label(evidence_id):
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        object_id = ObjectId(evidence_id)
+    except Exception:
+        return jsonify({"success": False, "error": "Invalid evidence id"}), 400
+
+    payload = request.get_json(silent=True) or {}
+    admin_label = payload.get("adminLabel")
+
+    if admin_label is None:
+        update = {
+            "$unset": {
+                "admin_label": "",
+                "admin_label_by": "",
+                "admin_label_at": "",
+            }
+        }
+    else:
+        if admin_label not in CRAWLER_MODEL_LABELS:
+            return jsonify({"success": False, "error": "Invalid admin label"}), 400
+        update = {
+            "$set": {
+                "admin_label": admin_label,
+                "admin_label_by": request.headers.get("X-Username", ""),
+                "admin_label_at": datetime.now(timezone.utc).isoformat(),
+            }
+        }
+
+    try:
+        updated = crawler_evidence_collection.find_one_and_update(
+            {"_id": object_id},
+            update,
+            return_document=ReturnDocument.AFTER,
+        )
+        if not updated:
+            return jsonify({"success": False, "error": "Evidence not found"}), 404
+        admin_stats = get_crawler_evidence_admin_stats(updated.get("username_key", ""), {})
+        return jsonify(
+            {
+                "success": True,
+                "item": serialize_mongo_value(updated),
+                "adminStats": admin_stats,
+            }
+        )
+    except PyMongoError as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -1084,6 +1185,7 @@ def export_crawler_evidence_csv():
                     "tweet_url": 1,
                     "text": 1,
                     "model_label": 1,
+                    "admin_label": 1,
                     "flagged": 1,
                     "confidence": 1,
                     "probabilities": 1,
@@ -1098,6 +1200,7 @@ def export_crawler_evidence_csv():
             "phase",
             "tweet_date",
             "model_label",
+            "admin_label",
             "confidence",
             "flagged",
             "prob_salafi_jihadi",

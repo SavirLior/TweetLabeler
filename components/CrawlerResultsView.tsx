@@ -12,6 +12,7 @@ import {
 import { Button } from "./Button";
 import {
   CrawlerEvidence,
+  CrawlerEvidenceAdminStats,
   CrawlerModelLabel,
   CrawlerStatus,
   CrawlerUser,
@@ -21,7 +22,36 @@ import {
   getCrawlerEvidence,
   getCrawlerUserRuns,
   getCrawlerUsers,
+  setCrawlerEvidenceAdminLabel,
 } from "../services/dataService";
+
+const ADMIN_LABEL_CHOICES: CrawlerModelLabel[] = [
+  "Salafi jihadi",
+  "Salafi taklidi",
+  "Irrelevant",
+];
+
+const applyAdminStatsDelta = (
+  stats: CrawlerEvidenceAdminStats | null,
+  prev: CrawlerModelLabel | undefined,
+  next: CrawlerModelLabel | null,
+  modelLabel: string | undefined,
+  sign: 1 | -1,
+): CrawlerEvidenceAdminStats | null => {
+  if (!stats) return stats;
+  const labeledDelta = (next ? 1 : 0) - (prev ? 1 : 0);
+  const modelCountDelta = modelLabel
+    ? (next ? 1 : 0) - (prev ? 1 : 0)
+    : 0;
+  const matchDelta = modelLabel
+    ? (next === modelLabel ? 1 : 0) - (prev === modelLabel ? 1 : 0)
+    : 0;
+  const labeledByAdmin = stats.labeledByAdmin + sign * labeledDelta;
+  const totalWithModelLabel = stats.totalWithModelLabel + sign * modelCountDelta;
+  const matches = stats.matches + sign * matchDelta;
+  const accuracy = totalWithModelLabel > 0 ? matches / totalWithModelLabel : null;
+  return { labeledByAdmin, totalWithModelLabel, matches, accuracy };
+};
 
 const USER_PAGE_SIZE = 50;
 const EVIDENCE_PAGE_SIZE = 100;
@@ -108,8 +138,35 @@ const CrawlerStatusBadge: React.FC<{ status?: CrawlerStatus }> = ({ status }) =>
   );
 };
 
-const EvidenceItem: React.FC<{ evidence: CrawlerEvidence }> = ({ evidence }) => {
+type EvidenceItemProps = {
+  evidence: CrawlerEvidence;
+  onSetAdminLabel: (
+    evidence: CrawlerEvidence,
+    next: CrawlerModelLabel | null,
+  ) => Promise<void>;
+};
+
+const EvidenceItem: React.FC<EvidenceItemProps> = ({ evidence, onSetAdminLabel }) => {
   const probabilities = getProbabilityEntries(evidence);
+  const [pendingLabel, setPendingLabel] = useState<CrawlerModelLabel | null>(null);
+  const isPending = pendingLabel !== null;
+  const adminLabel = evidence.admin_label;
+  const modelLabel = evidence.model_label;
+  const matches =
+    adminLabel && modelLabel
+      ? adminLabel === modelLabel
+      : null;
+
+  const handleClick = async (choice: CrawlerModelLabel) => {
+    if (isPending) return;
+    const next: CrawlerModelLabel | null = adminLabel === choice ? null : choice;
+    setPendingLabel(choice);
+    try {
+      await onSetAdminLabel(evidence, next);
+    } finally {
+      setPendingLabel(null);
+    }
+  };
 
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-white">
@@ -172,6 +229,51 @@ const EvidenceItem: React.FC<{ evidence: CrawlerEvidence }> = ({ evidence }) => 
           ))}
         </div>
       )}
+
+      <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold text-gray-600">סיווג אדמין:</span>
+        {ADMIN_LABEL_CHOICES.map((choice) => {
+          const isActive = adminLabel === choice;
+          const isThisPending = pendingLabel === choice;
+          return (
+            <button
+              key={choice}
+              type="button"
+              onClick={() => handleClick(choice)}
+              disabled={isPending}
+              className={`px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors ${
+                isActive
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              } ${isPending && !isThisPending ? "opacity-50" : ""}`}
+            >
+              {choice}
+            </button>
+          );
+        })}
+        {matches !== null && (
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
+              matches
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-red-50 text-red-700 border-red-200"
+            }`}
+            title={
+              matches
+                ? "תיוג האדמין תואם את תחזית המודל"
+                : "תיוג האדמין שונה מתחזית המודל"
+            }
+          >
+            {matches ? "✓ תואם מודל" : "✗ שונה ממודל"}
+          </span>
+        )}
+        {adminLabel && (
+          <span className="text-xs text-gray-400">
+            {evidence.admin_label_by ? `by @${evidence.admin_label_by}` : ""}
+            {evidence.admin_label_at ? ` • ${formatDate(evidence.admin_label_at)}` : ""}
+          </span>
+        )}
+      </div>
     </div>
   );
 };
@@ -193,6 +295,8 @@ export const CrawlerResultsView: React.FC = () => {
   const [evidenceCursor, setEvidenceCursor] = useState<string | null>(null);
   const [evidenceTotal, setEvidenceTotal] = useState(0);
   const [evidenceLabelCounts, setEvidenceLabelCounts] = useState<Record<string, number>>({});
+  const [evidenceAdminStats, setEvidenceAdminStats] =
+    useState<CrawlerEvidenceAdminStats | null>(null);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceError, setEvidenceError] = useState("");
   const [labelFilter, setLabelFilter] = useState<EvidenceLabelFilter>("all");
@@ -260,6 +364,7 @@ export const CrawlerResultsView: React.FC = () => {
       setEvidenceCursor(response.nextCursor);
       setEvidenceTotal(response.total);
       setEvidenceLabelCounts(response.labelCounts || {});
+      setEvidenceAdminStats(response.adminStats || null);
     } catch (error) {
       if (signal?.aborted) return;
       setEvidenceError(error instanceof Error ? error.message : "שגיאה בטעינת evidence");
@@ -326,6 +431,7 @@ export const CrawlerResultsView: React.FC = () => {
     setEvidenceCursor(null);
     setEvidenceTotal(0);
     setEvidenceLabelCounts({});
+    setEvidenceAdminStats(null);
     loadEvidence("replace", controller.signal);
     return () => controller.abort();
   }, [selectedUser?.username_key, selectedRunId, labelFilter, userRuns]);
@@ -370,6 +476,65 @@ export const CrawlerResultsView: React.FC = () => {
       await exportCrawlerUsersCsv({ status: statusFilter, search: search.trim() });
     } finally {
       setExporting(null);
+    }
+  };
+
+  const handleSetAdminLabel = async (
+    target: CrawlerEvidence,
+    next: CrawlerModelLabel | null,
+  ) => {
+    if (!target._id) return;
+    const evidenceId = target._id;
+    const prev = target.admin_label;
+    if (prev === (next ?? undefined)) return;
+    const modelLabel = target.model_label;
+
+    setEvidence((current) =>
+      current.map((item) =>
+        item._id === evidenceId
+          ? {
+              ...item,
+              admin_label: next ?? undefined,
+              admin_label_by: undefined,
+              admin_label_at: undefined,
+            }
+          : item,
+      ),
+    );
+    setEvidenceAdminStats((stats) =>
+      applyAdminStatsDelta(stats, prev, next, modelLabel, 1),
+    );
+
+    try {
+      const response = await setCrawlerEvidenceAdminLabel(evidenceId, next);
+      if (response.item) {
+        const updated = response.item;
+        setEvidence((current) =>
+          current.map((item) => (item._id === evidenceId ? { ...item, ...updated } : item)),
+        );
+      }
+      if (response.adminStats) {
+        setEvidenceAdminStats(response.adminStats);
+      }
+    } catch (error) {
+      setEvidence((current) =>
+        current.map((item) =>
+          item._id === evidenceId
+            ? {
+                ...item,
+                admin_label: prev,
+                admin_label_by: target.admin_label_by,
+                admin_label_at: target.admin_label_at,
+              }
+            : item,
+        ),
+      );
+      setEvidenceAdminStats((stats) =>
+        applyAdminStatsDelta(stats, prev, next, modelLabel, -1),
+      );
+      setEvidenceError(
+        error instanceof Error ? error.message : "שגיאה בעדכון תיוג אדמין",
+      );
     }
   };
 
@@ -705,6 +870,24 @@ export const CrawlerResultsView: React.FC = () => {
                     מוצגים עכשיו: {activeEvidenceCount}
                   </span>
                 </div>
+
+                {evidenceAdminStats && (
+                  <div className="flex flex-wrap items-center gap-3 bg-blue-50 border border-blue-100 rounded-md px-3 py-2 text-xs text-blue-900">
+                    <span className="font-semibold">דיוק מודל לפי האדמין:</span>
+                    <span className="font-bold">
+                      {evidenceAdminStats.accuracy === null
+                        ? "-"
+                        : `${(evidenceAdminStats.accuracy * 100).toFixed(1)}%`}
+                    </span>
+                    <span className="text-blue-800/80">
+                      ({evidenceAdminStats.matches}/
+                      {evidenceAdminStats.totalWithModelLabel} תואמים)
+                    </span>
+                    <span className="text-blue-800/60">
+                      • {evidenceAdminStats.labeledByAdmin} תוייגו ע״י אדמין
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
@@ -722,6 +905,7 @@ export const CrawlerResultsView: React.FC = () => {
                       }`
                     }
                     evidence={item}
+                    onSetAdminLabel={handleSetAdminLabel}
                   />
                 ))}
                 {!evidenceLoading && evidence.length === 0 && (
