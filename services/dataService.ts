@@ -134,6 +134,37 @@ export type CrawlerThresholds = {
   min_profile_evaluated_tweets?: number;
 };
 
+export type CrawlerInfluence = {
+  location?: string;
+  description?: string;
+  followers_count?: number | null;
+  following_count?: number | null;
+  tweet_count?: number | null;
+  verified?: boolean;
+  views_count?: number;
+  likes_count?: number;
+  replies_count?: number;
+  retweets_count?: number;
+  quotes_count?: number;
+  bookmarks_count?: number;
+  shares_count?: number;
+  engagement_count?: number;
+  influence_score?: number;
+  engagement_source_count?: number;
+};
+
+export type CrawlerEvidenceAuthor = {
+  id?: string;
+  username?: string;
+  name?: string;
+  location?: string;
+  description?: string;
+  followers_count?: number | null;
+  following_count?: number | null;
+  tweet_count?: number | null;
+  verified?: boolean;
+};
+
 export type CrawlerUser = {
   _id?: string;
   username_key: string;
@@ -141,6 +172,7 @@ export type CrawlerUser = {
   current_status: CrawlerStatus;
   latest_run_id?: string;
   latest_score?: CrawlerScore;
+  latest_influence?: CrawlerInfluence;
   latest_thresholds?: CrawlerThresholds;
   first_seen_at?: string;
   last_seen_at?: string;
@@ -154,6 +186,7 @@ export type CrawlerUserRun = {
   username: string;
   status?: CrawlerStatus;
   score?: CrawlerScore;
+  influence?: CrawlerInfluence;
   thresholds?: CrawlerThresholds;
   created_at?: string;
   trigger_tweet_keys?: string[];
@@ -190,6 +223,10 @@ export type CrawlerEvidence = {
     like_count?: number;
     retweet_count?: number;
     reply_count?: number;
+    quote_count?: number;
+    view_count?: number;
+    bookmark_count?: number;
+    author?: CrawlerEvidenceAuthor;
   };
   format_version?: string;
   is_retweet?: boolean;
@@ -213,6 +250,7 @@ export type CrawlerUserPageResponse = {
   nextCursor: string | null;
   hasMore: boolean;
   total: number;
+  statusCounts?: Record<CrawlerStatus, number>;
 };
 
 export type CrawlerRunPageResponse = {

@@ -406,6 +406,42 @@ def extract_tweet_url(
     return None
 
 
+def first_present_value(source: dict[str, Any], keys: Iterable[str]) -> Any:
+    for key in keys:
+        value = source.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def parse_count(value: Any) -> int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        clean_value = value.strip().replace(",", "")
+        if clean_value.isdigit():
+            return int(clean_value)
+    return None
+
+
+def extract_tweet_count(tweet_item: dict[str, Any], keys: Iterable[str]) -> int | None:
+    value = first_present_value(tweet_item, keys)
+    if value is not None:
+        return parse_count(value)
+
+    legacy = tweet_item.get("legacy")
+    if isinstance(legacy, dict):
+        value = first_present_value(legacy, keys)
+        if value is not None:
+            return parse_count(value)
+
+    return None
+
+
 def extract_author_summary(tweet_item: dict[str, Any]) -> dict[str, Any]:
     author = tweet_item.get("author")
     if not isinstance(author, dict):
@@ -415,6 +451,27 @@ def extract_author_summary(tweet_item: dict[str, Any]) -> dict[str, Any]:
         "id": author.get("id") or author.get("userId") or author.get("rest_id"),
         "username": author.get("userName") or author.get("username") or author.get("screenName"),
         "name": author.get("name") or author.get("displayName"),
+        "location": first_present_value(author, ("location", "userLocation")),
+        "description": first_present_value(author, ("description", "bio")),
+        "followers_count": parse_count(
+            first_present_value(
+                author,
+                ("followers", "followersCount", "followers_count", "followerCount"),
+            )
+        ),
+        "following_count": parse_count(
+            first_present_value(
+                author,
+                ("following", "followingCount", "friendsCount", "friends_count"),
+            )
+        ),
+        "tweet_count": parse_count(
+            first_present_value(
+                author,
+                ("statusesCount", "statuses_count", "tweetCount", "tweetsCount"),
+            )
+        ),
+        "verified": bool(first_present_value(author, ("isVerified", "verified"))),
     }
 
 
@@ -440,6 +497,18 @@ def build_compact_source(tweet_item: dict[str, Any], *, username: str, tweet_id:
         "tweet_url": extract_tweet_url(tweet_item, username=username, tweet_id=tweet_id),
         "created_at": tweet_item.get("createdAt") or tweet_item.get("created_at"),
         "lang": tweet_item.get("lang"),
+        "like_count": extract_tweet_count(
+            tweet_item,
+            ("likeCount", "likes", "favoriteCount", "favorite_count"),
+        ),
+        "reply_count": extract_tweet_count(tweet_item, ("replyCount", "replies")),
+        "retweet_count": extract_tweet_count(tweet_item, ("retweetCount", "retweets")),
+        "quote_count": extract_tweet_count(tweet_item, ("quoteCount", "quotes")),
+        "view_count": extract_tweet_count(
+            tweet_item,
+            ("viewCount", "views", "impressionCount", "impressions"),
+        ),
+        "bookmark_count": extract_tweet_count(tweet_item, ("bookmarkCount", "bookmarks")),
         "author": extract_author_summary(tweet_item),
         "retweet": extract_nested_tweet_summary(get_retweet_object(tweet_item)),
         "quote": extract_nested_tweet_summary(get_quote_object(tweet_item)),
@@ -1167,13 +1236,13 @@ def main() -> None:
         "--min-positive-tweets",
         type=int,
         default=USER_JIHADI_TWEET_THRESHOLD,
-        help="Minimum Salafi jihadi profile tweets required in addition to the ratio rule.",
+        help="Salafi jihadi profile tweet threshold. The count must be greater than this value.",
     )
     parser.add_argument(
         "--ratio",
         type=float,
         default=POSITIVE_RATIO_THRESHOLD,
-        help="Minimum Salafi jihadi positive ratio required. Default 0.10.",
+        help="Salafi jihadi ratio threshold. The ratio must be greater than this value. Default 0.10.",
     )
     parser.add_argument(
         "--taklidi-ratio",

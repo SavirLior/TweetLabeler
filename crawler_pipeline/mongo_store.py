@@ -7,6 +7,7 @@ with the manual labeling site's existing ``tweets`` and ``users`` collections.
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import uuid
 from datetime import datetime, timezone
@@ -99,6 +100,111 @@ def _get_model_label(evaluation: Mapping[str, Any] | Any) -> str:
     return str(getattr(evaluation, "label", ""))
 
 
+def _get_source(evaluation: Mapping[str, Any] | Any) -> Mapping[str, Any]:
+    if isinstance(evaluation, Mapping):
+        source = evaluation.get("source")
+        return source if isinstance(source, Mapping) else {}
+    source = getattr(evaluation, "source", {})
+    return source if isinstance(source, Mapping) else {}
+
+
+def _get_count_value(source: Mapping[str, Any], key: str) -> int:
+    value = source.get(key)
+    if isinstance(value, bool) or value is None:
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        clean_value = value.strip().replace(",", "")
+        if clean_value.isdigit():
+            return int(clean_value)
+    return 0
+
+
+def _log_score(value: Any, *, full_score_at: int) -> float:
+    if isinstance(value, bool) or value is None:
+        return 0.0
+    if not isinstance(value, (int, float)):
+        return 0.0
+    numeric_value = max(0.0, float(value))
+    if numeric_value <= 0:
+        return 0.0
+    return min(100.0, (math.log10(numeric_value + 1) / math.log10(full_score_at + 1)) * 100)
+
+
+def calculate_influence_score(influence: Mapping[str, Any]) -> int:
+    followers_score = _log_score(influence.get("followers_count"), full_score_at=1_000_000)
+    views_score = _log_score(influence.get("views_count"), full_score_at=1_000_000)
+    engagement_score = _log_score(influence.get("engagement_count"), full_score_at=100_000)
+    verified_bonus = 5 if influence.get("verified") else 0
+    score = (
+        followers_score * 0.35
+        + views_score * 0.35
+        + engagement_score * 0.25
+        + verified_bonus
+    )
+    return int(round(min(100, score)))
+
+
+def aggregate_user_influence(evaluations: Iterable[Mapping[str, Any] | Any]) -> dict[str, Any]:
+    evaluations_list = list(evaluations)
+    engagement_source_count = len(evaluations_list)
+    influence: dict[str, Any] = {
+        "location": "",
+        "description": "",
+        "followers_count": None,
+        "following_count": None,
+        "tweet_count": None,
+        "verified": False,
+        "views_count": 0,
+        "likes_count": 0,
+        "replies_count": 0,
+        "retweets_count": 0,
+        "quotes_count": 0,
+        "bookmarks_count": 0,
+        "shares_count": 0,
+        "engagement_count": 0,
+        "influence_score": 0,
+        "engagement_source_count": engagement_source_count,
+    }
+
+    for evaluation in evaluations_list:
+        source = _get_source(evaluation)
+        author = source.get("author")
+        author = author if isinstance(author, Mapping) else {}
+
+        if not influence["location"] and author.get("location"):
+            influence["location"] = str(author.get("location")).strip()
+        if not influence["description"] and author.get("description"):
+            influence["description"] = str(author.get("description")).strip()
+
+        for key in ("followers_count", "following_count", "tweet_count"):
+            value = author.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                current = influence[key]
+                influence[key] = int(value) if current is None else max(current, int(value))
+
+        influence["verified"] = bool(influence["verified"] or author.get("verified"))
+        influence["views_count"] += _get_count_value(source, "view_count")
+        influence["likes_count"] += _get_count_value(source, "like_count")
+        influence["replies_count"] += _get_count_value(source, "reply_count")
+        influence["retweets_count"] += _get_count_value(source, "retweet_count")
+        influence["quotes_count"] += _get_count_value(source, "quote_count")
+        influence["bookmarks_count"] += _get_count_value(source, "bookmark_count")
+
+    influence["shares_count"] = influence["retweets_count"] + influence["quotes_count"]
+    influence["engagement_count"] = (
+        influence["likes_count"]
+        + influence["replies_count"]
+        + influence["retweets_count"]
+        + influence["quotes_count"]
+    )
+    influence["influence_score"] = calculate_influence_score(influence)
+    return influence
+
+
 def classify_user_score(
     positive_count: int,
     evaluated_count: int,
@@ -116,16 +222,16 @@ def classify_user_score(
     positive_ratio = positive_count / evaluated_count if evaluated_count else 0.0
     taklidi_ratio = taklidi_count / evaluated_count if evaluated_count else 0.0
     if (
-        positive_count >= min_positive_tweets
-        and positive_ratio >= positive_ratio_threshold
-    ):
-        return STATUS_SALAFI_JIHADI
-
-    if (
         taklidi_ratio > taklidi_ratio_threshold
         and taklidi_ratio >= positive_ratio + taklidi_ratio_margin
     ):
         return STATUS_SALAFI_TAKLIDI
+
+    if (
+        positive_count > min_positive_tweets
+        and positive_ratio > positive_ratio_threshold
+    ):
+        return STATUS_SALAFI_JIHADI
 
     return STATUS_NOT_SALAFI_JIHADI
 
@@ -333,6 +439,7 @@ class CrawlerMongoStore:
             ),
         )
         status = score["status"]
+        influence = aggregate_user_influence(profile_docs or all_evidence)
 
         for evidence_doc in all_evidence:
             self.evidence.update_one(
@@ -366,6 +473,7 @@ class CrawlerMongoStore:
                 "profile_taklidi_count": score["taklidi_count"],
                 "profile_evaluated_count": score["evaluated_count"],
             },
+            "influence": influence,
             "thresholds": dict(thresholds),
             "trigger_tweet_keys": trigger_tweet_keys,
             "evidence_tweet_keys": evidence_tweet_keys,
@@ -389,6 +497,7 @@ class CrawlerMongoStore:
                     "current_status": status,
                     "latest_run_id": run_id,
                     "latest_score": user_run_doc["score"],
+                    "latest_influence": influence,
                     "latest_thresholds": dict(thresholds),
                     "last_seen_at": now,
                 },

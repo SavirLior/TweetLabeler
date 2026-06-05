@@ -98,6 +98,44 @@ class TwitterCrawlerHelperTests(unittest.TestCase):
         self.assertTrue(is_deep_dive_trigger(taklidi))
         self.assertFalse(is_deep_dive_trigger(irrelevant))
 
+    def test_compact_source_includes_author_location_and_influence_metrics(self):
+        items = [
+            {
+                "id": "123",
+                "lang": "en",
+                "author": {
+                    "userName": "ExampleUser",
+                    "location": "London",
+                    "followersCount": "12,345",
+                    "followingCount": 500,
+                    "statusesCount": 9000,
+                    "isVerified": True,
+                },
+                "fullText": "A profile tweet with metrics.",
+                "likeCount": 10,
+                "replyCount": 2,
+                "retweetCount": 3,
+                "quoteCount": 1,
+                "viewCount": "1,200",
+                "bookmarkCount": 4,
+            }
+        ]
+
+        result = build_discovered_tweets_from_items(items, scope="profile")
+
+        source = result.tweets[0].source
+        self.assertEqual(source["author"]["location"], "London")
+        self.assertEqual(source["author"]["followers_count"], 12345)
+        self.assertEqual(source["author"]["following_count"], 500)
+        self.assertEqual(source["author"]["tweet_count"], 9000)
+        self.assertTrue(source["author"]["verified"])
+        self.assertEqual(source["like_count"], 10)
+        self.assertEqual(source["reply_count"], 2)
+        self.assertEqual(source["retweet_count"], 3)
+        self.assertEqual(source["quote_count"], 1)
+        self.assertEqual(source["view_count"], 1200)
+        self.assertEqual(source["bookmark_count"], 4)
+
     def test_keywords_file_ignores_comments_blanks_and_duplicates(self):
         with TemporaryDirectory() as directory:
             keywords_path = Path(directory) / "keywords.txt"

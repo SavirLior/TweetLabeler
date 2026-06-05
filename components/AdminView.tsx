@@ -91,7 +91,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "upload" | "resolutions" | "resolvedConflicts" | "crawlerResults"
-  >("dashboard");
+  >("crawlerResults");
 
   // Filters
   const [selectedStudentFilter, setSelectedStudentFilter] =

@@ -11,7 +11,9 @@ try:
         STATUS_INSUFFICIENT_DATA,
         USER_RUNS_COLLECTION,
         USERS_COLLECTION,
+        aggregate_user_influence,
         calculate_classification_score,
+        calculate_influence_score,
     )
 except ImportError:
     from mongo_store import (
@@ -24,7 +26,9 @@ except ImportError:
         STATUS_INSUFFICIENT_DATA,
         USER_RUNS_COLLECTION,
         USERS_COLLECTION,
+        aggregate_user_influence,
         calculate_classification_score,
+        calculate_influence_score,
     )
 
 
@@ -123,30 +127,30 @@ def evidence_docs(total, positive, *, taklidi=0, offset=0):
 
 
 class CrawlerMongoStoreTests(unittest.TestCase):
-    def test_classification_threshold_uses_ten_percent_ratio_and_minimum_profile_size(self):
+    def test_classification_threshold_uses_more_than_ten_percent_and_minimum_profile_size(self):
         ninety_nine_with_many_positive = calculate_classification_score(
             evidence_docs(99, 20),
             positive_ratio_threshold=0.10,
-            min_positive_tweets=0,
+            min_positive_tweets=10,
             min_evaluated_tweets=100,
         )
         self.assertEqual(ninety_nine_with_many_positive["status"], STATUS_INSUFFICIENT_DATA)
 
-        nine_of_one_hundred = calculate_classification_score(
-            evidence_docs(100, 9),
-            positive_ratio_threshold=0.10,
-            min_positive_tweets=0,
-            min_evaluated_tweets=100,
-        )
-        self.assertEqual(nine_of_one_hundred["status"], STATUS_NOT_SALAFI_JIHADI)
-
         ten_of_one_hundred = calculate_classification_score(
             evidence_docs(100, 10),
             positive_ratio_threshold=0.10,
-            min_positive_tweets=0,
+            min_positive_tweets=10,
             min_evaluated_tweets=100,
         )
-        self.assertEqual(ten_of_one_hundred["status"], STATUS_SALAFI_JIHADI)
+        self.assertEqual(ten_of_one_hundred["status"], STATUS_NOT_SALAFI_JIHADI)
+
+        eleven_of_one_hundred = calculate_classification_score(
+            evidence_docs(100, 11),
+            positive_ratio_threshold=0.10,
+            min_positive_tweets=10,
+            min_evaluated_tweets=100,
+        )
+        self.assertEqual(eleven_of_one_hundred["status"], STATUS_SALAFI_JIHADI)
 
     def test_classification_can_mark_taklidi_when_ratio_clears_threshold_and_margin(self):
         twenty_five_percent = calculate_classification_score(
@@ -175,7 +179,7 @@ class CrawlerMongoStoreTests(unittest.TestCase):
         self.assertEqual(clears_threshold_and_margin["taklidi_count"], 31)
         self.assertAlmostEqual(clears_threshold_and_margin["taklidi_ratio"], 0.31)
 
-    def test_jihadi_classification_takes_priority_over_taklidi(self):
+    def test_taklidi_classification_takes_priority_over_jihadi(self):
         score = calculate_classification_score(
             evidence_docs(100, 30, taklidi=40),
             positive_ratio_threshold=0.10,
@@ -183,7 +187,64 @@ class CrawlerMongoStoreTests(unittest.TestCase):
             min_evaluated_tweets=100,
         )
 
-        self.assertEqual(score["status"], STATUS_SALAFI_JIHADI)
+        self.assertEqual(score["status"], STATUS_SALAFI_TAKLIDI)
+
+    def test_aggregate_user_influence_uses_author_profile_and_tweet_metrics(self):
+        docs = evidence_docs(2, 1)
+        docs[0]["source"].update(
+            {
+                "author": {
+                    "username": "ExampleUser",
+                    "location": "London",
+                    "description": "Profile bio",
+                    "followers_count": 1000,
+                    "following_count": 200,
+                    "tweet_count": 3000,
+                    "verified": True,
+                },
+                "view_count": 100,
+                "like_count": 10,
+                "reply_count": 2,
+                "retweet_count": 3,
+                "quote_count": 1,
+                "bookmark_count": 5,
+            }
+        )
+        docs[1]["source"].update(
+            {
+                "author": {
+                    "username": "ExampleUser",
+                    "followers_count": 1200,
+                    "following_count": 250,
+                    "tweet_count": 3200,
+                },
+                "view_count": 50,
+                "like_count": 4,
+                "reply_count": 1,
+                "retweet_count": 2,
+                "quote_count": 0,
+                "bookmark_count": 1,
+            }
+        )
+
+        influence = aggregate_user_influence(docs)
+
+        self.assertEqual(influence["location"], "London")
+        self.assertEqual(influence["description"], "Profile bio")
+        self.assertEqual(influence["followers_count"], 1200)
+        self.assertEqual(influence["following_count"], 250)
+        self.assertEqual(influence["tweet_count"], 3200)
+        self.assertTrue(influence["verified"])
+        self.assertEqual(influence["views_count"], 150)
+        self.assertEqual(influence["likes_count"], 14)
+        self.assertEqual(influence["replies_count"], 3)
+        self.assertEqual(influence["retweets_count"], 5)
+        self.assertEqual(influence["quotes_count"], 1)
+        self.assertEqual(influence["shares_count"], 6)
+        self.assertEqual(influence["bookmarks_count"], 6)
+        self.assertEqual(influence["engagement_count"], 23)
+        self.assertEqual(influence["influence_score"], calculate_influence_score(influence))
+        self.assertGreater(influence["influence_score"], 0)
 
     def test_save_user_deep_dive_writes_only_crawler_collections_and_is_idempotent(self):
         fake_db = FakeDb()

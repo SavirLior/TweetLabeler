@@ -564,11 +564,26 @@ def crawler_user_run_to_user_doc(run_doc, user_doc=None):
         "current_status": run_doc.get("status", ""),
         "latest_run_id": run_doc.get("run_id", ""),
         "latest_score": run_doc.get("score") or {},
+        "latest_influence": run_doc.get("influence") or {},
         "latest_thresholds": run_doc.get("thresholds") or {},
         "first_seen_at": user_doc.get("first_seen_at"),
         "last_seen_at": run_doc.get("created_at") or user_doc.get("last_seen_at"),
         "discovered_by_keywords": user_doc.get("discovered_by_keywords") or [],
     }
+
+
+def get_crawler_status_counts(collection, query, status_field):
+    counts = {status: 0 for status in CRAWLER_STATUS_VALUES}
+    for row in collection.aggregate(
+        [
+            {"$match": query},
+            {"$group": {"_id": f"${status_field}", "count": {"$sum": 1}}},
+        ]
+    ):
+        status = row.get("_id") or ""
+        if status:
+            counts[status] = int(row.get("count", 0) or 0)
+    return counts
 
 
 def apply_crawler_evidence_filters(query, args):
@@ -652,12 +667,21 @@ def build_crawler_users_csv_rows(users):
     rows = []
     for user in users:
         score = user.get("latest_score") or {}
+        influence = user.get("latest_influence") or {}
         thresholds = user.get("latest_thresholds") or {}
         rows.append(
             [
                 user.get("username", ""),
                 user.get("username_key", ""),
                 user.get("current_status", ""),
+                influence.get("influence_score", ""),
+                influence.get("location", ""),
+                influence.get("followers_count", ""),
+                influence.get("views_count", ""),
+                influence.get("likes_count", ""),
+                influence.get("replies_count", ""),
+                influence.get("shares_count", ""),
+                influence.get("engagement_count", ""),
                 score.get("positive_count", ""),
                 score.get("taklidi_count", ""),
                 score.get("evaluated_count", ""),
@@ -680,6 +704,7 @@ def build_crawler_evidence_csv_rows(evidence_docs):
     rows = []
     for doc in evidence_docs:
         source = doc.get("source") if isinstance(doc.get("source"), dict) else {}
+        author = source.get("author") if isinstance(source.get("author"), dict) else {}
         probabilities = doc.get("probabilities") or {}
         rows.append(
             [
@@ -690,6 +715,14 @@ def build_crawler_evidence_csv_rows(evidence_docs):
                 doc.get("admin_label", ""),
                 doc.get("confidence", ""),
                 doc.get("flagged", ""),
+                author.get("location", ""),
+                author.get("followers_count", ""),
+                source.get("view_count", ""),
+                source.get("like_count", ""),
+                source.get("reply_count", ""),
+                source.get("retweet_count", ""),
+                source.get("quote_count", ""),
+                source.get("bookmark_count", ""),
                 probabilities.get("Salafi jihadi", ""),
                 probabilities.get("Salafi taklidi", ""),
                 probabilities.get("Irrelevant", ""),
@@ -979,11 +1012,14 @@ def list_crawler_users():
     try:
         limit, offset = get_pagination_args(default_limit=50, max_limit=200)
         run_id = (request.args.get("runId") or "").strip()
+        status_count_args = request.args.to_dict()
+        status_count_args["status"] = "all"
 
         if run_id and run_id != "all":
             query = build_crawler_user_runs_query(request.args)
             if query is None:
                 return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+            status_count_query = build_crawler_user_runs_query(status_count_args) or {}
 
             projection = {
                 "_id": 1,
@@ -992,6 +1028,7 @@ def list_crawler_users():
                 "username": 1,
                 "status": 1,
                 "score": 1,
+                "influence": 1,
                 "thresholds": 1,
                 "created_at": 1,
             }
@@ -1029,12 +1066,18 @@ def list_crawler_users():
                     "nextCursor": str(next_offset) if next_offset < total else None,
                     "hasMore": next_offset < total,
                     "total": total,
+                    "statusCounts": get_crawler_status_counts(
+                        crawler_user_runs_collection,
+                        status_count_query,
+                        "status",
+                    ),
                 }
             )
 
         query = build_crawler_users_query(request.args)
         if query is None:
             return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+        status_count_query = build_crawler_users_query(status_count_args) or {}
 
         projection = {
             "_id": 1,
@@ -1043,6 +1086,7 @@ def list_crawler_users():
             "current_status": 1,
             "latest_run_id": 1,
             "latest_score": 1,
+            "latest_influence": 1,
             "latest_thresholds": 1,
             "last_seen_at": 1,
             "first_seen_at": 1,
@@ -1063,6 +1107,11 @@ def list_crawler_users():
                 "nextCursor": str(next_offset) if next_offset < total else None,
                 "hasMore": next_offset < total,
                 "total": total,
+                "statusCounts": get_crawler_status_counts(
+                    crawler_users_collection,
+                    status_count_query,
+                    "current_status",
+                ),
             }
         )
     except Exception as e:
@@ -1139,6 +1188,10 @@ def list_crawler_user_evidence(username_key):
             "source.like_count": 1,
             "source.retweet_count": 1,
             "source.reply_count": 1,
+            "source.quote_count": 1,
+            "source.view_count": 1,
+            "source.bookmark_count": 1,
+            "source.author": 1,
             "format_version": 1,
             "is_retweet": 1,
             "is_quote": 1,
@@ -1239,6 +1292,7 @@ def list_crawler_user_runs(username_key):
                     "username": 1,
                     "status": 1,
                     "score": 1,
+                    "influence": 1,
                     "thresholds": 1,
                     "created_at": 1,
                     "trigger_tweet_keys": 1,
@@ -1275,6 +1329,7 @@ def export_crawler_users_csv():
                         "username": 1,
                         "status": 1,
                         "score": 1,
+                        "influence": 1,
                         "thresholds": 1,
                         "created_at": 1,
                     },
@@ -1316,6 +1371,7 @@ def export_crawler_users_csv():
                         "current_status": 1,
                         "latest_run_id": 1,
                         "latest_score": 1,
+                        "latest_influence": 1,
                         "latest_thresholds": 1,
                         "last_seen_at": 1,
                         "discovered_by_keywords": 1,
@@ -1326,6 +1382,14 @@ def export_crawler_users_csv():
             "username",
             "username_key",
             "status",
+            "influence_score",
+            "location",
+            "followers_count",
+            "views_count",
+            "likes_count",
+            "replies_count",
+            "shares_count",
+            "engagement_count",
             "positive_count",
             "taklidi_count",
             "evaluated_count",
@@ -1379,6 +1443,13 @@ def export_crawler_evidence_csv():
                     "confidence": 1,
                     "probabilities": 1,
                     "source.created_at": 1,
+                    "source.author": 1,
+                    "source.view_count": 1,
+                    "source.like_count": 1,
+                    "source.reply_count": 1,
+                    "source.retweet_count": 1,
+                    "source.quote_count": 1,
+                    "source.bookmark_count": 1,
                     "collected_at": 1,
                 },
             )
@@ -1392,6 +1463,14 @@ def export_crawler_evidence_csv():
             "admin_label",
             "confidence",
             "flagged",
+            "author_location",
+            "author_followers_count",
+            "views",
+            "likes",
+            "replies",
+            "retweets",
+            "quotes",
+            "bookmarks",
             "prob_salafi_jihadi",
             "prob_salafi_taklidi",
             "prob_irrelevant",
