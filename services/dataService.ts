@@ -160,6 +160,17 @@ export type CrawlerUserRun = {
   evidence_tweet_keys?: string[];
 };
 
+export type CrawlerRun = {
+  _id?: string;
+  run_id: string;
+  status?: string;
+  started_at?: string;
+  finished_at?: string;
+  keywords?: string[];
+  params?: Record<string, unknown>;
+  counts?: Record<string, number>;
+};
+
 export type CrawlerEvidence = {
   _id?: string;
   run_id?: string;
@@ -204,6 +215,13 @@ export type CrawlerUserPageResponse = {
   total: number;
 };
 
+export type CrawlerRunPageResponse = {
+  items: CrawlerRun[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  total: number;
+};
+
 export type CrawlerEvidencePageResponse = {
   items: CrawlerEvidence[];
   nextCursor: string | null;
@@ -215,6 +233,7 @@ export type CrawlerEvidencePageResponse = {
 
 export type CrawlerUserQuery = {
   status?: CrawlerStatus | "all";
+  runId?: string;
   search?: string;
   limit?: number;
   cursor?: string;
@@ -294,6 +313,7 @@ const buildTweetDelta = (tweet: Tweet): TweetDelta => {
 const buildCrawlerUserParams = (q: CrawlerUserQuery) => {
   const params = new URLSearchParams();
   if (q.status && q.status !== "all") params.set("status", q.status);
+  if (q.runId && q.runId !== "all") params.set("runId", q.runId);
   if (q.search) params.set("search", q.search);
   if (q.limit) params.set("limit", String(q.limit));
   if (q.cursor) params.set("cursor", q.cursor);
@@ -390,6 +410,17 @@ export const getCrawlerEvidence = async (
   );
 };
 
+export const getCrawlerRuns = async (
+  signal?: AbortSignal,
+): Promise<CrawlerRunPageResponse> => {
+  return apiRequest<CrawlerRunPageResponse>(
+    "/crawler/runs?limit=200",
+    "GET",
+    undefined,
+    signal,
+  );
+};
+
 export const setCrawlerEvidenceAdminLabel = async (
   evidenceId: string,
   adminLabel: CrawlerModelLabel | null,
@@ -419,7 +450,7 @@ export const getCrawlerUserRuns = async (
 };
 
 export const exportCrawlerUsersCsv = async (
-  q: Pick<CrawlerUserQuery, "status" | "search">,
+  q: Pick<CrawlerUserQuery, "status" | "runId" | "search">,
 ) => {
   const params = buildCrawlerUserParams(q);
   await downloadApiFile(

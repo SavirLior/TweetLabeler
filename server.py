@@ -529,6 +529,48 @@ def build_crawler_users_query(args):
     return query
 
 
+def build_crawler_user_runs_query(args):
+    query = {}
+    run_id = (args.get("runId") or "").strip()
+    status = args.get("status")
+    search = (args.get("search") or "").strip()
+
+    if run_id and run_id != "all":
+        query["run_id"] = run_id
+
+    if status and status != "all":
+        if status not in CRAWLER_STATUS_VALUES:
+            return None
+        query["status"] = status
+
+    if search:
+        import re
+
+        escaped = re.escape(search)
+        query["$or"] = [
+            {"username": {"$regex": escaped, "$options": "i"}},
+            {"username_key": {"$regex": escaped, "$options": "i"}},
+        ]
+
+    return query
+
+
+def crawler_user_run_to_user_doc(run_doc, user_doc=None):
+    user_doc = user_doc or {}
+    return {
+        "_id": run_doc.get("_id"),
+        "username_key": run_doc.get("username_key", ""),
+        "username": run_doc.get("username") or user_doc.get("username", ""),
+        "current_status": run_doc.get("status", ""),
+        "latest_run_id": run_doc.get("run_id", ""),
+        "latest_score": run_doc.get("score") or {},
+        "latest_thresholds": run_doc.get("thresholds") or {},
+        "first_seen_at": user_doc.get("first_seen_at"),
+        "last_seen_at": run_doc.get("created_at") or user_doc.get("last_seen_at"),
+        "discovered_by_keywords": user_doc.get("discovered_by_keywords") or [],
+    }
+
+
 def apply_crawler_evidence_filters(query, args):
     run_id = (args.get("runId") or "").strip()
     label = (args.get("label") or "").strip()
@@ -936,6 +978,60 @@ def list_crawler_users():
 
     try:
         limit, offset = get_pagination_args(default_limit=50, max_limit=200)
+        run_id = (request.args.get("runId") or "").strip()
+
+        if run_id and run_id != "all":
+            query = build_crawler_user_runs_query(request.args)
+            if query is None:
+                return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+
+            projection = {
+                "_id": 1,
+                "run_id": 1,
+                "username_key": 1,
+                "username": 1,
+                "status": 1,
+                "score": 1,
+                "thresholds": 1,
+                "created_at": 1,
+            }
+            total = crawler_user_runs_collection.count_documents(query)
+            run_docs = list(
+                crawler_user_runs_collection.find(query, projection)
+                .sort([("created_at", -1), ("username_key", 1)])
+                .skip(offset)
+                .limit(limit)
+            )
+            user_keys = [doc.get("username_key") for doc in run_docs if doc.get("username_key")]
+            user_docs = {
+                doc.get("username_key"): doc
+                for doc in crawler_users_collection.find(
+                    {"username_key": {"$in": user_keys}},
+                    {
+                        "_id": 0,
+                        "username_key": 1,
+                        "username": 1,
+                        "first_seen_at": 1,
+                        "last_seen_at": 1,
+                        "discovered_by_keywords": 1,
+                    },
+                )
+            }
+            docs = [
+                crawler_user_run_to_user_doc(doc, user_docs.get(doc.get("username_key")))
+                for doc in run_docs
+            ]
+            next_offset = offset + len(docs)
+
+            return jsonify(
+                {
+                    "items": [serialize_mongo_value(doc) for doc in docs],
+                    "nextCursor": str(next_offset) if next_offset < total else None,
+                    "hasMore": next_offset < total,
+                    "total": total,
+                }
+            )
+
         query = build_crawler_users_query(request.args)
         if query is None:
             return jsonify({"success": False, "error": "Invalid crawler status"}), 400
@@ -961,6 +1057,46 @@ def list_crawler_users():
         )
         next_offset = offset + len(docs)
 
+        return jsonify(
+            {
+                "items": [serialize_mongo_value(doc) for doc in docs],
+                "nextCursor": str(next_offset) if next_offset < total else None,
+                "hasMore": next_offset < total,
+                "total": total,
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/runs", methods=["GET"])
+def list_crawler_runs():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        limit, offset = get_pagination_args(default_limit=100, max_limit=500)
+        total = crawler_runs_collection.count_documents({})
+        docs = list(
+            crawler_runs_collection.find(
+                {},
+                {
+                    "_id": 1,
+                    "run_id": 1,
+                    "status": 1,
+                    "started_at": 1,
+                    "finished_at": 1,
+                    "keywords": 1,
+                    "params": 1,
+                    "counts": 1,
+                },
+            )
+            .sort([("started_at", -1), ("run_id", -1)])
+            .skip(offset)
+            .limit(limit)
+        )
+        next_offset = offset + len(docs)
         return jsonify(
             {
                 "items": [serialize_mongo_value(doc) for doc in docs],
@@ -1122,26 +1258,70 @@ def export_crawler_users_csv():
         return auth_error
 
     try:
-        query = build_crawler_users_query(request.args)
-        if query is None:
-            return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+        run_id = (request.args.get("runId") or "").strip()
 
-        users = list(
-            crawler_users_collection.find(
-                query,
-                {
-                    "_id": 0,
-                    "username_key": 1,
-                    "username": 1,
-                    "current_status": 1,
-                    "latest_run_id": 1,
-                    "latest_score": 1,
-                    "latest_thresholds": 1,
-                    "last_seen_at": 1,
-                    "discovered_by_keywords": 1,
-                },
-            ).sort([("last_seen_at", -1), ("username_key", 1)])
-        )
+        if run_id and run_id != "all":
+            query = build_crawler_user_runs_query(request.args)
+            if query is None:
+                return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+
+            run_docs = list(
+                crawler_user_runs_collection.find(
+                    query,
+                    {
+                        "_id": 0,
+                        "run_id": 1,
+                        "username_key": 1,
+                        "username": 1,
+                        "status": 1,
+                        "score": 1,
+                        "thresholds": 1,
+                        "created_at": 1,
+                    },
+                ).sort([("created_at", -1), ("username_key", 1)])
+            )
+            user_keys = [
+                doc.get("username_key") for doc in run_docs if doc.get("username_key")
+            ]
+            user_docs = {
+                doc.get("username_key"): doc
+                for doc in crawler_users_collection.find(
+                    {"username_key": {"$in": user_keys}},
+                    {
+                        "_id": 0,
+                        "username_key": 1,
+                        "username": 1,
+                        "last_seen_at": 1,
+                        "first_seen_at": 1,
+                        "discovered_by_keywords": 1,
+                    },
+                )
+            }
+            users = [
+                crawler_user_run_to_user_doc(doc, user_docs.get(doc.get("username_key")))
+                for doc in run_docs
+            ]
+        else:
+            query = build_crawler_users_query(request.args)
+            if query is None:
+                return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+
+            users = list(
+                crawler_users_collection.find(
+                    query,
+                    {
+                        "_id": 0,
+                        "username_key": 1,
+                        "username": 1,
+                        "current_status": 1,
+                        "latest_run_id": 1,
+                        "latest_score": 1,
+                        "latest_thresholds": 1,
+                        "last_seen_at": 1,
+                        "discovered_by_keywords": 1,
+                    },
+                ).sort([("last_seen_at", -1), ("username_key", 1)])
+            )
         header = [
             "username",
             "username_key",

@@ -14,12 +14,14 @@ import {
   CrawlerEvidence,
   CrawlerEvidenceAdminStats,
   CrawlerModelLabel,
+  CrawlerRun,
   CrawlerStatus,
   CrawlerUser,
   CrawlerUserRun,
   exportCrawlerEvidenceCsv,
   exportCrawlerUsersCsv,
   getCrawlerEvidence,
+  getCrawlerRuns,
   getCrawlerUserRuns,
   getCrawlerUsers,
   setCrawlerEvidenceAdminLabel,
@@ -282,7 +284,9 @@ const EvidenceItem: React.FC<EvidenceItemProps> = ({ evidence, onSetAdminLabel }
 
 export const CrawlerResultsView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [runFilter, setRunFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [crawlerRuns, setCrawlerRuns] = useState<CrawlerRun[]>([]);
   const [users, setUsers] = useState<CrawlerUser[]>([]);
   const [usersCursor, setUsersCursor] = useState<string | null>(null);
   const [usersTotal, setUsersTotal] = useState(0);
@@ -305,6 +309,23 @@ export const CrawlerResultsView: React.FC = () => {
   const [showStats, setShowStats] = useState(true);
   const [exporting, setExporting] = useState<"users" | "evidence" | null>(null);
 
+  const formatRunOptionLabel = (run: CrawlerRun) => {
+    const started = formatDate(run.started_at);
+    const count = run.counts?.deep_dived_users;
+    return `${started} - ${run.run_id}${typeof count === "number" ? ` (${count})` : ""}`;
+  };
+
+  const loadCrawlerRuns = async (signal?: AbortSignal) => {
+    try {
+      const response = await getCrawlerRuns(signal);
+      if (signal?.aborted) return;
+      setCrawlerRuns(response.items);
+    } catch {
+      if (signal?.aborted) return;
+      setCrawlerRuns([]);
+    }
+  };
+
   const loadUsers = async (
     mode: "replace" | "append" = "replace",
     signal?: AbortSignal,
@@ -314,6 +335,7 @@ export const CrawlerResultsView: React.FC = () => {
     try {
       const response = await getCrawlerUsers({
         status: statusFilter,
+        runId: runFilter,
         search: search.trim(),
         limit: USER_PAGE_SIZE,
         cursor: mode === "append" ? usersCursor || undefined : undefined,
@@ -384,6 +406,12 @@ export const CrawlerResultsView: React.FC = () => {
       setUserRuns(response.items);
       setSelectedRunId((current) => {
         if (
+          runFilter !== "all" &&
+          response.items.some((run) => run.run_id === runFilter)
+        ) {
+          return runFilter;
+        }
+        if (
           current !== "all" &&
           response.items.some((run) => run.run_id === current)
         ) {
@@ -409,6 +437,12 @@ export const CrawlerResultsView: React.FC = () => {
 
   useEffect(() => {
     const controller = new AbortController();
+    loadCrawlerRuns(controller.signal);
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
     const timeoutId = window.setTimeout(() => {
       loadUsers("replace", controller.signal);
     }, 250);
@@ -416,7 +450,7 @@ export const CrawlerResultsView: React.FC = () => {
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [statusFilter, search]);
+  }, [statusFilter, runFilter, search]);
 
   useEffect(() => {
     if (
@@ -447,11 +481,11 @@ export const CrawlerResultsView: React.FC = () => {
     }
     const controller = new AbortController();
     setUserRuns([]);
-    setSelectedRunId(selectedUser.latest_run_id || "all");
+    setSelectedRunId(runFilter !== "all" ? runFilter : selectedUser.latest_run_id || "all");
     setLabelFilter("all");
     loadUserRuns(selectedUser, controller.signal);
     return () => controller.abort();
-  }, [selectedUser?.username_key]);
+  }, [selectedUser?.username_key, runFilter]);
 
   const selectedScore = selectedUser?.latest_score || {};
   const selectedThresholds = selectedUser?.latest_thresholds || {};
@@ -475,7 +509,11 @@ export const CrawlerResultsView: React.FC = () => {
   const handleUsersExport = async () => {
     setExporting("users");
     try {
-      await exportCrawlerUsersCsv({ status: statusFilter, search: search.trim() });
+      await exportCrawlerUsersCsv({
+        status: statusFilter,
+        runId: runFilter,
+        search: search.trim(),
+      });
     } finally {
       setExporting(null);
     }
@@ -585,7 +623,7 @@ export const CrawlerResultsView: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_280px] gap-3 mt-4">
           <label className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -605,6 +643,21 @@ export const CrawlerResultsView: React.FC = () => {
               {Object.entries(statusLabels).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="relative">
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <select
+              value={runFilter}
+              onChange={(event) => setRunFilter(event.target.value)}
+              className="w-full pr-10 pl-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All crawls</option>
+              {crawlerRuns.map((run) => (
+                <option key={run.run_id} value={run.run_id}>
+                  {formatRunOptionLabel(run)}
                 </option>
               ))}
             </select>
