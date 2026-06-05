@@ -1,28 +1,39 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   BarChart2,
   ChevronDown,
   ChevronUp,
   Download,
   ExternalLink,
   Filter,
+  Play,
+  Plus,
   RefreshCw,
   Search,
+  Trash2,
 } from "lucide-react";
 import { Button } from "./Button";
 import {
   CrawlerEvidence,
   CrawlerEvidenceAdminStats,
+  CrawlerInfluence,
   CrawlerModelLabel,
+  CrawlerRun,
   CrawlerStatus,
   CrawlerUser,
   CrawlerUserRun,
   exportCrawlerEvidenceCsv,
   exportCrawlerUsersCsv,
+  getCrawlerKeywords,
   getCrawlerEvidence,
+  getCrawlerRuns,
   getCrawlerUserRuns,
   getCrawlerUsers,
+  saveCrawlerKeywords,
   setCrawlerEvidenceAdminLabel,
+  startCrawlerRun,
 } from "../services/dataService";
 
 const ADMIN_LABEL_CHOICES: CrawlerModelLabel[] = [
@@ -58,16 +69,19 @@ const EVIDENCE_PAGE_SIZE = 100;
 
 type StatusFilter = CrawlerStatus | "all";
 type EvidenceLabelFilter = CrawlerModelLabel | "all";
+type CrawlerKeywordMode = "default" | "custom";
 
 const statusLabels: Record<StatusFilter, string> = {
   all: "כל הסטטוסים",
   salafi_jihadi: "Salafi jihadi",
+  salafi_taklidi: "Salafi taklidi",
   not_salafi_jihadi: "Not salafi jihadi",
   insufficient_data: "Insufficient data",
 };
 
 const statusClasses: Record<CrawlerStatus, string> = {
   salafi_jihadi: "bg-red-100 text-red-800 border-red-200",
+  salafi_taklidi: "bg-blue-100 text-blue-800 border-blue-200",
   not_salafi_jihadi: "bg-gray-100 text-gray-700 border-gray-200",
   insufficient_data: "bg-yellow-100 text-yellow-800 border-yellow-200",
 };
@@ -98,9 +112,24 @@ const evidenceLabelOrder: EvidenceLabelFilter[] = [
   "Irrelevant",
 ];
 
+const userStatusOrder: CrawlerStatus[] = [
+  "salafi_taklidi",
+  "salafi_jihadi",
+  "not_salafi_jihadi",
+  "insufficient_data",
+];
+
 const formatNumber = (value?: number, digits = 3) => {
   if (typeof value !== "number" || Number.isNaN(value)) return "-";
   return value.toFixed(digits);
+};
+
+const formatCompactNumber = (value?: number | null) => {
+  if (typeof value !== "number" || Number.isNaN(value)) return "-";
+  return new Intl.NumberFormat("en", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 };
 
 const formatPercent = (value?: number) => {
@@ -126,6 +155,128 @@ const getProbabilityEntries = (evidence: CrawlerEvidence) =>
 
 const getUserPositiveRatio = (user: CrawlerUser) =>
   user.latest_score?.positive_ratio;
+
+const getUserTaklidiRatio = (user: CrawlerUser) =>
+  user.latest_score?.taklidi_ratio;
+
+const getTwitterProfileUrl = (username: string) =>
+  `https://x.com/${username.replace(/^@+/, "")}`;
+
+const getInfluenceLocation = (influence?: CrawlerInfluence) =>
+  influence?.location?.trim() || "-";
+
+const parseKeywordInput = (value: string) => {
+  const seen = new Set<string>();
+  return value
+    .replace(/,/g, "\n")
+    .split(/\r?\n/)
+    .map((keyword) => keyword.trim())
+    .filter((keyword) => {
+      if (!keyword || keyword.startsWith("#")) return false;
+      const key = keyword.toLocaleLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const getApiErrorText = (error: unknown) => {
+  const apiError = error as { status?: number; responseBody?: unknown; message?: string };
+  const responseBody = apiError.responseBody;
+  let serverMessage = "";
+  if (responseBody && typeof responseBody === "object" && "error" in responseBody) {
+    serverMessage = String((responseBody as { error?: unknown }).error || "");
+  } else if (typeof responseBody === "string") {
+    serverMessage = responseBody;
+  }
+
+  return [
+    apiError.status ? `API ${apiError.status}` : "",
+    serverMessage || apiError.message || "Unknown error",
+  ]
+    .filter(Boolean)
+    .join(": ");
+};
+
+const hasInfluenceData = (influence?: CrawlerInfluence) =>
+  Boolean(
+    influence &&
+      [
+        influence.influence_score,
+        influence.followers_count,
+        influence.views_count,
+        influence.likes_count,
+        influence.replies_count,
+        influence.shares_count,
+        influence.engagement_count,
+      ].some((value) => typeof value === "number" && !Number.isNaN(value)),
+  );
+
+const logScore = (value?: number | null, fullScoreAt = 1_000_000) => {
+  if (typeof value !== "number" || Number.isNaN(value) || value <= 0) return 0;
+  return Math.min(100, (Math.log10(value + 1) / Math.log10(fullScoreAt + 1)) * 100);
+};
+
+const calculateInfluenceScore = (influence?: CrawlerInfluence) => {
+  if (!hasInfluenceData(influence)) return undefined;
+  if (
+    typeof influence?.influence_score === "number" &&
+    !Number.isNaN(influence.influence_score)
+  ) {
+    return influence.influence_score;
+  }
+
+  const followersScore = logScore(influence?.followers_count, 1_000_000);
+  const viewsScore = logScore(influence?.views_count, 1_000_000);
+  const engagementScore = logScore(influence?.engagement_count, 100_000);
+  const verifiedBonus = influence?.verified ? 5 : 0;
+  return Math.round(
+    Math.min(
+      100,
+      followersScore * 0.35 +
+        viewsScore * 0.35 +
+        engagementScore * 0.25 +
+        verifiedBonus,
+    ),
+  );
+};
+
+const getInfluenceTooltip = (influence?: CrawlerInfluence) => {
+  const score = calculateInfluenceScore(influence);
+  return [
+    `Influence score: ${typeof score === "number" ? `${score}/100` : "-"}`,
+    `Location: ${getInfluenceLocation(influence)}`,
+    `Followers: ${formatCompactNumber(influence?.followers_count)}`,
+    `Views: ${formatCompactNumber(influence?.views_count)}`,
+    `Likes: ${formatCompactNumber(influence?.likes_count)}`,
+    `Replies: ${formatCompactNumber(influence?.replies_count)}`,
+    `Shares: ${formatCompactNumber(influence?.shares_count)}`,
+    `Engagement: ${formatCompactNumber(influence?.engagement_count)}`,
+    "Formula: 35% followers, 35% views, 25% engagement, +5 verified bonus.",
+  ].join("\n");
+};
+
+const getInfluenceScoreClasses = (score?: number) => {
+  if (typeof score !== "number") return "border-gray-200 bg-gray-50 text-gray-500";
+  if (score >= 75) return "border-red-200 bg-red-50 text-red-800";
+  if (score >= 50) return "border-amber-200 bg-amber-50 text-amber-800";
+  if (score >= 25) return "border-blue-200 bg-blue-50 text-blue-800";
+  return "border-gray-200 bg-gray-50 text-gray-700";
+};
+
+const InfluenceScoreBadge: React.FC<{ influence?: CrawlerInfluence }> = ({ influence }) => {
+  const score = calculateInfluenceScore(influence);
+  return (
+    <span
+      title={getInfluenceTooltip(influence)}
+      className={`inline-flex min-w-[68px] justify-center rounded-full border px-2.5 py-1 text-xs font-bold ${getInfluenceScoreClasses(
+        score,
+      )}`}
+    >
+      {typeof score === "number" ? `${score}/100` : "-"}
+    </span>
+  );
+};
 
 const CrawlerStatusBadge: React.FC<{ status?: CrawlerStatus }> = ({ status }) => {
   if (!status) return <span className="text-gray-400">-</span>;
@@ -156,6 +307,18 @@ const EvidenceItem: React.FC<EvidenceItemProps> = ({ evidence, onSetAdminLabel }
     adminLabel && modelLabel
       ? adminLabel === modelLabel
       : null;
+  const tweetShares =
+    typeof evidence.source?.retweet_count === "number" ||
+    typeof evidence.source?.quote_count === "number"
+      ? (evidence.source?.retweet_count || 0) + (evidence.source?.quote_count || 0)
+      : undefined;
+  const tweetMetrics = [
+    ["Views", evidence.source?.view_count],
+    ["Likes", evidence.source?.like_count],
+    ["Replies", evidence.source?.reply_count],
+    ["Shares", tweetShares],
+    ["Bookmarks", evidence.source?.bookmark_count],
+  ].filter(([, value]) => typeof value === "number");
 
   const handleClick = async (choice: CrawlerModelLabel) => {
     if (isPending) return;
@@ -210,6 +373,19 @@ const EvidenceItem: React.FC<EvidenceItemProps> = ({ evidence, onSetAdminLabel }
       <p className="text-sm leading-6 text-gray-900 whitespace-pre-wrap" dir="auto">
         {evidence.text}
       </p>
+
+      {tweetMetrics.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
+          {tweetMetrics.map(([label, value]) => (
+            <span
+              key={label}
+              className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1"
+            >
+              {label}: {formatCompactNumber(value as number)}
+            </span>
+          ))}
+        </div>
+      )}
 
       {probabilities.length > 0 && (
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -280,10 +456,14 @@ const EvidenceItem: React.FC<EvidenceItemProps> = ({ evidence, onSetAdminLabel }
 
 export const CrawlerResultsView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [runFilter, setRunFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [crawlerRuns, setCrawlerRuns] = useState<CrawlerRun[]>([]);
   const [users, setUsers] = useState<CrawlerUser[]>([]);
   const [usersCursor, setUsersCursor] = useState<string | null>(null);
   const [usersTotal, setUsersTotal] = useState(0);
+  const [userStatusCounts, setUserStatusCounts] =
+    useState<Partial<Record<CrawlerStatus, number>>>({});
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
 
@@ -302,6 +482,56 @@ export const CrawlerResultsView: React.FC = () => {
   const [labelFilter, setLabelFilter] = useState<EvidenceLabelFilter>("all");
   const [showStats, setShowStats] = useState(true);
   const [exporting, setExporting] = useState<"users" | "evidence" | null>(null);
+  const [defaultKeywords, setDefaultKeywords] = useState<string[]>([]);
+  const [editableDefaultKeywords, setEditableDefaultKeywords] = useState<string[]>([]);
+  const [newDefaultKeyword, setNewDefaultKeyword] = useState("");
+  const [keywordMode, setKeywordMode] = useState<CrawlerKeywordMode>("default");
+  const [customKeywords, setCustomKeywords] = useState<string[]>([]);
+  const [newCustomKeyword, setNewCustomKeyword] = useState("");
+  const [keywordsLoading, setKeywordsLoading] = useState(false);
+  const [keywordsError, setKeywordsError] = useState("");
+  const [keywordsSaving, setKeywordsSaving] = useState(false);
+  const [crawlerStartLoading, setCrawlerStartLoading] = useState(false);
+  const [crawlerStartMessage, setCrawlerStartMessage] = useState("");
+  const [crawlerStartError, setCrawlerStartError] = useState("");
+
+  const formatRunOptionLabel = (run: CrawlerRun) => {
+    const started = formatDate(run.started_at);
+    const count = run.counts?.deep_dived_users;
+    return `${started} - ${run.run_id}${typeof count === "number" ? ` (${count})` : ""}`;
+  };
+
+  const loadCrawlerRuns = async (signal?: AbortSignal) => {
+    try {
+      const response = await getCrawlerRuns(signal);
+      if (signal?.aborted) return;
+      setCrawlerRuns(response.items);
+    } catch {
+      if (signal?.aborted) return;
+      setCrawlerRuns([]);
+    }
+  };
+
+  const loadCrawlerKeywords = async (signal?: AbortSignal) => {
+    setKeywordsLoading(true);
+    setKeywordsError("");
+    try {
+      const response = await getCrawlerKeywords(signal);
+      if (signal?.aborted) return;
+      setDefaultKeywords(response.items);
+      setEditableDefaultKeywords(response.items);
+    } catch (error) {
+      if (signal?.aborted) return;
+      setDefaultKeywords([]);
+      setEditableDefaultKeywords([]);
+      setKeywordsError(
+        `Could not load keywords from keywords.txt. ${getApiErrorText(error)}`,
+      );
+    } finally {
+      if (signal?.aborted) return;
+      setKeywordsLoading(false);
+    }
+  };
 
   const loadUsers = async (
     mode: "replace" | "append" = "replace",
@@ -312,6 +542,7 @@ export const CrawlerResultsView: React.FC = () => {
     try {
       const response = await getCrawlerUsers({
         status: statusFilter,
+        runId: runFilter,
         search: search.trim(),
         limit: USER_PAGE_SIZE,
         cursor: mode === "append" ? usersCursor || undefined : undefined,
@@ -322,6 +553,7 @@ export const CrawlerResultsView: React.FC = () => {
       );
       setUsersCursor(response.nextCursor);
       setUsersTotal(response.total);
+      setUserStatusCounts(response.statusCounts || {});
       if (mode === "replace") {
         setSelectedUser((current) => {
           if (!current) return response.items[0] || null;
@@ -382,6 +614,12 @@ export const CrawlerResultsView: React.FC = () => {
       setUserRuns(response.items);
       setSelectedRunId((current) => {
         if (
+          runFilter !== "all" &&
+          response.items.some((run) => run.run_id === runFilter)
+        ) {
+          return runFilter;
+        }
+        if (
           current !== "all" &&
           response.items.some((run) => run.run_id === current)
         ) {
@@ -407,6 +645,13 @@ export const CrawlerResultsView: React.FC = () => {
 
   useEffect(() => {
     const controller = new AbortController();
+    loadCrawlerRuns(controller.signal);
+    loadCrawlerKeywords(controller.signal);
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
     const timeoutId = window.setTimeout(() => {
       loadUsers("replace", controller.signal);
     }, 250);
@@ -414,7 +659,7 @@ export const CrawlerResultsView: React.FC = () => {
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [statusFilter, search]);
+  }, [statusFilter, runFilter, search]);
 
   useEffect(() => {
     if (
@@ -445,17 +690,24 @@ export const CrawlerResultsView: React.FC = () => {
     }
     const controller = new AbortController();
     setUserRuns([]);
-    setSelectedRunId(selectedUser.latest_run_id || "all");
+    setSelectedRunId(runFilter !== "all" ? runFilter : selectedUser.latest_run_id || "all");
     setLabelFilter("all");
     loadUserRuns(selectedUser, controller.signal);
     return () => controller.abort();
-  }, [selectedUser?.username_key]);
+  }, [selectedUser?.username_key, runFilter]);
 
   const selectedScore = selectedUser?.latest_score || {};
   const selectedThresholds = selectedUser?.latest_thresholds || {};
   const selectedRun = userRuns.find((run) => run.run_id === selectedRunId);
   const activeScore = selectedRun?.score || selectedScore;
   const activeThresholds = selectedRun?.thresholds || selectedThresholds;
+  const activeInfluence: CrawlerInfluence =
+    selectedRun?.influence || selectedUser?.latest_influence || {};
+  const activeTaklidiLead =
+    typeof activeScore.taklidi_ratio === "number" &&
+    typeof activeScore.positive_ratio === "number"
+      ? activeScore.taklidi_ratio - activeScore.positive_ratio
+      : undefined;
   const allEvidenceLabelCount = Object.values(evidenceLabelCounts).reduce(
     (sum, count) => sum + count,
     0,
@@ -469,13 +721,152 @@ export const CrawlerResultsView: React.FC = () => {
     () => selectedUser?.discovered_by_keywords || [],
     [selectedUser],
   );
+  const statusSummaryTotal = userStatusOrder.reduce(
+    (sum, status) => sum + (userStatusCounts[status] || 0),
+    0,
+  );
+  const activeCrawlerKeywords =
+    keywordMode === "default" ? editableDefaultKeywords : customKeywords;
+
+  const updateKeyword = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    index: number,
+    value: string,
+  ) => {
+    setter((current) =>
+      current.map((keyword, keywordIndex) => (keywordIndex === index ? value : keyword)),
+    );
+  };
+
+  const moveKeyword = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    index: number,
+    direction: -1 | 1,
+  ) => {
+    setter((current) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+  };
+
+  const removeKeyword = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    index: number,
+  ) => {
+    setter((current) =>
+      current.filter((_keyword, keywordIndex) => keywordIndex !== index),
+    );
+  };
+
+  const addKeyword = (
+    listSetter: React.Dispatch<React.SetStateAction<string[]>>,
+    inputValue: string,
+    inputSetter: React.Dispatch<React.SetStateAction<string>>,
+  ) => {
+    const [keyword] = parseKeywordInput(inputValue);
+    if (!keyword) return;
+    listSetter((current) => {
+      if (current.some((existing) => existing.toLocaleLowerCase() === keyword.toLocaleLowerCase())) {
+        return current;
+      }
+      return [...current, keyword];
+    });
+    inputSetter("");
+  };
+
+  const shuffleKeywords = (setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+    setter((current) => {
+      const next = [...current];
+      for (let index = next.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+      }
+      return next;
+    });
+  };
+
+  const resetDefaultKeywords = () => {
+    setEditableDefaultKeywords(defaultKeywords);
+    setNewDefaultKeyword("");
+  };
 
   const handleUsersExport = async () => {
     setExporting("users");
     try {
-      await exportCrawlerUsersCsv({ status: statusFilter, search: search.trim() });
+      await exportCrawlerUsersCsv({
+        status: statusFilter,
+        runId: runFilter,
+        search: search.trim(),
+      });
     } finally {
       setExporting(null);
+    }
+  };
+
+  const handleSaveDefaultKeywords = async () => {
+    const keywords = parseKeywordInput(editableDefaultKeywords.join("\n"));
+    if (keywords.length === 0) {
+      setKeywordsError("At least one keyword is required.");
+      return;
+    }
+
+    setKeywordsSaving(true);
+    setKeywordsError("");
+    try {
+      const response = await saveCrawlerKeywords(keywords);
+      setDefaultKeywords(response.items);
+      setEditableDefaultKeywords(response.items);
+      setCrawlerStartMessage("Default keyword file saved.");
+      setCrawlerStartError("");
+    } catch (error) {
+      const responseBody = (error as { responseBody?: { error?: string } }).responseBody;
+      setKeywordsError(
+        responseBody?.error ||
+          (error instanceof Error ? error.message : "Failed to save keywords."),
+      );
+    } finally {
+      setKeywordsSaving(false);
+    }
+  };
+
+  const handleStartCrawlerRun = async () => {
+    const keywords = parseKeywordInput(activeCrawlerKeywords.join("\n"));
+    if (keywordMode === "custom" && keywords.length === 0) {
+      setCrawlerStartError("Please enter at least one keyword.");
+      setCrawlerStartMessage("");
+      return;
+    }
+    if (keywordMode === "default" && editableDefaultKeywords.length === 0 && keywordsError) {
+      setCrawlerStartError("Default keywords are not loaded.");
+      setCrawlerStartMessage("");
+      return;
+    }
+
+    setCrawlerStartLoading(true);
+    setCrawlerStartError("");
+    setCrawlerStartMessage("");
+    try {
+      const response = await startCrawlerRun({
+        useDefaultKeywords: keywordMode === "default" && keywords.length === 0,
+        keywords: keywords.length > 0 ? keywords : undefined,
+      });
+      setCrawlerStartMessage(
+        `Crawler started with ${response.keywordCount ?? keywords.length} ${
+          response.keywordCount === 1 ? "keyword" : "keywords"
+        }. Refresh the runs list in a few moments to follow progress.`,
+      );
+      await loadCrawlerRuns();
+    } catch (error) {
+      const responseBody = (error as { responseBody?: { error?: string } }).responseBody;
+      setCrawlerStartError(
+        responseBody?.error ||
+          (error instanceof Error ? error.message : "Failed to start crawler."),
+      );
+    } finally {
+      setCrawlerStartLoading(false);
     }
   };
 
@@ -583,7 +974,262 @@ export const CrawlerResultsView: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 mt-4">
+        <div className="mt-4 border border-gray-200 rounded-lg bg-gray-50 p-3 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="inline-flex w-fit rounded-lg border border-gray-200 bg-white p-1">
+              <button
+                type="button"
+                onClick={() => setKeywordMode("default")}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+                  keywordMode === "default"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Default file ({editableDefaultKeywords.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setKeywordMode("custom")}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+                  keywordMode === "custom"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Custom ({customKeywords.length})
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {keywordMode === "default" && (
+                <>
+                  <Button
+                    onClick={handleSaveDefaultKeywords}
+                    variant="secondary"
+                    disabled={keywordsSaving || editableDefaultKeywords.length === 0}
+                  >
+                    {keywordsSaving ? "Saving..." : "Save file"}
+                  </Button>
+                  <Button
+                    onClick={() => loadCrawlerKeywords()}
+                    variant="secondary"
+                    disabled={keywordsLoading}
+                  >
+                    {keywordsLoading ? "Loading..." : "Reload file"}
+                  </Button>
+                  <Button
+                    onClick={resetDefaultKeywords}
+                    variant="secondary"
+                    disabled={keywordsLoading}
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    onClick={() => shuffleKeywords(setEditableDefaultKeywords)}
+                    variant="secondary"
+                    disabled={editableDefaultKeywords.length < 2}
+                  >
+                    Shuffle
+                  </Button>
+                </>
+              )}
+              {keywordMode === "custom" && (
+                <Button
+                  onClick={() => shuffleKeywords(setCustomKeywords)}
+                  variant="secondary"
+                  disabled={customKeywords.length < 2}
+                >
+                  Shuffle
+                </Button>
+              )}
+              <Button
+                onClick={handleStartCrawlerRun}
+                variant="primary"
+                disabled={crawlerStartLoading}
+                className="flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                <Play className="w-4 h-4" />
+                {crawlerStartLoading ? "Starting..." : "Start crawl"}
+              </Button>
+            </div>
+          </div>
+
+          {keywordMode === "default" ? (
+            <div className="space-y-2">
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 space-y-1">
+                {editableDefaultKeywords.map((keyword, index) => (
+                  <div key={`${keyword}-${index}`} className="flex items-center gap-2">
+                    <span className="w-8 text-left text-xs text-gray-400" dir="ltr">
+                      {index + 1}
+                    </span>
+                    <input
+                      value={keyword}
+                      onChange={(event) =>
+                        updateKeyword(setEditableDefaultKeywords, index, event.target.value)
+                      }
+                      className="min-w-0 flex-1 rounded-md border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      dir="auto"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => moveKeyword(setEditableDefaultKeywords, index, -1)}
+                      disabled={index === 0}
+                      className="rounded-md border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                      title="Move up"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveKeyword(setEditableDefaultKeywords, index, 1)}
+                      disabled={index === editableDefaultKeywords.length - 1}
+                      className="rounded-md border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                      title="Move down"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeKeyword(setEditableDefaultKeywords, index)}
+                      className="rounded-md border border-red-200 bg-white p-1.5 text-red-600 hover:bg-red-50"
+                      title="Remove"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {!keywordsLoading && editableDefaultKeywords.length === 0 && (
+                  <div className="py-6 text-center text-sm text-gray-500">
+                    No keywords loaded
+                  </div>
+                )}
+                {keywordsLoading && (
+                  <div className="py-6 text-center text-sm text-gray-500">Loading...</div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={newDefaultKeyword}
+                  onChange={(event) => setNewDefaultKeyword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addKeyword(
+                        setEditableDefaultKeywords,
+                        newDefaultKeyword,
+                        setNewDefaultKeyword,
+                      );
+                    }
+                  }}
+                  placeholder="Add keyword or phrase"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  dir="auto"
+                />
+                <Button
+                  onClick={() =>
+                    addKeyword(
+                      setEditableDefaultKeywords,
+                      newDefaultKeyword,
+                      setNewDefaultKeyword,
+                    )
+                  }
+                  variant="secondary"
+                  className="flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 space-y-1">
+                {customKeywords.map((keyword, index) => (
+                  <div key={`${keyword}-${index}`} className="flex items-center gap-2">
+                    <span className="w-8 text-left text-xs text-gray-400" dir="ltr">
+                      {index + 1}
+                    </span>
+                    <input
+                      value={keyword}
+                      readOnly
+                      className="min-w-0 flex-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm text-gray-700"
+                      dir="auto"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => moveKeyword(setCustomKeywords, index, -1)}
+                      disabled={index === 0}
+                      className="rounded-md border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                      title="Move up"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveKeyword(setCustomKeywords, index, 1)}
+                      disabled={index === customKeywords.length - 1}
+                      className="rounded-md border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                      title="Move down"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeKeyword(setCustomKeywords, index)}
+                      className="rounded-md border border-red-200 bg-white p-1.5 text-red-600 hover:bg-red-50"
+                      title="Remove"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {customKeywords.length === 0 && (
+                  <div className="py-6 text-center text-sm text-gray-500">
+                    Add custom keywords or phrases below
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={newCustomKeyword}
+                  onChange={(event) => setNewCustomKeyword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addKeyword(setCustomKeywords, newCustomKeyword, setNewCustomKeyword);
+                    }
+                  }}
+                  placeholder="Add custom keyword or phrase"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  dir="auto"
+                />
+                <Button
+                  onClick={() => addKeyword(setCustomKeywords, newCustomKeyword, setNewCustomKeyword)}
+                  variant="secondary"
+                  className="flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {(keywordsError || crawlerStartMessage || crawlerStartError) && (
+            <div
+              className={`text-sm ${
+                keywordsError || crawlerStartError ? "text-red-700" : "text-green-700"
+              }`}
+            >
+              {keywordsError || crawlerStartError || crawlerStartMessage}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_280px] gap-3 mt-4">
           <label className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -607,16 +1253,60 @@ export const CrawlerResultsView: React.FC = () => {
               ))}
             </select>
           </label>
+          <label className="relative">
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <select
+              value={runFilter}
+              onChange={(event) => setRunFilter(event.target.value)}
+              className="w-full pr-10 pl-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All crawls</option>
+              {crawlerRuns.map((run) => (
+                <option key={run.run_id} value={run.run_id}>
+                  {formatRunOptionLabel(run)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(520px,1fr)_minmax(420px,0.9fr)] gap-6">
+      <div className="space-y-6">
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <div className="text-sm font-semibold text-gray-800">
               משתמשים ({users.length}/{usersTotal})
             </div>
             {usersError && <div className="text-sm text-red-600">{usersError}</div>}
+          </div>
+
+          <div className="px-4 py-4 border-b border-gray-100 bg-gray-50">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {userStatusOrder.map((status) => {
+                const count = userStatusCounts[status] || 0;
+                const ratio = statusSummaryTotal > 0 ? count / statusSummaryTotal : undefined;
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setStatusFilter(status)}
+                    className={`text-right rounded-md border p-3 transition-colors ${
+                      statusFilter === status
+                        ? "border-blue-500 bg-white ring-2 ring-blue-100"
+                        : "border-gray-200 bg-white hover:bg-blue-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <CrawlerStatusBadge status={status} />
+                      <span className="text-lg font-bold text-gray-900">{count}</span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      {formatPercent(ratio)} of filtered users
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -630,10 +1320,19 @@ export const CrawlerResultsView: React.FC = () => {
                     Status
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
-                    Positive
+                    Influence
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
-                    Ratio
+                    Jihadi
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
+                    Jihadi %
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
+                    Taklidi
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
+                    Taklidi %
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
                     Seen
@@ -643,6 +1342,7 @@ export const CrawlerResultsView: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-100">
                 {users.map((user) => {
                   const isSelected = selectedUser?.username_key === user.username_key;
+                  const influence = user.latest_influence || {};
                   return (
                     <tr
                       key={user.username_key}
@@ -652,17 +1352,39 @@ export const CrawlerResultsView: React.FC = () => {
                       }`}
                     >
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                        @{user.username}
+                        <div className="flex items-center gap-2">
+                          <span>@{user.username}</span>
+                          <a
+                            href={getTwitterProfileUrl(user.username)}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(event) => event.stopPropagation()}
+                            className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                            title="Open X profile"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <CrawlerStatusBadge status={user.current_status} />
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
+                        <InfluenceScoreBadge influence={influence} />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700" dir="ltr">
                         {user.latest_score?.positive_count ?? "-"} /{" "}
                         {user.latest_score?.evaluated_count ?? "-"}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {formatPercent(getUserPositiveRatio(user))}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700" dir="ltr">
+                        {user.latest_score?.taklidi_count ?? "-"} /{" "}
+                        {user.latest_score?.evaluated_count ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {formatPercent(getUserTaklidiRatio(user))}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500">
                         {formatDate(user.last_seen_at)}
@@ -672,7 +1394,7 @@ export const CrawlerResultsView: React.FC = () => {
                 })}
                 {!usersLoading && users.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                       אין תוצאות להצגה
                     </td>
                   </tr>
@@ -706,6 +1428,15 @@ export const CrawlerResultsView: React.FC = () => {
                       <h3 className="text-lg font-bold text-gray-900">
                         @{selectedUser.username}
                       </h3>
+                      <a
+                        href={getTwitterProfileUrl(selectedUser.username)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                        title="Open X profile"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
                       <CrawlerStatusBadge status={selectedUser.current_status} />
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
@@ -735,41 +1466,164 @@ export const CrawlerResultsView: React.FC = () => {
                 </button>
 
                 {showStats && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                    <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
-                      <div className="text-xs text-gray-500">Profile positive</div>
-                      <div className="font-semibold text-gray-900">
-                        {activeScore.positive_count ?? "-"} /{" "}
-                        {activeScore.evaluated_count ?? "-"}
+                  <div className="space-y-3 text-sm">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
+                        <div className="text-xs text-gray-500">Evaluated profile</div>
+                        <div className="font-semibold text-gray-900">
+                          {activeScore.evaluated_count ?? "-"}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
+                        <div className="text-xs text-gray-500">Min profile</div>
+                        <div className="font-semibold text-gray-900">
+                          {activeThresholds.min_profile_evaluated_tweets ?? "-"}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
+                        <div className="text-xs text-gray-500">Evidence shown</div>
+                        <div className="font-semibold text-gray-900">{evidenceTotal}</div>
                       </div>
                     </div>
-                    <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
-                      <div className="text-xs text-gray-500">Ratio</div>
-                      <div className="font-semibold text-gray-900">
-                        {formatPercent(activeScore.positive_ratio)}
+
+                    <div className="bg-gray-50 border border-gray-100 rounded-md p-3 space-y-3">
+                      <div className="text-sm font-bold text-gray-900">Influence</div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <div className="text-xs text-gray-500">Score</div>
+                          <div className="mt-1">
+                            <InfluenceScoreBadge influence={activeInfluence} />
+                          </div>
+                        </div>
+                        <div className="md:col-span-2">
+                          <div className="text-xs text-gray-500">Location</div>
+                          <div
+                            className="font-semibold text-gray-900 truncate"
+                            title={getInfluenceLocation(activeInfluence)}
+                          >
+                            {getInfluenceLocation(activeInfluence)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Followers</div>
+                          <div className="font-semibold text-gray-900">
+                            {formatCompactNumber(activeInfluence.followers_count)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Views</div>
+                          <div className="font-semibold text-gray-900">
+                            {formatCompactNumber(activeInfluence.views_count)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Likes</div>
+                          <div className="font-semibold text-gray-900">
+                            {formatCompactNumber(activeInfluence.likes_count)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Replies</div>
+                          <div className="font-semibold text-gray-900">
+                            {formatCompactNumber(activeInfluence.replies_count)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Shares</div>
+                          <div className="font-semibold text-gray-900">
+                            {formatCompactNumber(activeInfluence.shares_count)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Engagement</div>
+                          <div className="font-semibold text-gray-900">
+                            {formatCompactNumber(activeInfluence.engagement_count)}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
-                      <div className="text-xs text-gray-500">Threshold</div>
-                      <div className="font-semibold text-gray-900">
-                        {formatPercent(activeThresholds.positive_ratio_threshold)}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="bg-red-50 border border-red-100 rounded-md p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-bold text-red-900">Salafi jihadi</div>
+                          <button
+                            type="button"
+                            onClick={() => setLabelFilter("Salafi jihadi")}
+                            className="px-2 py-1 rounded-full border border-red-200 bg-white text-xs font-semibold text-red-700 hover:bg-red-100"
+                          >
+                            View tweets
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="text-xs text-red-700/70">Tweets</div>
+                            <div className="font-semibold text-red-950" dir="ltr">
+                              {activeScore.positive_count ?? "-"} /{" "}
+                              {activeScore.evaluated_count ?? "-"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-red-700/70">Ratio</div>
+                            <div className="font-semibold text-red-950">
+                              {formatPercent(activeScore.positive_ratio)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-red-700/70">Tweet threshold</div>
+                            <div className="font-semibold text-red-950">
+                              &gt; {activeThresholds.min_positive_tweets ?? "-"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-red-700/70">Ratio threshold</div>
+                            <div className="font-semibold text-red-950">
+                              &gt; {formatPercent(activeThresholds.positive_ratio_threshold)}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
-                      <div className="text-xs text-gray-500">Min positive</div>
-                      <div className="font-semibold text-gray-900">
-                        {activeThresholds.min_positive_tweets ?? "-"}
+
+                      <div className="bg-blue-50 border border-blue-100 rounded-md p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-bold text-blue-900">Salafi taklidi</div>
+                          <button
+                            type="button"
+                            onClick={() => setLabelFilter("Salafi taklidi")}
+                            className="px-2 py-1 rounded-full border border-blue-200 bg-white text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                          >
+                            View tweets
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="text-xs text-blue-700/70">Tweets</div>
+                            <div className="font-semibold text-blue-950" dir="ltr">
+                              {activeScore.taklidi_count ?? "-"} /{" "}
+                              {activeScore.evaluated_count ?? "-"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-blue-700/70">Ratio</div>
+                            <div className="font-semibold text-blue-950">
+                              {formatPercent(activeScore.taklidi_ratio)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-blue-700/70">Ratio threshold</div>
+                            <div className="font-semibold text-blue-950">
+                              &gt; {formatPercent(activeThresholds.taklidi_ratio_threshold)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-blue-700/70">Lead over jihadi</div>
+                            <div className="font-semibold text-blue-950">
+                              {formatPercent(activeTaklidiLead)} /{" "}
+                              {formatPercent(activeThresholds.taklidi_ratio_margin)}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
-                      <div className="text-xs text-gray-500">Min profile</div>
-                      <div className="font-semibold text-gray-900">
-                        {activeThresholds.min_profile_evaluated_tweets ?? "-"}
-                      </div>
-                    </div>
-                    <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
-                      <div className="text-xs text-gray-500">Evidence shown</div>
-                      <div className="font-semibold text-gray-900">{evidenceTotal}</div>
                     </div>
                   </div>
                 )}

@@ -1,6 +1,30 @@
-
+Scholars of the Dollars
+Shaykh Abdullah as-Sa’d
+Shaykh Abdurahman al-Barrak
+Sulayman al-Alwan
+TTP
+Taghut
+dār al-ḥarb
+walā’ li-ahl al-jihād
+Āl Salūl
+Ḥākimiyya
 Jamiyya
 Khalid al-Fulaij
+IEA
+Ibn Battah
+Imam al-Awza'i
+Irja'
+Istighathah
+Jahd al-Nussoos
+‘Ulamā’ al-Salāṭīn
+Abu Bakr al-Baghdadi
+Abu Basir al-Tartusi
+Abu Muhammad al-Maqdisi
+Abu al-Mundhir al-Shinqiti
+Abu al-‘Izz al-Najdi
+Ahl al-Bid'ah
+Ahmad Ashoush
+Ahmad Musa Jibril
 Kufr Akbar
 Kufr Asli
 Kufr Bawāḥ
@@ -24,12 +48,6 @@ Riddah al-ḥukkām
 Saahib al-Kufr
 Salafiyya Jihadiyya
 Sayyid Qutb
-Scholars of the Dollars
-Shaykh Abdullah as-Sa’d
-Shaykh Abdurahman al-Barrak
-Sulayman al-Alwan
-TTP
-Taghut
 Takfir bil Umum
 Takfīr al-Muʻayyan
 Takfīr al-ḥukkām
@@ -49,19 +67,9 @@ al-qawānīn al-waḍ‘iyya
 al-tawāghīt
 al-ṭāghūt
 al-walā’ li-l-mujāhidīn
-dār al-ḥarb
-walā’ li-ahl al-jihād
-Āl Salūl
-Ḥākimiyya
-‘Ulamā’ al-Salāṭīn
-Abu Bakr al-Baghdadi
-Abu Basir al-Tartusi
-Abu Muhammad al-Maqdisi
-Abu al-Mundhir al-Shinqiti
-Abu al-‘Izz al-Najdi
-Ahl al-Bid'ah
-Ahmad Ashoush
-Ahmad Musa Jibril
+
+
+
 Al-Ghulāt fī Takfir
 Al-Jāmīya
 Al-Kufr bil Taghut
@@ -78,9 +86,3 @@ Dar al-Kufr
 Hamad ibn ‘Atiq
 Hijrah
 Hurras al-Din
-IEA
-Ibn Battah
-Imam al-Awza'i
-Irja'
-Istighathah
-Jahd al-Nussoos

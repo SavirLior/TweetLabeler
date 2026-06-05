@@ -91,7 +91,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "upload" | "resolutions" | "resolvedConflicts" | "crawlerResults"
-  >("dashboard");
+  >("crawlerResults");
 
   // Filters
   const [selectedStudentFilter, setSelectedStudentFilter] =
@@ -888,6 +888,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
         <div className="flex gap-2 bg-white p-1 rounded-lg border shadow-sm">
           <Button
+            onClick={() => setActiveTab("crawlerResults")}
+            variant={activeTab === "crawlerResults" ? "primary" : "neutral"}
+            className={`flex items-center gap-2 text-sm ${
+              activeTab !== "crawlerResults" && "bg-white border-transparent"
+            }`}
+          >
+            <Bot className="w-4 h-4" />
+            תוצאות זחלן
+          </Button>
+          <Button
             onClick={() => setActiveTab("dashboard")}
             variant={activeTab === "dashboard" ? "primary" : "neutral"}
             className={`flex
@@ -937,16 +947,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
           >
             <Upload className="w-4 h-4" />
             העלאת נתונים
-          </Button>
-          <Button
-            onClick={() => setActiveTab("crawlerResults")}
-            variant={activeTab === "crawlerResults" ? "primary" : "neutral"}
-            className={`flex items-center gap-2 text-sm ${
-              activeTab !== "crawlerResults" && "bg-white border-transparent"
-            }`}
-          >
-            <Bot className="w-4 h-4" />
-            תוצאות זחלן
           </Button>
         </div>
       </div>

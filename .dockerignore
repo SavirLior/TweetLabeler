@@ -6,8 +6,10 @@ dist
 .env
 __pycache__
 *.pyc
-crawler_pipeline/
 python/
+crawler_pipeline/__pycache__/
+crawler_pipeline/test_*.py
+crawler_pipeline/model_export_*/
 *.bin
 *.safetensors
 *.pt

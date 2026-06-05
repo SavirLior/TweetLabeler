@@ -106,6 +106,7 @@ export type TweetRoundsResponse = {
 
 export type CrawlerStatus =
   | "salafi_jihadi"
+  | "salafi_taklidi"
   | "not_salafi_jihadi"
   | "insufficient_data";
 
@@ -116,16 +117,52 @@ export type CrawlerModelLabel =
 
 export type CrawlerScore = {
   positive_count?: number;
+  taklidi_count?: number;
   evaluated_count?: number;
   positive_ratio?: number;
+  taklidi_ratio?: number;
   profile_positive_count?: number;
+  profile_taklidi_count?: number;
   profile_evaluated_count?: number;
 };
 
 export type CrawlerThresholds = {
   positive_ratio_threshold?: number;
+  taklidi_ratio_threshold?: number;
+  taklidi_ratio_margin?: number;
   min_positive_tweets?: number;
   min_profile_evaluated_tweets?: number;
+};
+
+export type CrawlerInfluence = {
+  location?: string;
+  description?: string;
+  followers_count?: number | null;
+  following_count?: number | null;
+  tweet_count?: number | null;
+  verified?: boolean;
+  views_count?: number;
+  likes_count?: number;
+  replies_count?: number;
+  retweets_count?: number;
+  quotes_count?: number;
+  bookmarks_count?: number;
+  shares_count?: number;
+  engagement_count?: number;
+  influence_score?: number;
+  engagement_source_count?: number;
+};
+
+export type CrawlerEvidenceAuthor = {
+  id?: string;
+  username?: string;
+  name?: string;
+  location?: string;
+  description?: string;
+  followers_count?: number | null;
+  following_count?: number | null;
+  tweet_count?: number | null;
+  verified?: boolean;
 };
 
 export type CrawlerUser = {
@@ -135,6 +172,7 @@ export type CrawlerUser = {
   current_status: CrawlerStatus;
   latest_run_id?: string;
   latest_score?: CrawlerScore;
+  latest_influence?: CrawlerInfluence;
   latest_thresholds?: CrawlerThresholds;
   first_seen_at?: string;
   last_seen_at?: string;
@@ -148,10 +186,22 @@ export type CrawlerUserRun = {
   username: string;
   status?: CrawlerStatus;
   score?: CrawlerScore;
+  influence?: CrawlerInfluence;
   thresholds?: CrawlerThresholds;
   created_at?: string;
   trigger_tweet_keys?: string[];
   evidence_tweet_keys?: string[];
+};
+
+export type CrawlerRun = {
+  _id?: string;
+  run_id: string;
+  status?: string;
+  started_at?: string;
+  finished_at?: string;
+  keywords?: string[];
+  params?: Record<string, unknown>;
+  counts?: Record<string, number>;
 };
 
 export type CrawlerEvidence = {
@@ -173,6 +223,10 @@ export type CrawlerEvidence = {
     like_count?: number;
     retweet_count?: number;
     reply_count?: number;
+    quote_count?: number;
+    view_count?: number;
+    bookmark_count?: number;
+    author?: CrawlerEvidenceAuthor;
   };
   format_version?: string;
   is_retweet?: boolean;
@@ -196,6 +250,27 @@ export type CrawlerUserPageResponse = {
   nextCursor: string | null;
   hasMore: boolean;
   total: number;
+  statusCounts?: Record<CrawlerStatus, number>;
+};
+
+export type CrawlerRunPageResponse = {
+  items: CrawlerRun[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  total: number;
+};
+
+export type CrawlerKeywordResponse = {
+  items: string[];
+  total: number;
+};
+
+export type StartCrawlerRunResponse = {
+  success: boolean;
+  message?: string;
+  mode?: "default" | "custom";
+  keywordCount?: number;
+  error?: string;
 };
 
 export type CrawlerEvidencePageResponse = {
@@ -209,6 +284,7 @@ export type CrawlerEvidencePageResponse = {
 
 export type CrawlerUserQuery = {
   status?: CrawlerStatus | "all";
+  runId?: string;
   search?: string;
   limit?: number;
   cursor?: string;
@@ -288,6 +364,7 @@ const buildTweetDelta = (tweet: Tweet): TweetDelta => {
 const buildCrawlerUserParams = (q: CrawlerUserQuery) => {
   const params = new URLSearchParams();
   if (q.status && q.status !== "all") params.set("status", q.status);
+  if (q.runId && q.runId !== "all") params.set("runId", q.runId);
   if (q.search) params.set("search", q.search);
   if (q.limit) params.set("limit", String(q.limit));
   if (q.cursor) params.set("cursor", q.cursor);
@@ -384,6 +461,48 @@ export const getCrawlerEvidence = async (
   );
 };
 
+export const getCrawlerRuns = async (
+  signal?: AbortSignal,
+): Promise<CrawlerRunPageResponse> => {
+  return apiRequest<CrawlerRunPageResponse>(
+    "/crawler/runs?limit=200",
+    "GET",
+    undefined,
+    signal,
+  );
+};
+
+export const getCrawlerKeywords = async (
+  signal?: AbortSignal,
+): Promise<CrawlerKeywordResponse> => {
+  return apiRequest<CrawlerKeywordResponse>(
+    "/crawler/keywords",
+    "GET",
+    undefined,
+    signal,
+  );
+};
+
+export const saveCrawlerKeywords = async (
+  keywords: string[],
+): Promise<CrawlerKeywordResponse & { success: boolean }> => {
+  return apiRequest<CrawlerKeywordResponse & { success: boolean }>(
+    "/crawler/keywords",
+    "PUT",
+    { keywords },
+  );
+};
+
+export const startCrawlerRun = async (
+  payload: { useDefaultKeywords: boolean; keywords?: string[] },
+): Promise<StartCrawlerRunResponse> => {
+  return apiRequest<StartCrawlerRunResponse>(
+    "/crawler/runs",
+    "POST",
+    payload,
+  );
+};
+
 export const setCrawlerEvidenceAdminLabel = async (
   evidenceId: string,
   adminLabel: CrawlerModelLabel | null,
@@ -413,7 +532,7 @@ export const getCrawlerUserRuns = async (
 };
 
 export const exportCrawlerUsersCsv = async (
-  q: Pick<CrawlerUserQuery, "status" | "search">,
+  q: Pick<CrawlerUserQuery, "status" | "runId" | "search">,
 ) => {
   const params = buildCrawlerUserParams(q);
   await downloadApiFile(

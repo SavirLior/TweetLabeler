@@ -9,8 +9,11 @@ import os
 import csv
 import io
 import secrets
+import subprocess
+import sys
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 MASTERPASS = "mazor102030"
 
 app = Flask(__name__, static_folder="dist", static_url_path="")
@@ -43,6 +46,10 @@ CRAWLER_RUNS_COLLECTION = "crawler_runs"
 CRAWLER_USERS_COLLECTION = "crawler_users"
 CRAWLER_USER_RUNS_COLLECTION = "crawler_user_runs"
 CRAWLER_EVIDENCE_COLLECTION = "crawler_tweet_evidence"
+PROJECT_ROOT = Path(__file__).resolve().parent
+CRAWLER_KEYWORDS_FILE = Path(
+    os.getenv("CRAWLER_KEYWORDS_FILE", str(PROJECT_ROOT / "crawler_pipeline" / "keywords.txt"))
+)
 
 mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = mongo_client[MONGO_DB_NAME]
@@ -67,6 +74,7 @@ MODEL_PROBABILITY_PREFIX = "label_"
 MODEL_DATA_FIELDS = ("model_decision", "modelProbabilities")
 CRAWLER_STATUS_VALUES = {
     "salafi_jihadi",
+    "salafi_taklidi",
     "not_salafi_jihadi",
     "insufficient_data",
 }
@@ -528,6 +536,109 @@ def build_crawler_users_query(args):
     return query
 
 
+def build_crawler_user_runs_query(args):
+    query = {}
+    run_id = (args.get("runId") or "").strip()
+    status = args.get("status")
+    search = (args.get("search") or "").strip()
+
+    if run_id and run_id != "all":
+        query["run_id"] = run_id
+
+    if status and status != "all":
+        if status not in CRAWLER_STATUS_VALUES:
+            return None
+        query["status"] = status
+
+    if search:
+        import re
+
+        escaped = re.escape(search)
+        query["$or"] = [
+            {"username": {"$regex": escaped, "$options": "i"}},
+            {"username_key": {"$regex": escaped, "$options": "i"}},
+        ]
+
+    return query
+
+
+def crawler_user_run_to_user_doc(run_doc, user_doc=None):
+    user_doc = user_doc or {}
+    return {
+        "_id": run_doc.get("_id"),
+        "username_key": run_doc.get("username_key", ""),
+        "username": run_doc.get("username") or user_doc.get("username", ""),
+        "current_status": run_doc.get("status", ""),
+        "latest_run_id": run_doc.get("run_id", ""),
+        "latest_score": run_doc.get("score") or {},
+        "latest_influence": run_doc.get("influence") or {},
+        "latest_thresholds": run_doc.get("thresholds") or {},
+        "first_seen_at": user_doc.get("first_seen_at"),
+        "last_seen_at": run_doc.get("created_at") or user_doc.get("last_seen_at"),
+        "discovered_by_keywords": user_doc.get("discovered_by_keywords") or [],
+    }
+
+
+def get_crawler_status_counts(collection, query, status_field):
+    counts = {status: 0 for status in CRAWLER_STATUS_VALUES}
+    for row in collection.aggregate(
+        [
+            {"$match": query},
+            {"$group": {"_id": f"${status_field}", "count": {"$sum": 1}}},
+        ]
+    ):
+        status = row.get("_id") or ""
+        if status:
+            counts[status] = int(row.get("count", 0) or 0)
+    return counts
+
+
+def normalize_crawler_keywords(raw_keywords):
+    if isinstance(raw_keywords, str):
+        candidates = raw_keywords.replace(",", "\n").splitlines()
+    elif isinstance(raw_keywords, list):
+        candidates = raw_keywords
+    else:
+        candidates = []
+
+    keywords = []
+    seen = set()
+    for candidate in candidates:
+        keyword = str(candidate).strip()
+        if not keyword or keyword.startswith("#"):
+            continue
+        dedupe_key = keyword.casefold()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        keywords.append(keyword)
+    return keywords
+
+
+def read_crawler_default_keywords():
+    if not CRAWLER_KEYWORDS_FILE.exists():
+        raise FileNotFoundError(f"Keywords file was not found: {CRAWLER_KEYWORDS_FILE}")
+    return normalize_crawler_keywords(CRAWLER_KEYWORDS_FILE.read_text(encoding="utf-8"))
+
+
+def write_crawler_default_keywords(keywords):
+    clean_keywords = normalize_crawler_keywords(keywords)
+    if not clean_keywords:
+        raise ValueError("At least one keyword is required")
+    CRAWLER_KEYWORDS_FILE.write_text(
+        "\n".join(clean_keywords) + "\n",
+        encoding="utf-8",
+    )
+    return clean_keywords
+
+
+def build_crawler_command(keywords):
+    command = [sys.executable, "-m", "crawler_pipeline.twitter_crawler"]
+    if keywords:
+        command.extend(keywords)
+    return command
+
+
 def apply_crawler_evidence_filters(query, args):
     run_id = (args.get("runId") or "").strip()
     label = (args.get("label") or "").strip()
@@ -609,16 +720,29 @@ def build_crawler_users_csv_rows(users):
     rows = []
     for user in users:
         score = user.get("latest_score") or {}
+        influence = user.get("latest_influence") or {}
         thresholds = user.get("latest_thresholds") or {}
         rows.append(
             [
                 user.get("username", ""),
                 user.get("username_key", ""),
                 user.get("current_status", ""),
+                influence.get("influence_score", ""),
+                influence.get("location", ""),
+                influence.get("followers_count", ""),
+                influence.get("views_count", ""),
+                influence.get("likes_count", ""),
+                influence.get("replies_count", ""),
+                influence.get("shares_count", ""),
+                influence.get("engagement_count", ""),
                 score.get("positive_count", ""),
+                score.get("taklidi_count", ""),
                 score.get("evaluated_count", ""),
                 score.get("positive_ratio", ""),
+                score.get("taklidi_ratio", ""),
                 thresholds.get("positive_ratio_threshold", ""),
+                thresholds.get("taklidi_ratio_threshold", ""),
+                thresholds.get("taklidi_ratio_margin", ""),
                 thresholds.get("min_positive_tweets", ""),
                 thresholds.get("min_profile_evaluated_tweets", ""),
                 user.get("latest_run_id", ""),
@@ -633,6 +757,7 @@ def build_crawler_evidence_csv_rows(evidence_docs):
     rows = []
     for doc in evidence_docs:
         source = doc.get("source") if isinstance(doc.get("source"), dict) else {}
+        author = source.get("author") if isinstance(source.get("author"), dict) else {}
         probabilities = doc.get("probabilities") or {}
         rows.append(
             [
@@ -643,6 +768,14 @@ def build_crawler_evidence_csv_rows(evidence_docs):
                 doc.get("admin_label", ""),
                 doc.get("confidence", ""),
                 doc.get("flagged", ""),
+                author.get("location", ""),
+                author.get("followers_count", ""),
+                source.get("view_count", ""),
+                source.get("like_count", ""),
+                source.get("reply_count", ""),
+                source.get("retweet_count", ""),
+                source.get("quote_count", ""),
+                source.get("bookmark_count", ""),
                 probabilities.get("Salafi jihadi", ""),
                 probabilities.get("Salafi taklidi", ""),
                 probabilities.get("Irrelevant", ""),
@@ -931,9 +1064,73 @@ def list_crawler_users():
 
     try:
         limit, offset = get_pagination_args(default_limit=50, max_limit=200)
+        run_id = (request.args.get("runId") or "").strip()
+        status_count_args = request.args.to_dict()
+        status_count_args["status"] = "all"
+
+        if run_id and run_id != "all":
+            query = build_crawler_user_runs_query(request.args)
+            if query is None:
+                return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+            status_count_query = build_crawler_user_runs_query(status_count_args) or {}
+
+            projection = {
+                "_id": 1,
+                "run_id": 1,
+                "username_key": 1,
+                "username": 1,
+                "status": 1,
+                "score": 1,
+                "influence": 1,
+                "thresholds": 1,
+                "created_at": 1,
+            }
+            total = crawler_user_runs_collection.count_documents(query)
+            run_docs = list(
+                crawler_user_runs_collection.find(query, projection)
+                .sort([("created_at", -1), ("username_key", 1)])
+                .skip(offset)
+                .limit(limit)
+            )
+            user_keys = [doc.get("username_key") for doc in run_docs if doc.get("username_key")]
+            user_docs = {
+                doc.get("username_key"): doc
+                for doc in crawler_users_collection.find(
+                    {"username_key": {"$in": user_keys}},
+                    {
+                        "_id": 0,
+                        "username_key": 1,
+                        "username": 1,
+                        "first_seen_at": 1,
+                        "last_seen_at": 1,
+                        "discovered_by_keywords": 1,
+                    },
+                )
+            }
+            docs = [
+                crawler_user_run_to_user_doc(doc, user_docs.get(doc.get("username_key")))
+                for doc in run_docs
+            ]
+            next_offset = offset + len(docs)
+
+            return jsonify(
+                {
+                    "items": [serialize_mongo_value(doc) for doc in docs],
+                    "nextCursor": str(next_offset) if next_offset < total else None,
+                    "hasMore": next_offset < total,
+                    "total": total,
+                    "statusCounts": get_crawler_status_counts(
+                        crawler_user_runs_collection,
+                        status_count_query,
+                        "status",
+                    ),
+                }
+            )
+
         query = build_crawler_users_query(request.args)
         if query is None:
             return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+        status_count_query = build_crawler_users_query(status_count_args) or {}
 
         projection = {
             "_id": 1,
@@ -942,6 +1139,7 @@ def list_crawler_users():
             "current_status": 1,
             "latest_run_id": 1,
             "latest_score": 1,
+            "latest_influence": 1,
             "latest_thresholds": 1,
             "last_seen_at": 1,
             "first_seen_at": 1,
@@ -962,8 +1160,118 @@ def list_crawler_users():
                 "nextCursor": str(next_offset) if next_offset < total else None,
                 "hasMore": next_offset < total,
                 "total": total,
+                "statusCounts": get_crawler_status_counts(
+                    crawler_users_collection,
+                    status_count_query,
+                    "current_status",
+                ),
             }
         )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/runs", methods=["GET"])
+def list_crawler_runs():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        limit, offset = get_pagination_args(default_limit=100, max_limit=500)
+        total = crawler_runs_collection.count_documents({})
+        docs = list(
+            crawler_runs_collection.find(
+                {},
+                {
+                    "_id": 1,
+                    "run_id": 1,
+                    "status": 1,
+                    "started_at": 1,
+                    "finished_at": 1,
+                    "keywords": 1,
+                    "params": 1,
+                    "counts": 1,
+                },
+            )
+            .sort([("started_at", -1), ("run_id", -1)])
+            .skip(offset)
+            .limit(limit)
+        )
+        next_offset = offset + len(docs)
+        return jsonify(
+            {
+                "items": [serialize_mongo_value(doc) for doc in docs],
+                "nextCursor": str(next_offset) if next_offset < total else None,
+                "hasMore": next_offset < total,
+                "total": total,
+            }
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/keywords", methods=["GET"])
+def get_crawler_keywords():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        keywords = read_crawler_default_keywords()
+        return jsonify({"items": keywords, "total": len(keywords)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/keywords", methods=["PUT"])
+def update_crawler_keywords():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        payload = request.json or {}
+        keywords = write_crawler_default_keywords(payload.get("keywords"))
+        return jsonify({"success": True, "items": keywords, "total": len(keywords)})
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/runs", methods=["POST"])
+def start_crawler_run():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        payload = request.json or {}
+        use_default_keywords = bool(payload.get("useDefaultKeywords", True))
+        keyword_count = len(read_crawler_default_keywords()) if use_default_keywords else 0
+        keywords = [] if use_default_keywords else normalize_crawler_keywords(payload.get("keywords"))
+        if not use_default_keywords and not keywords:
+            return jsonify({"success": False, "error": "At least one custom keyword is required"}), 400
+        if not use_default_keywords:
+            keyword_count = len(keywords)
+
+        command = build_crawler_command(keywords)
+        subprocess.Popen(
+            command,
+            cwd=str(PROJECT_ROOT),
+            env=os.environ.copy(),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return jsonify(
+            {
+                "success": True,
+                "message": "Crawler run started",
+                "mode": "default" if use_default_keywords else "custom",
+                "keywordCount": keyword_count,
+            }
+        ), 202
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -998,6 +1306,10 @@ def list_crawler_user_evidence(username_key):
             "source.like_count": 1,
             "source.retweet_count": 1,
             "source.reply_count": 1,
+            "source.quote_count": 1,
+            "source.view_count": 1,
+            "source.bookmark_count": 1,
+            "source.author": 1,
             "format_version": 1,
             "is_retweet": 1,
             "is_quote": 1,
@@ -1098,6 +1410,7 @@ def list_crawler_user_runs(username_key):
                     "username": 1,
                     "status": 1,
                     "score": 1,
+                    "influence": 1,
                     "thresholds": 1,
                     "created_at": 1,
                     "trigger_tweet_keys": 1,
@@ -1117,34 +1430,92 @@ def export_crawler_users_csv():
         return auth_error
 
     try:
-        query = build_crawler_users_query(request.args)
-        if query is None:
-            return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+        run_id = (request.args.get("runId") or "").strip()
 
-        users = list(
-            crawler_users_collection.find(
-                query,
-                {
-                    "_id": 0,
-                    "username_key": 1,
-                    "username": 1,
-                    "current_status": 1,
-                    "latest_run_id": 1,
-                    "latest_score": 1,
-                    "latest_thresholds": 1,
-                    "last_seen_at": 1,
-                    "discovered_by_keywords": 1,
-                },
-            ).sort([("last_seen_at", -1), ("username_key", 1)])
-        )
+        if run_id and run_id != "all":
+            query = build_crawler_user_runs_query(request.args)
+            if query is None:
+                return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+
+            run_docs = list(
+                crawler_user_runs_collection.find(
+                    query,
+                    {
+                        "_id": 0,
+                        "run_id": 1,
+                        "username_key": 1,
+                        "username": 1,
+                        "status": 1,
+                        "score": 1,
+                        "influence": 1,
+                        "thresholds": 1,
+                        "created_at": 1,
+                    },
+                ).sort([("created_at", -1), ("username_key", 1)])
+            )
+            user_keys = [
+                doc.get("username_key") for doc in run_docs if doc.get("username_key")
+            ]
+            user_docs = {
+                doc.get("username_key"): doc
+                for doc in crawler_users_collection.find(
+                    {"username_key": {"$in": user_keys}},
+                    {
+                        "_id": 0,
+                        "username_key": 1,
+                        "username": 1,
+                        "last_seen_at": 1,
+                        "first_seen_at": 1,
+                        "discovered_by_keywords": 1,
+                    },
+                )
+            }
+            users = [
+                crawler_user_run_to_user_doc(doc, user_docs.get(doc.get("username_key")))
+                for doc in run_docs
+            ]
+        else:
+            query = build_crawler_users_query(request.args)
+            if query is None:
+                return jsonify({"success": False, "error": "Invalid crawler status"}), 400
+
+            users = list(
+                crawler_users_collection.find(
+                    query,
+                    {
+                        "_id": 0,
+                        "username_key": 1,
+                        "username": 1,
+                        "current_status": 1,
+                        "latest_run_id": 1,
+                        "latest_score": 1,
+                        "latest_influence": 1,
+                        "latest_thresholds": 1,
+                        "last_seen_at": 1,
+                        "discovered_by_keywords": 1,
+                    },
+                ).sort([("last_seen_at", -1), ("username_key", 1)])
+            )
         header = [
             "username",
             "username_key",
             "status",
+            "influence_score",
+            "location",
+            "followers_count",
+            "views_count",
+            "likes_count",
+            "replies_count",
+            "shares_count",
+            "engagement_count",
             "positive_count",
+            "taklidi_count",
             "evaluated_count",
             "positive_ratio",
+            "taklidi_ratio",
             "ratio_threshold",
+            "taklidi_ratio_threshold",
+            "taklidi_ratio_margin",
             "min_positive_tweets",
             "min_profile_evaluated_tweets",
             "latest_run_id",
@@ -1190,6 +1561,13 @@ def export_crawler_evidence_csv():
                     "confidence": 1,
                     "probabilities": 1,
                     "source.created_at": 1,
+                    "source.author": 1,
+                    "source.view_count": 1,
+                    "source.like_count": 1,
+                    "source.reply_count": 1,
+                    "source.retweet_count": 1,
+                    "source.quote_count": 1,
+                    "source.bookmark_count": 1,
                     "collected_at": 1,
                 },
             )
@@ -1203,6 +1581,14 @@ def export_crawler_evidence_csv():
             "admin_label",
             "confidence",
             "flagged",
+            "author_location",
+            "author_followers_count",
+            "views",
+            "likes",
+            "replies",
+            "retweets",
+            "quotes",
+            "bookmarks",
             "prob_salafi_jihadi",
             "prob_salafi_taklidi",
             "prob_irrelevant",
