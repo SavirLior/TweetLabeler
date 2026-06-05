@@ -7,6 +7,7 @@ try:
         RUNS_COLLECTION,
         STATUS_NOT_SALAFI_JIHADI,
         STATUS_SALAFI_JIHADI,
+        STATUS_SALAFI_TAKLIDI,
         STATUS_INSUFFICIENT_DATA,
         USER_RUNS_COLLECTION,
         USERS_COLLECTION,
@@ -19,6 +20,7 @@ except ImportError:
         RUNS_COLLECTION,
         STATUS_NOT_SALAFI_JIHADI,
         STATUS_SALAFI_JIHADI,
+        STATUS_SALAFI_TAKLIDI,
         STATUS_INSUFFICIENT_DATA,
         USER_RUNS_COLLECTION,
         USERS_COLLECTION,
@@ -85,16 +87,24 @@ class FakeDb:
         return self.collections[name]
 
 
-def evidence_docs(total, positive, *, offset=0):
+def evidence_docs(total, positive, *, taklidi=0, offset=0):
     docs = []
     for index in range(total):
         flagged = index < positive
+        is_taklidi = positive <= index < positive + taklidi
+        model_label = (
+            "Salafi jihadi"
+            if flagged
+            else "Salafi taklidi"
+            if is_taklidi
+            else "Irrelevant"
+        )
         tweet_number = index + offset
         docs.append(
             {
                 "tweet_key": f"x:{tweet_number}",
                 "text": f"tweet {tweet_number}",
-                "model_label": "Salafi jihadi" if flagged else "Irrelevant",
+                "model_label": model_label,
                 "flagged": flagged,
                 "confidence": 0.9 if flagged else 0.8,
                 "source": {
@@ -104,7 +114,8 @@ def evidence_docs(total, positive, *, offset=0):
                 },
                 "probabilities": {
                     "Salafi jihadi": 0.9 if flagged else 0.1,
-                    "Irrelevant": 0.1 if flagged else 0.9,
+                    "Salafi taklidi": 0.9 if is_taklidi else 0.1,
+                    "Irrelevant": 0.1 if flagged or is_taklidi else 0.9,
                 },
             }
         )
@@ -136,6 +147,43 @@ class CrawlerMongoStoreTests(unittest.TestCase):
             min_evaluated_tweets=100,
         )
         self.assertEqual(ten_of_one_hundred["status"], STATUS_SALAFI_JIHADI)
+
+    def test_classification_can_mark_taklidi_when_ratio_clears_threshold_and_margin(self):
+        twenty_five_percent = calculate_classification_score(
+            evidence_docs(100, 10, taklidi=25),
+            positive_ratio_threshold=0.50,
+            min_positive_tweets=999,
+            min_evaluated_tweets=100,
+        )
+        self.assertEqual(twenty_five_percent["status"], STATUS_NOT_SALAFI_JIHADI)
+
+        too_close_to_jihadi_ratio = calculate_classification_score(
+            evidence_docs(100, 24, taklidi=30),
+            positive_ratio_threshold=0.50,
+            min_positive_tweets=999,
+            min_evaluated_tweets=100,
+        )
+        self.assertEqual(too_close_to_jihadi_ratio["status"], STATUS_NOT_SALAFI_JIHADI)
+
+        clears_threshold_and_margin = calculate_classification_score(
+            evidence_docs(100, 24, taklidi=31),
+            positive_ratio_threshold=0.50,
+            min_positive_tweets=999,
+            min_evaluated_tweets=100,
+        )
+        self.assertEqual(clears_threshold_and_margin["status"], STATUS_SALAFI_TAKLIDI)
+        self.assertEqual(clears_threshold_and_margin["taklidi_count"], 31)
+        self.assertAlmostEqual(clears_threshold_and_margin["taklidi_ratio"], 0.31)
+
+    def test_jihadi_classification_takes_priority_over_taklidi(self):
+        score = calculate_classification_score(
+            evidence_docs(100, 30, taklidi=40),
+            positive_ratio_threshold=0.10,
+            min_positive_tweets=1,
+            min_evaluated_tweets=100,
+        )
+
+        self.assertEqual(score["status"], STATUS_SALAFI_JIHADI)
 
     def test_save_user_deep_dive_writes_only_crawler_collections_and_is_idempotent(self):
         fake_db = FakeDb()

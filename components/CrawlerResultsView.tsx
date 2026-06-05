@@ -62,12 +62,14 @@ type EvidenceLabelFilter = CrawlerModelLabel | "all";
 const statusLabels: Record<StatusFilter, string> = {
   all: "כל הסטטוסים",
   salafi_jihadi: "Salafi jihadi",
+  salafi_taklidi: "Salafi taklidi",
   not_salafi_jihadi: "Not salafi jihadi",
   insufficient_data: "Insufficient data",
 };
 
 const statusClasses: Record<CrawlerStatus, string> = {
   salafi_jihadi: "bg-red-100 text-red-800 border-red-200",
+  salafi_taklidi: "bg-blue-100 text-blue-800 border-blue-200",
   not_salafi_jihadi: "bg-gray-100 text-gray-700 border-gray-200",
   insufficient_data: "bg-yellow-100 text-yellow-800 border-yellow-200",
 };
@@ -747,6 +749,12 @@ export const CrawlerResultsView: React.FC = () => {
                       <div className="text-xs text-gray-500">Ratio</div>
                       <div className="font-semibold text-gray-900">
                         {formatPercent(activeScore.positive_ratio)}
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 rounded-md p-3">
+                      <div className="text-xs text-gray-500">Taklidi ratio</div>
+                      <div className="font-semibold text-gray-900">
+                        {formatPercent(activeScore.taklidi_ratio)}
                       </div>
                     </div>
                     <div className="bg-gray-50 border border-gray-100 rounded-md p-3">

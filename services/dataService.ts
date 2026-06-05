@@ -106,6 +106,7 @@ export type TweetRoundsResponse = {
 
 export type CrawlerStatus =
   | "salafi_jihadi"
+  | "salafi_taklidi"
   | "not_salafi_jihadi"
   | "insufficient_data";
 
@@ -116,14 +117,19 @@ export type CrawlerModelLabel =
 
 export type CrawlerScore = {
   positive_count?: number;
+  taklidi_count?: number;
   evaluated_count?: number;
   positive_ratio?: number;
+  taklidi_ratio?: number;
   profile_positive_count?: number;
+  profile_taklidi_count?: number;
   profile_evaluated_count?: number;
 };
 
 export type CrawlerThresholds = {
   positive_ratio_threshold?: number;
+  taklidi_ratio_threshold?: number;
+  taklidi_ratio_margin?: number;
   min_positive_tweets?: number;
   min_profile_evaluated_tweets?: number;
 };

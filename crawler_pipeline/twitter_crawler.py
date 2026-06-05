@@ -41,6 +41,8 @@ try:
         DEFAULT_MIN_POSITIVE_TWEETS,
         DEFAULT_POSITIVE_RATIO_THRESHOLD,
         DEFAULT_PROFILE_OVERFETCH_MULTIPLIER,
+        DEFAULT_TAKLIDI_RATIO_MARGIN,
+        DEFAULT_TAKLIDI_RATIO_THRESHOLD,
         DEFAULT_TWEET_LANGUAGE,
         DEFAULT_USER_TWEET_LIMIT,
         JIHADI_LABEL_TOKEN,
@@ -48,6 +50,7 @@ try:
         MODEL_DIR,
         MODEL_EXPORT_DIR,
         FINAL_JIHADI_USERS_FILE,
+        TAKLIDI_LABEL,
     )
     from .mongo_store import (
         CrawlerMongoStore,
@@ -71,6 +74,8 @@ except ImportError:  # Allows running this file directly from crawler_pipeline/.
         DEFAULT_MIN_POSITIVE_TWEETS,
         DEFAULT_POSITIVE_RATIO_THRESHOLD,
         DEFAULT_PROFILE_OVERFETCH_MULTIPLIER,
+        DEFAULT_TAKLIDI_RATIO_MARGIN,
+        DEFAULT_TAKLIDI_RATIO_THRESHOLD,
         DEFAULT_TWEET_LANGUAGE,
         DEFAULT_USER_TWEET_LIMIT,
         JIHADI_LABEL_TOKEN,
@@ -78,6 +83,7 @@ except ImportError:  # Allows running this file directly from crawler_pipeline/.
         MODEL_DIR,
         MODEL_EXPORT_DIR,
         FINAL_JIHADI_USERS_FILE,
+        TAKLIDI_LABEL,
     )
     from mongo_store import (
         CrawlerMongoStore,
@@ -99,6 +105,8 @@ PROFILE_OVERFETCH_MULTIPLIER = DEFAULT_PROFILE_OVERFETCH_MULTIPLIER
 MIN_PROFILE_EVALUATED_TWEETS = DEFAULT_MIN_PROFILE_EVALUATED_TWEETS
 USER_JIHADI_TWEET_THRESHOLD = DEFAULT_MIN_POSITIVE_TWEETS
 POSITIVE_RATIO_THRESHOLD = DEFAULT_POSITIVE_RATIO_THRESHOLD
+TAKLIDI_RATIO_THRESHOLD = DEFAULT_TAKLIDI_RATIO_THRESHOLD
+TAKLIDI_RATIO_MARGIN = DEFAULT_TAKLIDI_RATIO_MARGIN
 TRAINING_USERS_FILE = Path(__file__).resolve().parent / "training_users.txt"
 
 logger = logging.getLogger(__name__)
@@ -262,6 +270,10 @@ def get_local_classifier() -> LocalTweetClassifier:
     if _local_classifier is None:
         _local_classifier = LocalTweetClassifier()
     return _local_classifier
+
+
+def is_deep_dive_trigger(evaluation: TweetEvaluation) -> bool:
+    return evaluation.flagged or evaluation.label == TAKLIDI_LABEL
 
 
 def build_apify_client(api_token: str = APIFY_API_TOKEN) -> ApifyClient:
@@ -800,6 +812,8 @@ async def verify_user_from_triggered_tweet(
     min_positive_tweets: int = USER_JIHADI_TWEET_THRESHOLD,
     min_profile_evaluated_tweets: int = MIN_PROFILE_EVALUATED_TWEETS,
     positive_ratio_threshold: float = POSITIVE_RATIO_THRESHOLD,
+    taklidi_ratio_threshold: float = TAKLIDI_RATIO_THRESHOLD,
+    taklidi_ratio_margin: float = TAKLIDI_RATIO_MARGIN,
     profile_overfetch_multiplier: float = PROFILE_OVERFETCH_MULTIPLIER,
     tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
 ) -> UserDeepDiveResult:
@@ -844,6 +858,8 @@ async def verify_user_from_triggered_tweet(
         positive_ratio_threshold=positive_ratio_threshold,
         min_positive_tweets=min_positive_tweets,
         min_evaluated_tweets=min_profile_evaluated_tweets,
+        taklidi_ratio_threshold=taklidi_ratio_threshold,
+        taklidi_ratio_margin=taklidi_ratio_margin,
     )
     status = score["status"]
 
@@ -852,6 +868,16 @@ async def verify_user_from_triggered_tweet(
             "@%s officially classified as a Salafi jihadi user: %s/%s evaluated "
             "tweets were classified as Salafi jihadi.",
             username,
+            score["positive_count"],
+            score["evaluated_count"],
+        )
+    elif status == "salafi_taklidi":
+        logger.info(
+            "@%s classified as a Salafi taklidi user: %s/%s taklidi tweets "
+            "vs %s/%s jihadi tweets.",
+            username,
+            score["taklidi_count"],
+            score["evaluated_count"],
             score["positive_count"],
             score["evaluated_count"],
         )
@@ -944,6 +970,8 @@ async def run_pipeline(
     user_jihadi_threshold: int = USER_JIHADI_TWEET_THRESHOLD,
     min_profile_evaluated_tweets: int = MIN_PROFILE_EVALUATED_TWEETS,
     positive_ratio_threshold: float = POSITIVE_RATIO_THRESHOLD,
+    taklidi_ratio_threshold: float = TAKLIDI_RATIO_THRESHOLD,
+    taklidi_ratio_margin: float = TAKLIDI_RATIO_MARGIN,
     profile_overfetch_multiplier: float = PROFILE_OVERFETCH_MULTIPLIER,
     tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
     mongo_store: CrawlerMongoStore | None = None,
@@ -955,6 +983,8 @@ async def run_pipeline(
         "positive_ratio_threshold": positive_ratio_threshold,
         "min_positive_tweets": user_jihadi_threshold,
         "min_profile_evaluated_tweets": min_profile_evaluated_tweets,
+        "taklidi_ratio_threshold": taklidi_ratio_threshold,
+        "taklidi_ratio_margin": taklidi_ratio_margin,
     }
     raw_profile_fetch_limit = calculate_overfetch_limit(
         deep_dive_tweet_limit,
@@ -970,6 +1000,8 @@ async def run_pipeline(
             "positive_ratio_threshold": positive_ratio_threshold,
             "min_positive_tweets": user_jihadi_threshold,
             "min_profile_evaluated_tweets": min_profile_evaluated_tweets,
+            "taklidi_ratio_threshold": taklidi_ratio_threshold,
+            "taklidi_ratio_margin": taklidi_ratio_margin,
             "tweet_language": tweet_language,
         },
     )
@@ -980,6 +1012,7 @@ async def run_pipeline(
         "triggered_users": 0,
         "deep_dived_users": 0,
         "positive_users": 0,
+        "taklidi_users": 0,
         "evidence_tweets": 0,
         "insufficient_profile_tweet_users": 0,
         "filtered_arabic": 0,
@@ -1016,7 +1049,7 @@ async def run_pipeline(
         triggered_by_user: dict[str, list[tuple[DiscoveredTweet, TweetEvaluation]]] = {}
 
         for discovered_tweet, evaluation in zip(discovered_tweets, initial_evaluations):
-            if not evaluation.flagged:
+            if not is_deep_dive_trigger(evaluation):
                 continue
 
             username = discovered_tweet.username
@@ -1030,7 +1063,7 @@ async def run_pipeline(
         counts["triggered_users"] = len(triggered_by_user)
 
         if not triggered_by_user:
-            logger.info("No discovered tweets were classified as Salafi jihadi.")
+            logger.info("No discovered tweets triggered a user deep dive.")
             return {}
 
         for username, triggered_items in triggered_by_user.items():
@@ -1047,6 +1080,8 @@ async def run_pipeline(
                 min_positive_tweets=user_jihadi_threshold,
                 min_profile_evaluated_tweets=min_profile_evaluated_tweets,
                 positive_ratio_threshold=positive_ratio_threshold,
+                taklidi_ratio_threshold=taklidi_ratio_threshold,
+                taklidi_ratio_margin=taklidi_ratio_margin,
                 profile_overfetch_multiplier=profile_overfetch_multiplier,
                 tweet_language=tweet_language,
             )
@@ -1073,6 +1108,8 @@ async def run_pipeline(
             if save_result["status"] == "salafi_jihadi":
                 counts["positive_users"] += 1
                 verified_users[username] = deep_dive_result.all_evaluations
+            elif save_result["status"] == "salafi_taklidi":
+                counts["taklidi_users"] += 1
 
         return verified_users
     except Exception as exc:
@@ -1139,6 +1176,18 @@ def main() -> None:
         help="Minimum Salafi jihadi positive ratio required. Default 0.10.",
     )
     parser.add_argument(
+        "--taklidi-ratio",
+        type=float,
+        default=TAKLIDI_RATIO_THRESHOLD,
+        help="Minimum Salafi taklidi profile ratio required. Default 0.25.",
+    )
+    parser.add_argument(
+        "--taklidi-margin",
+        type=float,
+        default=TAKLIDI_RATIO_MARGIN,
+        help="Minimum taklidi ratio lead over jihadi ratio. Default 0.07.",
+    )
+    parser.add_argument(
         "--tweet-language",
         default=DEFAULT_TWEET_LANGUAGE,
         help="Tweet language sent to Apify. Use an empty value to disable.",
@@ -1159,6 +1208,8 @@ def main() -> None:
             user_jihadi_threshold=args.min_positive_tweets,
             min_profile_evaluated_tweets=args.min_profile_tweets,
             positive_ratio_threshold=args.ratio,
+            taklidi_ratio_threshold=args.taklidi_ratio,
+            taklidi_ratio_margin=args.taklidi_margin,
             profile_overfetch_multiplier=args.overfetch_multiplier,
             tweet_language=args.tweet_language or None,
         )

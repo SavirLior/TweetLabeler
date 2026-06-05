@@ -28,15 +28,22 @@ try:
         DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
         DEFAULT_MIN_POSITIVE_TWEETS,
         DEFAULT_POSITIVE_RATIO_THRESHOLD,
+        DEFAULT_TAKLIDI_RATIO_MARGIN,
+        DEFAULT_TAKLIDI_RATIO_THRESHOLD,
+        TAKLIDI_LABEL,
     )
 except ImportError:  # Allows running this file directly from crawler_pipeline/.
     from config import (
         DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
         DEFAULT_MIN_POSITIVE_TWEETS,
         DEFAULT_POSITIVE_RATIO_THRESHOLD,
+        DEFAULT_TAKLIDI_RATIO_MARGIN,
+        DEFAULT_TAKLIDI_RATIO_THRESHOLD,
+        TAKLIDI_LABEL,
     )
 
 STATUS_SALAFI_JIHADI = "salafi_jihadi"
+STATUS_SALAFI_TAKLIDI = "salafi_taklidi"
 STATUS_NOT_SALAFI_JIHADI = "not_salafi_jihadi"
 STATUS_INSUFFICIENT_DATA = "insufficient_data"
 
@@ -86,23 +93,39 @@ def _get_flagged(evaluation: Mapping[str, Any] | Any) -> bool:
     return bool(getattr(evaluation, "flagged", False))
 
 
+def _get_model_label(evaluation: Mapping[str, Any] | Any) -> str:
+    if isinstance(evaluation, Mapping):
+        return str(evaluation.get("model_label") or evaluation.get("label") or "")
+    return str(getattr(evaluation, "label", ""))
+
+
 def classify_user_score(
     positive_count: int,
     evaluated_count: int,
     *,
+    taklidi_count: int = 0,
     positive_ratio_threshold: float = DEFAULT_POSITIVE_RATIO_THRESHOLD,
     min_positive_tweets: int = DEFAULT_MIN_POSITIVE_TWEETS,
     min_evaluated_tweets: int = DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
+    taklidi_ratio_threshold: float = DEFAULT_TAKLIDI_RATIO_THRESHOLD,
+    taklidi_ratio_margin: float = DEFAULT_TAKLIDI_RATIO_MARGIN,
 ) -> str:
     if evaluated_count < min_evaluated_tweets:
         return STATUS_INSUFFICIENT_DATA
 
     positive_ratio = positive_count / evaluated_count if evaluated_count else 0.0
+    taklidi_ratio = taklidi_count / evaluated_count if evaluated_count else 0.0
     if (
         positive_count >= min_positive_tweets
         and positive_ratio >= positive_ratio_threshold
     ):
         return STATUS_SALAFI_JIHADI
+
+    if (
+        taklidi_ratio > taklidi_ratio_threshold
+        and taklidi_ratio >= positive_ratio + taklidi_ratio_margin
+    ):
+        return STATUS_SALAFI_TAKLIDI
 
     return STATUS_NOT_SALAFI_JIHADI
 
@@ -113,23 +136,34 @@ def calculate_classification_score(
     positive_ratio_threshold: float = DEFAULT_POSITIVE_RATIO_THRESHOLD,
     min_positive_tweets: int = DEFAULT_MIN_POSITIVE_TWEETS,
     min_evaluated_tweets: int = DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
+    taklidi_ratio_threshold: float = DEFAULT_TAKLIDI_RATIO_THRESHOLD,
+    taklidi_ratio_margin: float = DEFAULT_TAKLIDI_RATIO_MARGIN,
 ) -> dict[str, Any]:
     evaluations_list = list(evaluations)
     evaluated_count = len(evaluations_list)
     positive_count = sum(1 for evaluation in evaluations_list if _get_flagged(evaluation))
+    taklidi_count = sum(
+        1 for evaluation in evaluations_list if _get_model_label(evaluation) == TAKLIDI_LABEL
+    )
     positive_ratio = positive_count / evaluated_count if evaluated_count else 0.0
+    taklidi_ratio = taklidi_count / evaluated_count if evaluated_count else 0.0
     status = classify_user_score(
         positive_count,
         evaluated_count,
+        taklidi_count=taklidi_count,
         positive_ratio_threshold=positive_ratio_threshold,
         min_positive_tweets=min_positive_tweets,
         min_evaluated_tweets=min_evaluated_tweets,
+        taklidi_ratio_threshold=taklidi_ratio_threshold,
+        taklidi_ratio_margin=taklidi_ratio_margin,
     )
 
     return {
         "positive_count": positive_count,
+        "taklidi_count": taklidi_count,
         "evaluated_count": evaluated_count,
         "positive_ratio": positive_ratio,
+        "taklidi_ratio": taklidi_ratio,
         "status": status,
     }
 
@@ -285,6 +319,18 @@ class CrawlerMongoStore:
                     DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
                 )
             ),
+            taklidi_ratio_threshold=float(
+                thresholds.get(
+                    "taklidi_ratio_threshold",
+                    DEFAULT_TAKLIDI_RATIO_THRESHOLD,
+                )
+            ),
+            taklidi_ratio_margin=float(
+                thresholds.get(
+                    "taklidi_ratio_margin",
+                    DEFAULT_TAKLIDI_RATIO_MARGIN,
+                )
+            ),
         )
         status = score["status"]
 
@@ -312,9 +358,12 @@ class CrawlerMongoStore:
             "status": status,
             "score": {
                 "positive_count": score["positive_count"],
+                "taklidi_count": score["taklidi_count"],
                 "evaluated_count": score["evaluated_count"],
                 "positive_ratio": score["positive_ratio"],
+                "taklidi_ratio": score["taklidi_ratio"],
                 "profile_positive_count": score["positive_count"],
+                "profile_taklidi_count": score["taklidi_count"],
                 "profile_evaluated_count": score["evaluated_count"],
             },
             "thresholds": dict(thresholds),

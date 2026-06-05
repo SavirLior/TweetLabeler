@@ -5,16 +5,20 @@ from tempfile import TemporaryDirectory
 try:
     from . import twitter_crawler
     from .twitter_crawler import (
+        TweetEvaluation,
         build_discovered_tweets_from_items,
         calculate_overfetch_limit,
+        is_deep_dive_trigger,
         read_keywords_file,
         write_final_jihadi_users_file,
     )
 except ImportError:
     import twitter_crawler
     from twitter_crawler import (
+        TweetEvaluation,
         build_discovered_tweets_from_items,
         calculate_overfetch_limit,
+        is_deep_dive_trigger,
         read_keywords_file,
         write_final_jihadi_users_file,
     )
@@ -66,6 +70,33 @@ class TwitterCrawlerHelperTests(unittest.TestCase):
             self.assertTrue(twitter_crawler.is_training_user("@//YsiMmunye"))
         finally:
             twitter_crawler._training_usernames = original_training_usernames
+
+    def test_deep_dive_trigger_includes_jihadi_and_taklidi_tweets(self):
+        jihadi = TweetEvaluation(
+            tweet="jihadi",
+            label="Salafi jihadi",
+            flagged=True,
+            confidence=0.9,
+            probabilities={},
+        )
+        taklidi = TweetEvaluation(
+            tweet="taklidi",
+            label="Salafi taklidi",
+            flagged=False,
+            confidence=0.9,
+            probabilities={},
+        )
+        irrelevant = TweetEvaluation(
+            tweet="irrelevant",
+            label="Irrelevant",
+            flagged=False,
+            confidence=0.9,
+            probabilities={},
+        )
+
+        self.assertTrue(is_deep_dive_trigger(jihadi))
+        self.assertTrue(is_deep_dive_trigger(taklidi))
+        self.assertFalse(is_deep_dive_trigger(irrelevant))
 
     def test_keywords_file_ignores_comments_blanks_and_duplicates(self):
         with TemporaryDirectory() as directory:
