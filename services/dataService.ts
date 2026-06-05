@@ -260,6 +260,19 @@ export type CrawlerRunPageResponse = {
   total: number;
 };
 
+export type CrawlerKeywordResponse = {
+  items: string[];
+  total: number;
+};
+
+export type StartCrawlerRunResponse = {
+  success: boolean;
+  message?: string;
+  mode?: "default" | "custom";
+  keywordCount?: number;
+  error?: string;
+};
+
 export type CrawlerEvidencePageResponse = {
   items: CrawlerEvidence[];
   nextCursor: string | null;
@@ -456,6 +469,37 @@ export const getCrawlerRuns = async (
     "GET",
     undefined,
     signal,
+  );
+};
+
+export const getCrawlerKeywords = async (
+  signal?: AbortSignal,
+): Promise<CrawlerKeywordResponse> => {
+  return apiRequest<CrawlerKeywordResponse>(
+    "/crawler/keywords",
+    "GET",
+    undefined,
+    signal,
+  );
+};
+
+export const saveCrawlerKeywords = async (
+  keywords: string[],
+): Promise<CrawlerKeywordResponse & { success: boolean }> => {
+  return apiRequest<CrawlerKeywordResponse & { success: boolean }>(
+    "/crawler/keywords",
+    "PUT",
+    { keywords },
+  );
+};
+
+export const startCrawlerRun = async (
+  payload: { useDefaultKeywords: boolean; keywords?: string[] },
+): Promise<StartCrawlerRunResponse> => {
+  return apiRequest<StartCrawlerRunResponse>(
+    "/crawler/runs",
+    "POST",
+    payload,
   );
 };
 

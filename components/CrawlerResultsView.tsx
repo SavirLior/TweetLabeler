@@ -1,13 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   BarChart2,
   ChevronDown,
   ChevronUp,
   Download,
   ExternalLink,
   Filter,
+  Play,
+  Plus,
   RefreshCw,
   Search,
+  Trash2,
 } from "lucide-react";
 import { Button } from "./Button";
 import {
@@ -21,11 +26,14 @@ import {
   CrawlerUserRun,
   exportCrawlerEvidenceCsv,
   exportCrawlerUsersCsv,
+  getCrawlerKeywords,
   getCrawlerEvidence,
   getCrawlerRuns,
   getCrawlerUserRuns,
   getCrawlerUsers,
+  saveCrawlerKeywords,
   setCrawlerEvidenceAdminLabel,
+  startCrawlerRun,
 } from "../services/dataService";
 
 const ADMIN_LABEL_CHOICES: CrawlerModelLabel[] = [
@@ -61,6 +69,7 @@ const EVIDENCE_PAGE_SIZE = 100;
 
 type StatusFilter = CrawlerStatus | "all";
 type EvidenceLabelFilter = CrawlerModelLabel | "all";
+type CrawlerKeywordMode = "default" | "custom";
 
 const statusLabels: Record<StatusFilter, string> = {
   all: "כל הסטטוסים",
@@ -155,6 +164,39 @@ const getTwitterProfileUrl = (username: string) =>
 
 const getInfluenceLocation = (influence?: CrawlerInfluence) =>
   influence?.location?.trim() || "-";
+
+const parseKeywordInput = (value: string) => {
+  const seen = new Set<string>();
+  return value
+    .replace(/,/g, "\n")
+    .split(/\r?\n/)
+    .map((keyword) => keyword.trim())
+    .filter((keyword) => {
+      if (!keyword || keyword.startsWith("#")) return false;
+      const key = keyword.toLocaleLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const getApiErrorText = (error: unknown) => {
+  const apiError = error as { status?: number; responseBody?: unknown; message?: string };
+  const responseBody = apiError.responseBody;
+  let serverMessage = "";
+  if (responseBody && typeof responseBody === "object" && "error" in responseBody) {
+    serverMessage = String((responseBody as { error?: unknown }).error || "");
+  } else if (typeof responseBody === "string") {
+    serverMessage = responseBody;
+  }
+
+  return [
+    apiError.status ? `API ${apiError.status}` : "",
+    serverMessage || apiError.message || "Unknown error",
+  ]
+    .filter(Boolean)
+    .join(": ");
+};
 
 const hasInfluenceData = (influence?: CrawlerInfluence) =>
   Boolean(
@@ -440,6 +482,18 @@ export const CrawlerResultsView: React.FC = () => {
   const [labelFilter, setLabelFilter] = useState<EvidenceLabelFilter>("all");
   const [showStats, setShowStats] = useState(true);
   const [exporting, setExporting] = useState<"users" | "evidence" | null>(null);
+  const [defaultKeywords, setDefaultKeywords] = useState<string[]>([]);
+  const [editableDefaultKeywords, setEditableDefaultKeywords] = useState<string[]>([]);
+  const [newDefaultKeyword, setNewDefaultKeyword] = useState("");
+  const [keywordMode, setKeywordMode] = useState<CrawlerKeywordMode>("default");
+  const [customKeywords, setCustomKeywords] = useState<string[]>([]);
+  const [newCustomKeyword, setNewCustomKeyword] = useState("");
+  const [keywordsLoading, setKeywordsLoading] = useState(false);
+  const [keywordsError, setKeywordsError] = useState("");
+  const [keywordsSaving, setKeywordsSaving] = useState(false);
+  const [crawlerStartLoading, setCrawlerStartLoading] = useState(false);
+  const [crawlerStartMessage, setCrawlerStartMessage] = useState("");
+  const [crawlerStartError, setCrawlerStartError] = useState("");
 
   const formatRunOptionLabel = (run: CrawlerRun) => {
     const started = formatDate(run.started_at);
@@ -455,6 +509,27 @@ export const CrawlerResultsView: React.FC = () => {
     } catch {
       if (signal?.aborted) return;
       setCrawlerRuns([]);
+    }
+  };
+
+  const loadCrawlerKeywords = async (signal?: AbortSignal) => {
+    setKeywordsLoading(true);
+    setKeywordsError("");
+    try {
+      const response = await getCrawlerKeywords(signal);
+      if (signal?.aborted) return;
+      setDefaultKeywords(response.items);
+      setEditableDefaultKeywords(response.items);
+    } catch (error) {
+      if (signal?.aborted) return;
+      setDefaultKeywords([]);
+      setEditableDefaultKeywords([]);
+      setKeywordsError(
+        `Could not load keywords from keywords.txt. ${getApiErrorText(error)}`,
+      );
+    } finally {
+      if (signal?.aborted) return;
+      setKeywordsLoading(false);
     }
   };
 
@@ -571,6 +646,7 @@ export const CrawlerResultsView: React.FC = () => {
   useEffect(() => {
     const controller = new AbortController();
     loadCrawlerRuns(controller.signal);
+    loadCrawlerKeywords(controller.signal);
     return () => controller.abort();
   }, []);
 
@@ -649,6 +725,73 @@ export const CrawlerResultsView: React.FC = () => {
     (sum, status) => sum + (userStatusCounts[status] || 0),
     0,
   );
+  const activeCrawlerKeywords =
+    keywordMode === "default" ? editableDefaultKeywords : customKeywords;
+
+  const updateKeyword = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    index: number,
+    value: string,
+  ) => {
+    setter((current) =>
+      current.map((keyword, keywordIndex) => (keywordIndex === index ? value : keyword)),
+    );
+  };
+
+  const moveKeyword = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    index: number,
+    direction: -1 | 1,
+  ) => {
+    setter((current) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+  };
+
+  const removeKeyword = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    index: number,
+  ) => {
+    setter((current) =>
+      current.filter((_keyword, keywordIndex) => keywordIndex !== index),
+    );
+  };
+
+  const addKeyword = (
+    listSetter: React.Dispatch<React.SetStateAction<string[]>>,
+    inputValue: string,
+    inputSetter: React.Dispatch<React.SetStateAction<string>>,
+  ) => {
+    const [keyword] = parseKeywordInput(inputValue);
+    if (!keyword) return;
+    listSetter((current) => {
+      if (current.some((existing) => existing.toLocaleLowerCase() === keyword.toLocaleLowerCase())) {
+        return current;
+      }
+      return [...current, keyword];
+    });
+    inputSetter("");
+  };
+
+  const shuffleKeywords = (setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+    setter((current) => {
+      const next = [...current];
+      for (let index = next.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+      }
+      return next;
+    });
+  };
+
+  const resetDefaultKeywords = () => {
+    setEditableDefaultKeywords(defaultKeywords);
+    setNewDefaultKeyword("");
+  };
 
   const handleUsersExport = async () => {
     setExporting("users");
@@ -660,6 +803,70 @@ export const CrawlerResultsView: React.FC = () => {
       });
     } finally {
       setExporting(null);
+    }
+  };
+
+  const handleSaveDefaultKeywords = async () => {
+    const keywords = parseKeywordInput(editableDefaultKeywords.join("\n"));
+    if (keywords.length === 0) {
+      setKeywordsError("At least one keyword is required.");
+      return;
+    }
+
+    setKeywordsSaving(true);
+    setKeywordsError("");
+    try {
+      const response = await saveCrawlerKeywords(keywords);
+      setDefaultKeywords(response.items);
+      setEditableDefaultKeywords(response.items);
+      setCrawlerStartMessage("Default keyword file saved.");
+      setCrawlerStartError("");
+    } catch (error) {
+      const responseBody = (error as { responseBody?: { error?: string } }).responseBody;
+      setKeywordsError(
+        responseBody?.error ||
+          (error instanceof Error ? error.message : "Failed to save keywords."),
+      );
+    } finally {
+      setKeywordsSaving(false);
+    }
+  };
+
+  const handleStartCrawlerRun = async () => {
+    const keywords = parseKeywordInput(activeCrawlerKeywords.join("\n"));
+    if (keywordMode === "custom" && keywords.length === 0) {
+      setCrawlerStartError("Please enter at least one keyword.");
+      setCrawlerStartMessage("");
+      return;
+    }
+    if (keywordMode === "default" && editableDefaultKeywords.length === 0 && keywordsError) {
+      setCrawlerStartError("Default keywords are not loaded.");
+      setCrawlerStartMessage("");
+      return;
+    }
+
+    setCrawlerStartLoading(true);
+    setCrawlerStartError("");
+    setCrawlerStartMessage("");
+    try {
+      const response = await startCrawlerRun({
+        useDefaultKeywords: keywordMode === "default" && keywords.length === 0,
+        keywords: keywords.length > 0 ? keywords : undefined,
+      });
+      setCrawlerStartMessage(
+        `Crawler started with ${response.keywordCount ?? keywords.length} ${
+          response.keywordCount === 1 ? "keyword" : "keywords"
+        }. Refresh the runs list in a few moments to follow progress.`,
+      );
+      await loadCrawlerRuns();
+    } catch (error) {
+      const responseBody = (error as { responseBody?: { error?: string } }).responseBody;
+      setCrawlerStartError(
+        responseBody?.error ||
+          (error instanceof Error ? error.message : "Failed to start crawler."),
+      );
+    } finally {
+      setCrawlerStartLoading(false);
     }
   };
 
@@ -765,6 +972,261 @@ export const CrawlerResultsView: React.FC = () => {
               Export users
             </Button>
           </div>
+        </div>
+
+        <div className="mt-4 border border-gray-200 rounded-lg bg-gray-50 p-3 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="inline-flex w-fit rounded-lg border border-gray-200 bg-white p-1">
+              <button
+                type="button"
+                onClick={() => setKeywordMode("default")}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+                  keywordMode === "default"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Default file ({editableDefaultKeywords.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setKeywordMode("custom")}
+                className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+                  keywordMode === "custom"
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Custom ({customKeywords.length})
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {keywordMode === "default" && (
+                <>
+                  <Button
+                    onClick={handleSaveDefaultKeywords}
+                    variant="secondary"
+                    disabled={keywordsSaving || editableDefaultKeywords.length === 0}
+                  >
+                    {keywordsSaving ? "Saving..." : "Save file"}
+                  </Button>
+                  <Button
+                    onClick={() => loadCrawlerKeywords()}
+                    variant="secondary"
+                    disabled={keywordsLoading}
+                  >
+                    {keywordsLoading ? "Loading..." : "Reload file"}
+                  </Button>
+                  <Button
+                    onClick={resetDefaultKeywords}
+                    variant="secondary"
+                    disabled={keywordsLoading}
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    onClick={() => shuffleKeywords(setEditableDefaultKeywords)}
+                    variant="secondary"
+                    disabled={editableDefaultKeywords.length < 2}
+                  >
+                    Shuffle
+                  </Button>
+                </>
+              )}
+              {keywordMode === "custom" && (
+                <Button
+                  onClick={() => shuffleKeywords(setCustomKeywords)}
+                  variant="secondary"
+                  disabled={customKeywords.length < 2}
+                >
+                  Shuffle
+                </Button>
+              )}
+              <Button
+                onClick={handleStartCrawlerRun}
+                variant="primary"
+                disabled={crawlerStartLoading}
+                className="flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                <Play className="w-4 h-4" />
+                {crawlerStartLoading ? "Starting..." : "Start crawl"}
+              </Button>
+            </div>
+          </div>
+
+          {keywordMode === "default" ? (
+            <div className="space-y-2">
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 space-y-1">
+                {editableDefaultKeywords.map((keyword, index) => (
+                  <div key={`${keyword}-${index}`} className="flex items-center gap-2">
+                    <span className="w-8 text-left text-xs text-gray-400" dir="ltr">
+                      {index + 1}
+                    </span>
+                    <input
+                      value={keyword}
+                      onChange={(event) =>
+                        updateKeyword(setEditableDefaultKeywords, index, event.target.value)
+                      }
+                      className="min-w-0 flex-1 rounded-md border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      dir="auto"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => moveKeyword(setEditableDefaultKeywords, index, -1)}
+                      disabled={index === 0}
+                      className="rounded-md border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                      title="Move up"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveKeyword(setEditableDefaultKeywords, index, 1)}
+                      disabled={index === editableDefaultKeywords.length - 1}
+                      className="rounded-md border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                      title="Move down"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeKeyword(setEditableDefaultKeywords, index)}
+                      className="rounded-md border border-red-200 bg-white p-1.5 text-red-600 hover:bg-red-50"
+                      title="Remove"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {!keywordsLoading && editableDefaultKeywords.length === 0 && (
+                  <div className="py-6 text-center text-sm text-gray-500">
+                    No keywords loaded
+                  </div>
+                )}
+                {keywordsLoading && (
+                  <div className="py-6 text-center text-sm text-gray-500">Loading...</div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={newDefaultKeyword}
+                  onChange={(event) => setNewDefaultKeyword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addKeyword(
+                        setEditableDefaultKeywords,
+                        newDefaultKeyword,
+                        setNewDefaultKeyword,
+                      );
+                    }
+                  }}
+                  placeholder="Add keyword or phrase"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  dir="auto"
+                />
+                <Button
+                  onClick={() =>
+                    addKeyword(
+                      setEditableDefaultKeywords,
+                      newDefaultKeyword,
+                      setNewDefaultKeyword,
+                    )
+                  }
+                  variant="secondary"
+                  className="flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 space-y-1">
+                {customKeywords.map((keyword, index) => (
+                  <div key={`${keyword}-${index}`} className="flex items-center gap-2">
+                    <span className="w-8 text-left text-xs text-gray-400" dir="ltr">
+                      {index + 1}
+                    </span>
+                    <input
+                      value={keyword}
+                      readOnly
+                      className="min-w-0 flex-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5 text-sm text-gray-700"
+                      dir="auto"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => moveKeyword(setCustomKeywords, index, -1)}
+                      disabled={index === 0}
+                      className="rounded-md border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                      title="Move up"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveKeyword(setCustomKeywords, index, 1)}
+                      disabled={index === customKeywords.length - 1}
+                      className="rounded-md border border-gray-200 bg-white p-1.5 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                      title="Move down"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeKeyword(setCustomKeywords, index)}
+                      className="rounded-md border border-red-200 bg-white p-1.5 text-red-600 hover:bg-red-50"
+                      title="Remove"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {customKeywords.length === 0 && (
+                  <div className="py-6 text-center text-sm text-gray-500">
+                    Add custom keywords or phrases below
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={newCustomKeyword}
+                  onChange={(event) => setNewCustomKeyword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addKeyword(setCustomKeywords, newCustomKeyword, setNewCustomKeyword);
+                    }
+                  }}
+                  placeholder="Add custom keyword or phrase"
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  dir="auto"
+                />
+                <Button
+                  onClick={() => addKeyword(setCustomKeywords, newCustomKeyword, setNewCustomKeyword)}
+                  variant="secondary"
+                  className="flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {(keywordsError || crawlerStartMessage || crawlerStartError) && (
+            <div
+              className={`text-sm ${
+                keywordsError || crawlerStartError ? "text-red-700" : "text-green-700"
+              }`}
+            >
+              {keywordsError || crawlerStartError || crawlerStartMessage}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_280px] gap-3 mt-4">

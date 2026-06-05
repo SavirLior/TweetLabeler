@@ -8,6 +8,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server.py data.json tweet_classifications.csv ./
+COPY crawler_pipeline/ ./crawler_pipeline/
 
 EXPOSE 8080
 

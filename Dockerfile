@@ -27,6 +27,7 @@ RUN mkdir -p /app/db && chmod 777 /app/db
 COPY --from=frontend-build /app/dist ./dist
 COPY server.py .
 COPY services/ ./services/
+COPY crawler_pipeline/ ./crawler_pipeline/
 COPY *.json .
 
 # פקודת ההרצה

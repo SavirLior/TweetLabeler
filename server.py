@@ -9,8 +9,11 @@ import os
 import csv
 import io
 import secrets
+import subprocess
+import sys
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from pathlib import Path
 MASTERPASS = "mazor102030"
 
 app = Flask(__name__, static_folder="dist", static_url_path="")
@@ -43,6 +46,10 @@ CRAWLER_RUNS_COLLECTION = "crawler_runs"
 CRAWLER_USERS_COLLECTION = "crawler_users"
 CRAWLER_USER_RUNS_COLLECTION = "crawler_user_runs"
 CRAWLER_EVIDENCE_COLLECTION = "crawler_tweet_evidence"
+PROJECT_ROOT = Path(__file__).resolve().parent
+CRAWLER_KEYWORDS_FILE = Path(
+    os.getenv("CRAWLER_KEYWORDS_FILE", str(PROJECT_ROOT / "crawler_pipeline" / "keywords.txt"))
+)
 
 mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
 db = mongo_client[MONGO_DB_NAME]
@@ -584,6 +591,52 @@ def get_crawler_status_counts(collection, query, status_field):
         if status:
             counts[status] = int(row.get("count", 0) or 0)
     return counts
+
+
+def normalize_crawler_keywords(raw_keywords):
+    if isinstance(raw_keywords, str):
+        candidates = raw_keywords.replace(",", "\n").splitlines()
+    elif isinstance(raw_keywords, list):
+        candidates = raw_keywords
+    else:
+        candidates = []
+
+    keywords = []
+    seen = set()
+    for candidate in candidates:
+        keyword = str(candidate).strip()
+        if not keyword or keyword.startswith("#"):
+            continue
+        dedupe_key = keyword.casefold()
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        keywords.append(keyword)
+    return keywords
+
+
+def read_crawler_default_keywords():
+    if not CRAWLER_KEYWORDS_FILE.exists():
+        raise FileNotFoundError(f"Keywords file was not found: {CRAWLER_KEYWORDS_FILE}")
+    return normalize_crawler_keywords(CRAWLER_KEYWORDS_FILE.read_text(encoding="utf-8"))
+
+
+def write_crawler_default_keywords(keywords):
+    clean_keywords = normalize_crawler_keywords(keywords)
+    if not clean_keywords:
+        raise ValueError("At least one keyword is required")
+    CRAWLER_KEYWORDS_FILE.write_text(
+        "\n".join(clean_keywords) + "\n",
+        encoding="utf-8",
+    )
+    return clean_keywords
+
+
+def build_crawler_command(keywords):
+    command = [sys.executable, "-m", "crawler_pipeline.twitter_crawler"]
+    if keywords:
+        command.extend(keywords)
+    return command
 
 
 def apply_crawler_evidence_filters(query, args):
@@ -1154,6 +1207,71 @@ def list_crawler_runs():
                 "total": total,
             }
         )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/keywords", methods=["GET"])
+def get_crawler_keywords():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        keywords = read_crawler_default_keywords()
+        return jsonify({"items": keywords, "total": len(keywords)})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/keywords", methods=["PUT"])
+def update_crawler_keywords():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        payload = request.json or {}
+        keywords = write_crawler_default_keywords(payload.get("keywords"))
+        return jsonify({"success": True, "items": keywords, "total": len(keywords)})
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/runs", methods=["POST"])
+def start_crawler_run():
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    try:
+        payload = request.json or {}
+        use_default_keywords = bool(payload.get("useDefaultKeywords", True))
+        keyword_count = len(read_crawler_default_keywords()) if use_default_keywords else 0
+        keywords = [] if use_default_keywords else normalize_crawler_keywords(payload.get("keywords"))
+        if not use_default_keywords and not keywords:
+            return jsonify({"success": False, "error": "At least one custom keyword is required"}), 400
+        if not use_default_keywords:
+            keyword_count = len(keywords)
+
+        command = build_crawler_command(keywords)
+        subprocess.Popen(
+            command,
+            cwd=str(PROJECT_ROOT),
+            env=os.environ.copy(),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return jsonify(
+            {
+                "success": True,
+                "message": "Crawler run started",
+                "mode": "default" if use_default_keywords else "custom",
+                "keywordCount": keyword_count,
+            }
+        ), 202
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
