@@ -46,6 +46,15 @@ class FakeCollection:
     def create_index(self, *args, **kwargs):
         self.indexes.append((args, kwargs))
 
+    def count_documents(self, filter_doc, limit=0):
+        matched_count = 0
+        for doc in self.docs:
+            if self._matches(doc, filter_doc):
+                matched_count += 1
+                if limit and matched_count >= limit:
+                    return matched_count
+        return matched_count
+
     def update_one(self, filter_doc, update_doc, upsert=False):
         for doc in self.docs:
             if self._matches(doc, filter_doc):
@@ -62,7 +71,23 @@ class FakeCollection:
 
     @staticmethod
     def _matches(doc, filter_doc):
-        return all(doc.get(key) == value for key, value in filter_doc.items())
+        for key, value in filter_doc.items():
+            if key == "$or":
+                if not any(FakeCollection._matches(doc, option) for option in value):
+                    return False
+                continue
+            if FakeCollection._get_nested(doc, key) != value:
+                return False
+        return True
+
+    @staticmethod
+    def _get_nested(doc, dotted_key):
+        value = doc
+        for key in dotted_key.split("."):
+            if not isinstance(value, dict):
+                return None
+            value = value.get(key)
+        return value
 
     @staticmethod
     def _apply_update(doc, update_doc, *, inserted):
@@ -254,6 +279,11 @@ class CrawlerMongoStoreTests(unittest.TestCase):
             "min_positive_tweets": 8,
             "min_profile_evaluated_tweets": 4,
         }
+        model_info = {
+            "model_name": "181",
+            "model_export_dir": "model_export_exp_88_iter_181",
+            "iteration_id": 181,
+        }
         store.start_run(keywords=["term"], params=thresholds, run_id="run-1")
 
         trigger = evidence_docs(1, 1)
@@ -265,6 +295,7 @@ class CrawlerMongoStoreTests(unittest.TestCase):
             profile_evidence=profile,
             keywords=["term"],
             thresholds=thresholds,
+            model_info=model_info,
         )
         store.save_user_deep_dive(
             run_id="run-1",
@@ -273,6 +304,7 @@ class CrawlerMongoStoreTests(unittest.TestCase):
             profile_evidence=profile,
             keywords=["term"],
             thresholds=thresholds,
+            model_info=model_info,
         )
 
         self.assertEqual(
@@ -282,6 +314,8 @@ class CrawlerMongoStoreTests(unittest.TestCase):
         self.assertEqual(len(fake_db[USERS_COLLECTION].docs), 1)
         self.assertEqual(len(fake_db[USER_RUNS_COLLECTION].docs), 1)
         self.assertEqual(len(fake_db[EVIDENCE_COLLECTION].docs), 5)
+        self.assertEqual(fake_db[USERS_COLLECTION].docs[0]["latest_model"], model_info)
+        self.assertEqual(fake_db[USER_RUNS_COLLECTION].docs[0]["model"], model_info)
         evidence_doc = fake_db[EVIDENCE_COLLECTION].docs[0]
         self.assertEqual(evidence_doc["source"]["provider"], "apify")
         self.assertNotIn("raw_apify_item", evidence_doc)
@@ -321,6 +355,55 @@ class CrawlerMongoStoreTests(unittest.TestCase):
         self.assertEqual(user_doc["latest_run_id"], "run-2")
         self.assertEqual(user_doc["current_status"], STATUS_NOT_SALAFI_JIHADI)
         self.assertEqual(len(fake_db[USER_RUNS_COLLECTION].docs), 2)
+
+    def test_has_user_run_for_model_matches_username_iteration_and_export(self):
+        fake_db = FakeDb()
+        store = CrawlerMongoStore(db=fake_db)
+        thresholds = {
+            "positive_ratio_threshold": 0.12,
+            "min_positive_tweets": 8,
+            "min_profile_evaluated_tweets": 4,
+        }
+        model_181 = {
+            "model_export_dir": "model_export_exp_88_iter_181",
+            "iteration_id": 181,
+            "model_name": "181",
+        }
+        model_180 = {
+            "model_export_dir": "model_export_exp_87_iter_180",
+            "iteration_id": 180,
+            "model_name": "180",
+        }
+
+        store.start_run(keywords=["term"], params={"model": model_181}, run_id="run-1")
+        store.save_user_deep_dive(
+            run_id="run-1",
+            username="@ExampleUser",
+            trigger_evidence=evidence_docs(1, 1),
+            profile_evidence=evidence_docs(4, 3, offset=100),
+            keywords=["term"],
+            thresholds=thresholds,
+            model_info=model_181,
+        )
+
+        self.assertTrue(store.has_user_run_for_model("exampleuser", model_181))
+        self.assertTrue(
+            store.has_user_run_for_model(
+                "ExampleUser",
+                {
+                    "model_export_dir": "model_export_exp_88_iter_181",
+                    "iteration": 181,
+                },
+            )
+        )
+        self.assertFalse(store.has_user_run_for_model("ExampleUser", model_180))
+        self.assertFalse(store.has_user_run_for_model("FreshUser", model_181))
+        self.assertFalse(
+            store.has_user_run_for_model(
+                "ExampleUser",
+                {"model_export_dir": "model_export_exp_88_iter_181"},
+            )
+        )
 
     def test_trigger_evidence_does_not_affect_profile_score(self):
         fake_db = FakeDb()

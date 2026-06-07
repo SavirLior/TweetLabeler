@@ -236,6 +236,24 @@ def classify_user_score(
     return STATUS_NOT_SALAFI_JIHADI
 
 
+def get_model_identity(model_info: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    if not model_info:
+        return None
+
+    model_export_dir = str(model_info.get("model_export_dir") or "").strip()
+    iteration = model_info.get("iteration_id")
+    if iteration is None:
+        iteration = model_info.get("iteration")
+
+    if not model_export_dir or iteration is None:
+        return None
+
+    return {
+        "model_export_dir": model_export_dir,
+        "iteration": iteration,
+    }
+
+
 def calculate_classification_score(
     evaluations: Iterable[Mapping[str, Any] | Any],
     *,
@@ -351,6 +369,34 @@ class CrawlerMongoStore:
         )
         return clean_run_id
 
+    def has_user_run_for_model(
+        self,
+        username: str,
+        model_info: Mapping[str, Any] | None,
+    ) -> bool:
+        model_identity = get_model_identity(model_info)
+        if not model_identity:
+            return False
+
+        username_key = make_username_key(username)
+        if not username_key:
+            return False
+
+        return (
+            self.user_runs.count_documents(
+                {
+                    "username_key": username_key,
+                    "model.model_export_dir": model_identity["model_export_dir"],
+                    "$or": [
+                        {"model.iteration_id": model_identity["iteration"]},
+                        {"model.iteration": model_identity["iteration"]},
+                    ],
+                },
+                limit=1,
+            )
+            > 0
+        )
+
     def finish_run(
         self,
         run_id: str,
@@ -381,10 +427,12 @@ class CrawlerMongoStore:
         profile_evidence: Iterable[Mapping[str, Any]],
         keywords: Iterable[str],
         thresholds: Mapping[str, Any],
+        model_info: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         now = utc_now()
         clean_username = normalize_username(username)
         username_key = make_username_key(clean_username)
+        clean_model_info = dict(model_info or {})
         trigger_docs = [
             self._normalize_evidence_doc(
                 run_id,
@@ -475,6 +523,7 @@ class CrawlerMongoStore:
             },
             "influence": influence,
             "thresholds": dict(thresholds),
+            "model": clean_model_info,
             "trigger_tweet_keys": trigger_tweet_keys,
             "evidence_tweet_keys": evidence_tweet_keys,
             "created_at": now,
@@ -499,6 +548,7 @@ class CrawlerMongoStore:
                     "latest_score": user_run_doc["score"],
                     "latest_influence": influence,
                     "latest_thresholds": dict(thresholds),
+                    "latest_model": clean_model_info,
                     "last_seen_at": now,
                 },
                 "$addToSet": {
