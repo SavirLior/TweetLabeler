@@ -165,6 +165,26 @@ export type CrawlerEvidenceAuthor = {
   verified?: boolean;
 };
 
+export type CrawlerModelInfo = {
+  model_name?: string;
+  model_export_dir?: string;
+  model_metadata_file?: string;
+  model_type?: string;
+  experiment_model_type?: string;
+  project_id?: number;
+  project_name?: string;
+  experiment_id?: number;
+  experiment_name?: string;
+  iteration_id?: number;
+  iteration_number?: number;
+  iteration?: number;
+  export_name?: string;
+  labels?: string[];
+  max_length?: number;
+  prediction_type?: string;
+  temperature?: number;
+};
+
 export type CrawlerUser = {
   _id?: string;
   username_key: string;
@@ -174,6 +194,7 @@ export type CrawlerUser = {
   latest_score?: CrawlerScore;
   latest_influence?: CrawlerInfluence;
   latest_thresholds?: CrawlerThresholds;
+  latest_model?: CrawlerModelInfo;
   first_seen_at?: string;
   last_seen_at?: string;
   discovered_by_keywords?: string[];
@@ -191,6 +212,7 @@ export type CrawlerUserRun = {
   score?: CrawlerScore;
   influence?: CrawlerInfluence;
   thresholds?: CrawlerThresholds;
+  model?: CrawlerModelInfo;
   created_at?: string;
   trigger_tweet_keys?: string[];
   evidence_tweet_keys?: string[];
