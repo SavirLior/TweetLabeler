@@ -17,6 +17,7 @@ try:
         merge_self_reply_threads,
         parse_tweet_timestamp,
         read_keywords_file,
+        run_pipeline,
         write_final_jihadi_users_file,
     )
 except ImportError:
@@ -34,6 +35,7 @@ except ImportError:
         merge_self_reply_threads,
         parse_tweet_timestamp,
         read_keywords_file,
+        run_pipeline,
         write_final_jihadi_users_file,
     )
 
@@ -195,18 +197,30 @@ class TwitterCrawlerHelperTests(unittest.TestCase):
 
 
 class TwitterCrawlerPipelineTests(unittest.IsolatedAsyncioTestCase):
+    class FakeStore:
+        def __init__(self):
+            self.finished_counts = None
+            self.saved_users = []
+
+        def start_run(self, *, keywords, params, run_id=None):
+            return "run-1"
+
+        def has_user_run_for_model(self, username, model_info):
+            return False
+
+        def save_user_deep_dive(self, **kwargs):
+            self.saved_users.append(kwargs["username"])
+            return {
+                "status": "not_salafi_jihadi",
+                "score": {},
+                "evidence_count": 0,
+            }
+
+        def finish_run(self, run_id, *, counts, errors=None, status="completed"):
+            self.finished_counts = dict(counts)
+
     async def test_run_pipeline_does_not_deep_dive_on_taklidi_discovery_tweet(self):
-        class FakeStore:
-            def __init__(self):
-                self.finished_counts = None
-
-            def start_run(self, *, keywords, params, run_id=None):
-                return "run-1"
-
-            def finish_run(self, run_id, *, counts, errors=None, status="completed"):
-                self.finished_counts = dict(counts)
-
-        fake_store = FakeStore()
+        fake_store = self.FakeStore()
         original_build_client = twitter_crawler.build_apify_client
         original_discover = twitter_crawler.discover_tweet_collection_by_keywords
         original_evaluate = twitter_crawler.evaluate_tweets_with_fusion_model
@@ -255,6 +269,7 @@ class TwitterCrawlerPipelineTests(unittest.IsolatedAsyncioTestCase):
             )
 
             self.assertEqual(result, {})
+            self.assertEqual(fake_store.saved_users, [])
             self.assertEqual(fake_store.finished_counts["triggered_tweets"], 0)
             self.assertEqual(fake_store.finished_counts["triggered_users"], 0)
             self.assertEqual(fake_store.finished_counts["deep_dived_users"], 0)
@@ -263,6 +278,81 @@ class TwitterCrawlerPipelineTests(unittest.IsolatedAsyncioTestCase):
             twitter_crawler.discover_tweet_collection_by_keywords = original_discover
             twitter_crawler.evaluate_tweets_with_fusion_model = original_evaluate
             twitter_crawler.verify_user_from_triggered_tweet = original_verify
+
+    async def test_run_pipeline_skips_deep_dive_when_user_already_scanned_with_model(self):
+        class ExistingModelStore(self.FakeStore):
+            def has_user_run_for_model(self, username, model_info):
+                return username == "AlreadyScanned"
+
+        fake_store = ExistingModelStore()
+        verify_called = False
+        original_build_client = twitter_crawler.build_apify_client
+        original_discover = twitter_crawler.discover_tweet_collection_by_keywords
+        original_evaluate = twitter_crawler.evaluate_tweets_with_fusion_model
+        original_verify = twitter_crawler.verify_user_from_triggered_tweet
+        original_model_info = twitter_crawler.get_configured_model_info
+
+        def fake_discover(*args, **kwargs):
+            return TweetCollectionResult(
+                tweets=[
+                    DiscoveredTweet(
+                        username="AlreadyScanned",
+                        text="trigger tweet",
+                        tweet_key="x:1",
+                    )
+                ],
+                counts={},
+            )
+
+        async def fake_evaluate(*args, **kwargs):
+            return [
+                TweetEvaluation(
+                    tweet="trigger tweet",
+                    label="Salafi jihadi",
+                    flagged=True,
+                    confidence=0.9,
+                    probabilities={"Salafi jihadi": 0.9},
+                )
+            ]
+
+        async def fake_verify(*args, **kwargs):
+            nonlocal verify_called
+            verify_called = True
+            raise AssertionError("Deep dive should be skipped")
+
+        try:
+            twitter_crawler.build_apify_client = lambda: object()
+            twitter_crawler.discover_tweet_collection_by_keywords = fake_discover
+            twitter_crawler.evaluate_tweets_with_fusion_model = fake_evaluate
+            twitter_crawler.verify_user_from_triggered_tweet = fake_verify
+            twitter_crawler.get_configured_model_info = lambda: {
+                "model_export_dir": "model_export_exp_88_iter_181",
+                "iteration_id": 181,
+                "model_name": "181",
+            }
+
+            result = await run_pipeline(["term"], mongo_store=fake_store)
+
+            self.assertEqual(result, {})
+            self.assertFalse(verify_called)
+            self.assertEqual(fake_store.saved_users, [])
+            self.assertEqual(fake_store.finished_counts["triggered_users"], 1)
+            self.assertEqual(fake_store.finished_counts["triggered_tweets"], 1)
+            self.assertEqual(
+                fake_store.finished_counts["skipped_existing_model_users"],
+                1,
+            )
+            self.assertEqual(
+                fake_store.finished_counts["skipped_existing_model_triggered_tweets"],
+                1,
+            )
+            self.assertEqual(fake_store.finished_counts["deep_dived_users"], 0)
+        finally:
+            twitter_crawler.build_apify_client = original_build_client
+            twitter_crawler.discover_tweet_collection_by_keywords = original_discover
+            twitter_crawler.evaluate_tweets_with_fusion_model = original_evaluate
+            twitter_crawler.verify_user_from_triggered_tweet = original_verify
+            twitter_crawler.get_configured_model_info = original_model_info
 
 
 class ThreadReconstructionTests(unittest.TestCase):

@@ -573,6 +573,7 @@ def crawler_user_run_to_user_doc(run_doc, user_doc=None):
         "latest_score": run_doc.get("score") or {},
         "latest_influence": run_doc.get("influence") or {},
         "latest_thresholds": run_doc.get("thresholds") or {},
+        "latest_model": run_doc.get("model") or {},
         "first_seen_at": user_doc.get("first_seen_at"),
         "last_seen_at": run_doc.get("created_at") or user_doc.get("last_seen_at"),
         "discovered_by_keywords": user_doc.get("discovered_by_keywords") or [],
@@ -725,6 +726,7 @@ def build_crawler_users_csv_rows(users):
         score = user.get("latest_score") or {}
         influence = user.get("latest_influence") or {}
         thresholds = user.get("latest_thresholds") or {}
+        model = user.get("latest_model") or {}
         rows.append(
             [
                 user.get("username", ""),
@@ -748,6 +750,11 @@ def build_crawler_users_csv_rows(users):
                 thresholds.get("taklidi_ratio_margin", ""),
                 thresholds.get("min_positive_tweets", ""),
                 thresholds.get("min_profile_evaluated_tweets", ""),
+                model.get("model_name", ""),
+                model.get("model_export_dir", ""),
+                model.get("iteration_id") or model.get("iteration", ""),
+                model.get("experiment_id", ""),
+                model.get("experiment_name", ""),
                 user.get("latest_run_id", ""),
                 user.get("last_seen_at", ""),
                 "; ".join(user.get("discovered_by_keywords") or []),
@@ -1086,6 +1093,7 @@ def list_crawler_users():
                 "score": 1,
                 "influence": 1,
                 "thresholds": 1,
+                "model": 1,
                 "created_at": 1,
             }
             total = crawler_user_runs_collection.count_documents(query)
@@ -1147,6 +1155,7 @@ def list_crawler_users():
             "latest_score": 1,
             "latest_influence": 1,
             "latest_thresholds": 1,
+            "latest_model": 1,
             "last_seen_at": 1,
             "first_seen_at": 1,
             "discovered_by_keywords": 1,
@@ -1470,6 +1479,7 @@ def list_crawler_user_runs(username_key):
                     "score": 1,
                     "influence": 1,
                     "thresholds": 1,
+                    "model": 1,
                     "created_at": 1,
                     "trigger_tweet_keys": 1,
                     "evidence_tweet_keys": 1,
@@ -1507,6 +1517,7 @@ def export_crawler_users_csv():
                         "score": 1,
                         "influence": 1,
                         "thresholds": 1,
+                        "model": 1,
                         "created_at": 1,
                     },
                 ).sort([("created_at", -1), ("username_key", 1)])
@@ -1549,6 +1560,7 @@ def export_crawler_users_csv():
                         "latest_score": 1,
                         "latest_influence": 1,
                         "latest_thresholds": 1,
+                        "latest_model": 1,
                         "last_seen_at": 1,
                         "discovered_by_keywords": 1,
                     },
@@ -1576,6 +1588,11 @@ def export_crawler_users_csv():
             "taklidi_ratio_margin",
             "min_positive_tweets",
             "min_profile_evaluated_tweets",
+            "model_name",
+            "model_export_dir",
+            "model_iteration_id",
+            "model_experiment_id",
+            "model_experiment_name",
             "latest_run_id",
             "last_seen_at",
             "keywords",

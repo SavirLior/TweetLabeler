@@ -165,7 +165,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
     setSkipReason("");
   };
 
-  // --- Render ---
+  // Render
 
   if (myTweets.length === 0 && activeTab === "label") {
     return (

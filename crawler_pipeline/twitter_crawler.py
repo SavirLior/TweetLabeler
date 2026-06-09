@@ -281,6 +281,44 @@ def get_local_classifier() -> LocalTweetClassifier:
     return _local_classifier
 
 
+def get_configured_model_info() -> dict[str, Any]:
+    """Return lightweight metadata for the model export used by crawler runs."""
+    metadata_path = MODEL_DIR / "fusion_model_metadata.json"
+    metadata: dict[str, Any] = {}
+    if metadata_path.exists():
+        with metadata_path.open(encoding="utf-8") as metadata_file:
+            metadata = json.load(metadata_file)
+
+    model_info: dict[str, Any] = {
+        "model_export_dir": MODEL_EXPORT_DIR.name,
+        "model_metadata_file": metadata_path.name,
+    }
+    for key in (
+        "model_type",
+        "experiment_model_type",
+        "project_id",
+        "project_name",
+        "experiment_id",
+        "experiment_name",
+        "iteration_id",
+        "iteration_number",
+        "export_name",
+        "labels",
+        "max_length",
+        "prediction_type",
+        "temperature",
+    ):
+        if key in metadata:
+            model_info[key] = metadata[key]
+
+    iteration_id = metadata.get("iteration_id")
+    if iteration_id is not None:
+        model_info["iteration"] = iteration_id
+        model_info["model_name"] = str(iteration_id)
+
+    return model_info
+
+
 def is_deep_dive_trigger(
     evaluation: TweetEvaluation,
     *,
@@ -1280,6 +1318,7 @@ async def run_pipeline(
         deep_dive_tweet_limit,
         profile_overfetch_multiplier,
     )
+    model_info = get_configured_model_info()
     run_id = store.start_run(
         keywords=clean_keywords,
         params={
@@ -1296,6 +1335,7 @@ async def run_pipeline(
                 trigger_jihadi_probability_threshold
             ),
             "tweet_language": tweet_language,
+            "model": model_info,
         },
     )
     verified_users: dict[str, list[TweetEvaluation]] = {}
@@ -1306,6 +1346,8 @@ async def run_pipeline(
         "deep_dived_users": 0,
         "positive_users": 0,
         "taklidi_users": 0,
+        "skipped_existing_model_users": 0,
+        "skipped_existing_model_triggered_tweets": 0,
         "evidence_tweets": 0,
         "insufficient_profile_tweet_users": 0,
         "filtered_arabic": 0,
@@ -1363,6 +1405,22 @@ async def run_pipeline(
             return {}
 
         for username, triggered_items in triggered_by_user.items():
+            if store.has_user_run_for_model(username, model_info):
+                counts["skipped_existing_model_users"] += 1
+                counts["skipped_existing_model_triggered_tweets"] += len(triggered_items)
+                model_name = (
+                    model_info.get("model_name")
+                    or model_info.get("iteration_id")
+                    or model_info.get("iteration")
+                )
+                logger.info(
+                    "Skipping @%s because it was already deep-dived with model %s / %s.",
+                    username,
+                    model_name,
+                    model_info.get("model_export_dir"),
+                )
+                continue
+
             triggered_tweets = [tweet for tweet, _evaluation in triggered_items]
             triggered_evaluations = [
                 evaluation for _tweet, evaluation in triggered_items
@@ -1398,6 +1456,7 @@ async def run_pipeline(
                 ],
                 keywords=clean_keywords,
                 thresholds=thresholds,
+                model_info=model_info,
             )
             counts["evidence_tweets"] += int(save_result["evidence_count"])
 
