@@ -127,7 +127,9 @@ def format_tweet_text(tweet_item: dict[str, Any]) -> TweetFormatResult:
     if len(cleaned) < MIN_MODEL_TEXT_LENGTH:
         return TweetFormatResult(formatted=None, filter_reason=FILTER_SHORT_TEXT)
 
-    if is_quote:
+    if tweet_item.get("_is_merged_thread"):
+        source_text_kind = "thread"
+    elif is_quote:
         source_text_kind = "quote"
     elif is_retweet:
         source_text_kind = "retweet"

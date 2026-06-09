@@ -548,5 +548,8 @@ class CrawlerMongoStore:
             "is_retweet": bool(evidence_doc.get("is_retweet")),
             "is_quote": bool(evidence_doc.get("is_quote")),
             "source_text_kind": evidence_doc.get("source_text_kind"),
+            "is_merged_thread": bool(evidence_doc.get("is_merged_thread")),
+            "thread_length": evidence_doc.get("thread_length"),
+            "thread_tweet_ids": evidence_doc.get("thread_tweet_ids"),
             "collected_at": collected_at,
         }

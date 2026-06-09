@@ -232,6 +232,9 @@ export type CrawlerEvidence = {
   is_retweet?: boolean;
   is_quote?: boolean;
   source_text_kind?: string;
+  is_merged_thread?: boolean;
+  thread_length?: number;
+  thread_tweet_ids?: string[];
   collected_at?: string;
   admin_label?: CrawlerModelLabel;
   admin_label_by?: string;

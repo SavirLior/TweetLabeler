@@ -6,9 +6,14 @@ try:
     from . import twitter_crawler
     from .twitter_crawler import (
         TweetEvaluation,
+        build_discovered_tweet,
         build_discovered_tweets_from_items,
         calculate_overfetch_limit,
+        extract_author_id,
         is_deep_dive_trigger,
+        is_self_reply,
+        merge_self_reply_threads,
+        parse_tweet_timestamp,
         read_keywords_file,
         write_final_jihadi_users_file,
     )
@@ -16,9 +21,14 @@ except ImportError:
     import twitter_crawler
     from twitter_crawler import (
         TweetEvaluation,
+        build_discovered_tweet,
         build_discovered_tweets_from_items,
         calculate_overfetch_limit,
+        extract_author_id,
         is_deep_dive_trigger,
+        is_self_reply,
+        merge_self_reply_threads,
+        parse_tweet_timestamp,
         read_keywords_file,
         write_final_jihadi_users_file,
     )
@@ -162,6 +172,212 @@ class TwitterCrawlerHelperTests(unittest.TestCase):
                 output_path.read_text(encoding="utf-8").splitlines(),
                 ["alphaUser", "BetaUser"],
             )
+
+
+class ThreadReconstructionTests(unittest.TestCase):
+
+    def _make_item(self, tweet_id, author_id, text, *, is_reply=False,
+                   in_reply_to_id=None, in_reply_to_user_id=None,
+                   conversation_id=None, created_at=None, retweet=None):
+        item = {
+            "id": tweet_id,
+            "text": text,
+            "fullText": text,
+            "lang": "en",
+            "author": {"id": author_id, "userName": f"user_{author_id}"},
+            "isReply": is_reply,
+        }
+        if in_reply_to_id:
+            item["inReplyToId"] = in_reply_to_id
+        if in_reply_to_user_id:
+            item["inReplyToUserId"] = in_reply_to_user_id
+        if conversation_id:
+            item["conversationId"] = conversation_id
+        if created_at:
+            item["createdAt"] = created_at
+        if retweet:
+            item["retweet"] = retweet
+        return item
+
+    def test_extract_author_id(self):
+        self.assertEqual(extract_author_id({"author": {"id": "123"}}), "123")
+        self.assertEqual(extract_author_id({"author": {"userId": "456"}}), "456")
+        self.assertIsNone(extract_author_id({"author": {}}))
+        self.assertIsNone(extract_author_id({}))
+
+    def test_is_self_reply_matching_author(self):
+        item = self._make_item("101", "999", "part 2", is_reply=True,
+                               in_reply_to_user_id="999")
+        self.assertTrue(is_self_reply(item))
+
+    def test_is_self_reply_different_author(self):
+        item = self._make_item("101", "999", "reply to other", is_reply=True,
+                               in_reply_to_user_id="888")
+        self.assertFalse(is_self_reply(item))
+
+    def test_is_self_reply_not_a_reply(self):
+        item = self._make_item("100", "999", "standalone", is_reply=False)
+        self.assertFalse(is_self_reply(item))
+
+    def test_is_self_reply_retweet_excluded(self):
+        item = self._make_item("101", "999", "RT text", is_reply=True,
+                               in_reply_to_user_id="999",
+                               retweet={"text": "retweeted content"})
+        self.assertFalse(is_self_reply(item))
+
+    def test_parse_tweet_timestamp_twitter_format(self):
+        ts = parse_tweet_timestamp({"createdAt": "Mon Jan 01 12:00:00 +0000 2024"})
+        self.assertIsNotNone(ts)
+        self.assertEqual(ts.year, 2024)
+
+    def test_parse_tweet_timestamp_iso_format(self):
+        ts = parse_tweet_timestamp({"createdAt": "2024-01-01T12:00:00.000Z"})
+        self.assertIsNotNone(ts)
+        self.assertEqual(ts.year, 2024)
+
+    def test_parse_tweet_timestamp_missing(self):
+        self.assertIsNone(parse_tweet_timestamp({}))
+
+    def test_merge_two_part_thread(self):
+        items = [
+            self._make_item("100", "999", "Part 1 of thread",
+                            conversation_id="100",
+                            created_at="Mon Jan 01 12:00:00 +0000 2024"),
+            self._make_item("101", "999", "Part 2 continues here", is_reply=True,
+                            in_reply_to_id="100", in_reply_to_user_id="999",
+                            conversation_id="100",
+                            created_at="Mon Jan 01 12:02:00 +0000 2024"),
+        ]
+        merged = merge_self_reply_threads(items)
+        self.assertEqual(len(merged), 1)
+        self.assertTrue(merged[0]["_is_merged_thread"])
+        self.assertEqual(merged[0]["_thread_length"], 2)
+        self.assertIn("Part 1", merged[0]["fullText"])
+        self.assertIn("Part 2", merged[0]["fullText"])
+
+    def test_merge_three_part_thread(self):
+        items = [
+            self._make_item("100", "999", "Part 1",
+                            conversation_id="100",
+                            created_at="Mon Jan 01 12:00:00 +0000 2024"),
+            self._make_item("101", "999", "Part 2", is_reply=True,
+                            in_reply_to_id="100", in_reply_to_user_id="999",
+                            conversation_id="100",
+                            created_at="Mon Jan 01 12:01:00 +0000 2024"),
+            self._make_item("102", "999", "Part 3", is_reply=True,
+                            in_reply_to_id="101", in_reply_to_user_id="999",
+                            conversation_id="100",
+                            created_at="Mon Jan 01 12:03:00 +0000 2024"),
+        ]
+        merged = merge_self_reply_threads(items)
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["_thread_length"], 3)
+        self.assertEqual(merged[0]["_thread_tweet_ids"], ["100", "101", "102"])
+
+    def test_standalone_tweets_pass_through(self):
+        items = [
+            self._make_item("300", "777", "Hello world"),
+            self._make_item("301", "777", "Another tweet"),
+        ]
+        result = merge_self_reply_threads(items)
+        self.assertEqual(len(result), 2)
+        self.assertFalse(any(i.get("_is_merged_thread") for i in result))
+
+    def test_time_gap_splits_chain(self):
+        items = [
+            self._make_item("200", "888", "Part 1",
+                            conversation_id="200",
+                            created_at="Mon Jan 01 12:00:00 +0000 2024"),
+            self._make_item("201", "888", "Part 2", is_reply=True,
+                            in_reply_to_id="200", in_reply_to_user_id="888",
+                            conversation_id="200",
+                            created_at="Mon Jan 01 12:03:00 +0000 2024"),
+            self._make_item("202", "888", "Comment hours later", is_reply=True,
+                            in_reply_to_id="201", in_reply_to_user_id="888",
+                            conversation_id="200",
+                            created_at="Mon Jan 01 15:00:00 +0000 2024"),
+        ]
+        merged = merge_self_reply_threads(items)
+        self.assertEqual(len(merged), 2)
+        thread_items = [i for i in merged if i.get("_is_merged_thread")]
+        standalone_items = [i for i in merged if not i.get("_is_merged_thread")]
+        self.assertEqual(len(thread_items), 1)
+        self.assertEqual(len(standalone_items), 1)
+        self.assertEqual(thread_items[0]["_thread_length"], 2)
+
+    def test_missing_timestamp_falls_back_to_standalone(self):
+        items = [
+            self._make_item("400", "555", "Part 1",
+                            conversation_id="400"),
+            self._make_item("401", "555", "Part 2", is_reply=True,
+                            in_reply_to_id="400", in_reply_to_user_id="555",
+                            conversation_id="400"),
+        ]
+        merged = merge_self_reply_threads(items)
+        self.assertEqual(len(merged), 2)
+        self.assertFalse(any(i.get("_is_merged_thread") for i in merged))
+
+    def test_thread_head_missing_from_results(self):
+        items = [
+            self._make_item("501", "666", "Part 2 only", is_reply=True,
+                            in_reply_to_id="500", in_reply_to_user_id="666",
+                            conversation_id="500",
+                            created_at="Mon Jan 01 12:02:00 +0000 2024"),
+        ]
+        merged = merge_self_reply_threads(items)
+        self.assertEqual(len(merged), 1)
+        self.assertFalse(merged[0].get("_is_merged_thread"))
+
+    def test_cross_user_replies_not_merged(self):
+        items = [
+            self._make_item("600", "111", "Original tweet",
+                            conversation_id="600",
+                            created_at="Mon Jan 01 12:00:00 +0000 2024"),
+            self._make_item("601", "222", "Reply from different user", is_reply=True,
+                            in_reply_to_id="600", in_reply_to_user_id="111",
+                            conversation_id="600",
+                            created_at="Mon Jan 01 12:01:00 +0000 2024"),
+        ]
+        merged = merge_self_reply_threads(items)
+        self.assertEqual(len(merged), 2)
+        self.assertFalse(any(i.get("_is_merged_thread") for i in merged))
+
+    def test_build_discovered_tweet_from_merged_item(self):
+        items = [
+            self._make_item("700", "444", "Part 1 text here",
+                            conversation_id="700",
+                            created_at="Mon Jan 01 12:00:00 +0000 2024"),
+            self._make_item("701", "444", "Part 2 continues", is_reply=True,
+                            in_reply_to_id="700", in_reply_to_user_id="444",
+                            conversation_id="700",
+                            created_at="Mon Jan 01 12:01:00 +0000 2024"),
+        ]
+        merged = merge_self_reply_threads(items)
+        dt = build_discovered_tweet(merged[0])
+        self.assertIsNotNone(dt)
+        self.assertTrue(dt.is_merged_thread)
+        self.assertEqual(dt.thread_length, 2)
+        self.assertEqual(dt.thread_tweet_ids, ["700", "701"])
+        self.assertEqual(dt.source_text_kind, "thread")
+        self.assertIn("Part 1", dt.text)
+        self.assertIn("Part 2", dt.text)
+
+    def test_mixed_threads_and_standalone(self):
+        items = [
+            self._make_item("800", "333", "Standalone tweet 1"),
+            self._make_item("810", "333", "Thread part 1",
+                            conversation_id="810",
+                            created_at="Mon Jan 01 12:00:00 +0000 2024"),
+            self._make_item("811", "333", "Thread part 2", is_reply=True,
+                            in_reply_to_id="810", in_reply_to_user_id="333",
+                            conversation_id="810",
+                            created_at="Mon Jan 01 12:01:00 +0000 2024"),
+            self._make_item("820", "333", "Standalone tweet 2"),
+        ]
+        merged = merge_self_reply_threads(items)
+        self.assertEqual(len(merged), 3)
+        thread_items = [i for i in merged if i.get("_is_merged_thread")]
+        self.assertEqual(len(thread_items), 1)
 
 
 if __name__ == "__main__":
