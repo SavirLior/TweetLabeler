@@ -576,6 +576,9 @@ def crawler_user_run_to_user_doc(run_doc, user_doc=None):
         "first_seen_at": user_doc.get("first_seen_at"),
         "last_seen_at": run_doc.get("created_at") or user_doc.get("last_seen_at"),
         "discovered_by_keywords": user_doc.get("discovered_by_keywords") or [],
+        "admin_status": user_doc.get("admin_status"),
+        "admin_status_by": user_doc.get("admin_status_by"),
+        "admin_status_at": user_doc.get("admin_status_at"),
     }
 
 
@@ -1104,6 +1107,9 @@ def list_crawler_users():
                         "first_seen_at": 1,
                         "last_seen_at": 1,
                         "discovered_by_keywords": 1,
+                        "admin_status": 1,
+                        "admin_status_by": 1,
+                        "admin_status_at": 1,
                     },
                 )
             }
@@ -1144,6 +1150,9 @@ def list_crawler_users():
             "last_seen_at": 1,
             "first_seen_at": 1,
             "discovered_by_keywords": 1,
+            "admin_status": 1,
+            "admin_status_by": 1,
+            "admin_status_at": 1,
         }
         total = crawler_users_collection.count_documents(query)
         docs = list(
@@ -1390,6 +1399,52 @@ def set_crawler_evidence_admin_label(evidence_id):
                 "success": True,
                 "item": serialize_mongo_value(updated),
                 "adminStats": admin_stats,
+            }
+        )
+    except PyMongoError as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/crawler/users/<username_key>/admin-status", methods=["PATCH"])
+def set_crawler_user_admin_status(username_key):
+    auth_error = require_admin_request()
+    if auth_error:
+        return auth_error
+
+    payload = request.get_json(silent=True) or {}
+    admin_status = payload.get("adminStatus")
+
+    if admin_status is None:
+        update = {
+            "$unset": {
+                "admin_status": "",
+                "admin_status_by": "",
+                "admin_status_at": "",
+            }
+        }
+    else:
+        if admin_status not in CRAWLER_STATUS_VALUES:
+            return jsonify({"success": False, "error": "Invalid admin status"}), 400
+        update = {
+            "$set": {
+                "admin_status": admin_status,
+                "admin_status_by": request.headers.get("X-Username", ""),
+                "admin_status_at": datetime.now(timezone.utc).isoformat(),
+            }
+        }
+
+    try:
+        updated = crawler_users_collection.find_one_and_update(
+            {"username_key": username_key},
+            update,
+            return_document=ReturnDocument.AFTER,
+        )
+        if not updated:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        return jsonify(
+            {
+                "success": True,
+                "item": serialize_mongo_value(updated),
             }
         )
     except PyMongoError as e:

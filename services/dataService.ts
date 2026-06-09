@@ -177,6 +177,9 @@ export type CrawlerUser = {
   first_seen_at?: string;
   last_seen_at?: string;
   discovered_by_keywords?: string[];
+  admin_status?: CrawlerStatus;
+  admin_status_by?: string;
+  admin_status_at?: string;
 };
 
 export type CrawlerUserRun = {
@@ -519,6 +522,21 @@ export const setCrawlerEvidenceAdminLabel = async (
     `/crawler/evidence/${encodeURIComponent(evidenceId)}/admin-label`,
     "PATCH",
     { adminLabel },
+  );
+};
+
+export const setCrawlerUserAdminStatus = async (
+  usernameKey: string,
+  adminStatus: CrawlerStatus | null,
+): Promise<{
+  success: boolean;
+  item?: CrawlerUser;
+  error?: string;
+}> => {
+  return apiRequest(
+    `/crawler/users/${encodeURIComponent(usernameKey)}/admin-status`,
+    "PATCH",
+    { adminStatus },
   );
 };
 

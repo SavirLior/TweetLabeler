@@ -33,6 +33,7 @@ import {
   getCrawlerUsers,
   saveCrawlerKeywords,
   setCrawlerEvidenceAdminLabel,
+  setCrawlerUserAdminStatus,
   startCrawlerRun,
 } from "../services/dataService";
 
@@ -947,6 +948,44 @@ export const CrawlerResultsView: React.FC = () => {
     }
   };
 
+  const [pendingAdminStatus, setPendingAdminStatus] =
+    useState<CrawlerStatus | "clear" | null>(null);
+  const [adminStatusError, setAdminStatusError] = useState("");
+
+  const handleSetUserAdminStatus = async (next: CrawlerStatus | null) => {
+    if (!selectedUser) return;
+    if (pendingAdminStatus) return;
+    setPendingAdminStatus(next ?? "clear");
+    setAdminStatusError("");
+    try {
+      const response = await setCrawlerUserAdminStatus(
+        selectedUser.username_key,
+        next,
+      );
+      if (!response.success || !response.item) {
+        setAdminStatusError(response.error || "שגיאה בעדכון סיווג אדמין");
+        return;
+      }
+      const updated = response.item;
+      setSelectedUser((current) =>
+        current && current.username_key === updated.username_key
+          ? { ...current, ...updated }
+          : current,
+      );
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.username_key === updated.username_key ? { ...u, ...updated } : u,
+        ),
+      );
+    } catch (error) {
+      setAdminStatusError(
+        error instanceof Error ? error.message : "שגיאה בעדכון סיווג אדמין",
+      );
+    } finally {
+      setPendingAdminStatus(null);
+    }
+  };
+
   const handleEvidenceExport = async () => {
     if (!selectedUser) return;
     setExporting("evidence");
@@ -1385,7 +1424,37 @@ export const CrawlerResultsView: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <CrawlerStatusBadge status={user.current_status} />
+                        <div className="flex flex-col gap-1">
+                          <CrawlerStatusBadge status={user.current_status} />
+                          {user.admin_status && (
+                            <div
+                              className="flex items-center gap-1.5"
+                              title={
+                                user.admin_status === user.current_status
+                                  ? "סיווג האדמין תואם למודל"
+                                  : "סיווג האדמין שונה מהמודל"
+                              }
+                            >
+                              <span className="text-[10px] text-gray-500 font-medium">
+                                אדמין:
+                              </span>
+                              <span
+                                className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full border ${statusClasses[user.admin_status]}`}
+                              >
+                                {statusLabels[user.admin_status]}
+                              </span>
+                              {user.admin_status === user.current_status ? (
+                                <span className="text-green-600 text-xs font-bold">
+                                  ✓
+                                </span>
+                              ) : (
+                                <span className="text-red-600 text-xs font-bold">
+                                  ✗
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         <InfluenceScoreBadge influence={influence} />
@@ -1470,6 +1539,74 @@ export const CrawlerResultsView: React.FC = () => {
                     <Download className="w-4 h-4" />
                     Export evidence
                   </Button>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3" dir="rtl">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-bold text-gray-900">
+                        סיווג אדמין למשתמש
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        בחירה ידנית של האדמין לצורך השוואה לדיוק המודל. נשמר בנפרד מסיווג המודל.
+                      </div>
+                    </div>
+                    {selectedUser.admin_status &&
+                      selectedUser.current_status &&
+                      (selectedUser.admin_status === selectedUser.current_status ? (
+                        <span className="px-2 py-1 rounded-full text-xs font-semibold border bg-green-100 text-green-800 border-green-200">
+                          ✓ המודל צדק
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 rounded-full text-xs font-semibold border bg-red-100 text-red-800 border-red-200">
+                          ✗ המודל טעה
+                        </span>
+                      ))}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {userStatusOrder.map((status) => {
+                      const isActive = selectedUser.admin_status === status;
+                      const isThisPending = pendingAdminStatus === status;
+                      return (
+                        <button
+                          key={status}
+                          onClick={() =>
+                            handleSetUserAdminStatus(isActive ? null : status)
+                          }
+                          disabled={!!pendingAdminStatus}
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                            isActive
+                              ? `${statusClasses[status]} ring-2 ring-offset-1 ring-gray-400`
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                          } ${pendingAdminStatus ? "opacity-60 cursor-not-allowed" : ""}`}
+                        >
+                          {isThisPending ? "..." : statusLabels[status]}
+                        </button>
+                      );
+                    })}
+                    {selectedUser.admin_status && (
+                      <button
+                        onClick={() => handleSetUserAdminStatus(null)}
+                        disabled={!!pendingAdminStatus}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border bg-white text-gray-500 border-gray-300 hover:bg-gray-100 ${
+                          pendingAdminStatus ? "opacity-60 cursor-not-allowed" : ""
+                        }`}
+                      >
+                        {pendingAdminStatus === "clear" ? "..." : "נקה"}
+                      </button>
+                    )}
+                  </div>
+
+                  {selectedUser.admin_status_by && selectedUser.admin_status_at && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      תויג על ידי {selectedUser.admin_status_by} ב-{formatDate(selectedUser.admin_status_at)}
+                    </div>
+                  )}
+
+                  {adminStatusError && (
+                    <div className="mt-2 text-xs text-red-600">{adminStatusError}</div>
+                  )}
                 </div>
 
                 <button
