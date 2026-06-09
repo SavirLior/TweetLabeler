@@ -16,7 +16,8 @@ import json
 import logging
 import math
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -51,6 +52,7 @@ try:
         MODEL_EXPORT_DIR,
         FINAL_JIHADI_USERS_FILE,
         TAKLIDI_LABEL,
+        THREAD_MAX_GAP_SECONDS,
     )
     from .mongo_store import (
         CrawlerMongoStore,
@@ -84,6 +86,7 @@ except ImportError:  # Allows running this file directly from crawler_pipeline/.
         MODEL_EXPORT_DIR,
         FINAL_JIHADI_USERS_FILE,
         TAKLIDI_LABEL,
+        THREAD_MAX_GAP_SECONDS,
     )
     from mongo_store import (
         CrawlerMongoStore,
@@ -139,6 +142,9 @@ class DiscoveredTweet:
     is_retweet: bool = False
     is_quote: bool = False
     source_text_kind: str | None = None
+    is_merged_thread: bool = False
+    thread_length: int | None = None
+    thread_tweet_ids: list[str] | None = field(default=None, hash=False)
 
 
 @dataclass(frozen=True)
@@ -480,6 +486,184 @@ def extract_tweet_count(tweet_item: dict[str, Any], keys: Iterable[str]) -> int 
     return None
 
 
+def extract_author_id(tweet_item: dict[str, Any]) -> str | None:
+    author = tweet_item.get("author")
+    if isinstance(author, dict):
+        for key in ("id", "userId", "rest_id"):
+            value = author.get(key)
+            if value is not None and str(value).strip():
+                return str(value).strip()
+    return None
+
+
+def is_self_reply(tweet_item: dict[str, Any]) -> bool:
+    if not tweet_item.get("isReply"):
+        return False
+    if get_retweet_object(tweet_item):
+        return False
+    author_id = extract_author_id(tweet_item)
+    in_reply_to_user_id = tweet_item.get("inReplyToUserId")
+    if not author_id or not in_reply_to_user_id:
+        return False
+    return str(author_id).strip() == str(in_reply_to_user_id).strip()
+
+
+def parse_tweet_timestamp(tweet_item: dict[str, Any]) -> datetime | None:
+    raw = tweet_item.get("createdAt") or tweet_item.get("created_at")
+    if not raw:
+        return None
+    if isinstance(raw, datetime):
+        return raw if raw.tzinfo else raw.replace(tzinfo=timezone.utc)
+    if not isinstance(raw, str):
+        return None
+    for fmt in (
+        "%a %b %d %H:%M:%S %z %Y",
+        "%Y-%m-%dT%H:%M:%S.%fZ",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S%z",
+    ):
+        try:
+            parsed = datetime.strptime(raw, fmt)
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def _get_raw_text(tweet_item: dict[str, Any]) -> str:
+    for key in ("fullText", "text", "full_text"):
+        value = tweet_item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _split_by_time_gap(
+    sorted_items: list[dict[str, Any]],
+    max_gap_seconds: int,
+) -> list[list[dict[str, Any]]]:
+    if not sorted_items:
+        return []
+    chains: list[list[dict[str, Any]]] = [[sorted_items[0]]]
+    prev_ts = parse_tweet_timestamp(sorted_items[0])
+    for item in sorted_items[1:]:
+        cur_ts = parse_tweet_timestamp(item)
+        if prev_ts is None or cur_ts is None:
+            chains.append([item])
+            prev_ts = cur_ts
+            continue
+        gap = abs((cur_ts - prev_ts).total_seconds())
+        if gap > max_gap_seconds:
+            chains.append([item])
+        else:
+            chains[-1].append(item)
+        prev_ts = cur_ts
+    return chains
+
+
+def _build_merged_thread_item(
+    thread_items: list[dict[str, Any]],
+    conversation_id: str,
+) -> dict[str, Any]:
+    def sort_key(item: dict[str, Any]) -> int:
+        tid = extract_tweet_id(item)
+        try:
+            return int(tid) if tid else 0
+        except (ValueError, TypeError):
+            return 0
+
+    sorted_items = sorted(thread_items, key=sort_key)
+    head = sorted_items[0]
+
+    texts: list[str] = []
+    all_tweet_ids: list[str] = []
+    for item in sorted_items:
+        text = _get_raw_text(item)
+        if text:
+            texts.append(text)
+        tid = extract_tweet_id(item)
+        if tid:
+            all_tweet_ids.append(tid)
+
+    merged_text = "\n\n".join(texts)
+    merged_item = dict(head)
+    merged_item["fullText"] = merged_text
+    if "text" in merged_item:
+        merged_item["text"] = merged_text
+    merged_item["_is_merged_thread"] = True
+    merged_item["_thread_tweet_ids"] = all_tweet_ids
+    merged_item["_thread_length"] = len(sorted_items)
+    merged_item["_thread_conversation_id"] = conversation_id
+    return merged_item
+
+
+def merge_self_reply_threads(
+    items: list[dict[str, Any]],
+    max_gap_seconds: int = THREAD_MAX_GAP_SECONDS,
+) -> list[dict[str, Any]]:
+    items_by_id: dict[str, dict[str, Any]] = {}
+    for item in items:
+        tweet_id = extract_tweet_id(item)
+        if tweet_id:
+            items_by_id[tweet_id] = item
+
+    thread_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    standalone: list[tuple[int, dict[str, Any]]] = []
+
+    for index, item in enumerate(items):
+        if not is_self_reply(item):
+            standalone.append((index, item))
+            continue
+
+        conversation_id = item.get("conversationId")
+        author_id = extract_author_id(item)
+        if not conversation_id or not author_id:
+            standalone.append((index, item))
+            continue
+
+        group_key = (str(conversation_id).strip(), str(author_id).strip())
+        thread_groups.setdefault(group_key, []).append(item)
+
+        head_id = str(conversation_id).strip()
+        if head_id in items_by_id:
+            head_item = items_by_id[head_id]
+            if head_item not in thread_groups[group_key]:
+                thread_groups[group_key].append(head_item)
+
+    consumed_ids: set[str] = set()
+    for group_items in thread_groups.values():
+        for item in group_items:
+            tid = extract_tweet_id(item)
+            if tid:
+                consumed_ids.add(tid)
+    standalone = [
+        (idx, item) for idx, item in standalone
+        if extract_tweet_id(item) not in consumed_ids
+    ]
+
+    merged_results: list[dict[str, Any]] = []
+    for (conversation_id, _author_id), group_items in thread_groups.items():
+        def _sort_key(item: dict[str, Any]) -> int:
+            tid = extract_tweet_id(item)
+            try:
+                return int(tid) if tid else 0
+            except (ValueError, TypeError):
+                return 0
+
+        group_items.sort(key=_sort_key)
+        chains = _split_by_time_gap(group_items, max_gap_seconds)
+        for chain in chains:
+            if len(chain) < 2:
+                merged_results.extend(chain)
+            else:
+                merged_results.append(
+                    _build_merged_thread_item(chain, conversation_id)
+                )
+
+    standalone_items = [item for _idx, item in sorted(standalone, key=lambda x: x[0])]
+    return standalone_items + merged_results
+
+
 def extract_author_summary(tweet_item: dict[str, Any]) -> dict[str, Any]:
     author = tweet_item.get("author")
     if not isinstance(author, dict):
@@ -528,7 +712,7 @@ def extract_nested_tweet_summary(tweet_item: dict[str, Any] | None) -> dict[str,
 
 
 def build_compact_source(tweet_item: dict[str, Any], *, username: str, tweet_id: str | None) -> dict[str, Any]:
-    return {
+    source = {
         "provider": "apify",
         "actor_id": APIFY_ACTOR_ID,
         "tweet_id": tweet_id,
@@ -551,6 +735,12 @@ def build_compact_source(tweet_item: dict[str, Any], *, username: str, tweet_id:
         "retweet": extract_nested_tweet_summary(get_retweet_object(tweet_item)),
         "quote": extract_nested_tweet_summary(get_quote_object(tweet_item)),
     }
+    if tweet_item.get("_is_merged_thread"):
+        source["is_merged_thread"] = True
+        source["thread_length"] = tweet_item.get("_thread_length")
+        source["thread_tweet_ids"] = tweet_item.get("_thread_tweet_ids")
+        source["thread_conversation_id"] = tweet_item.get("_thread_conversation_id")
+    return source
 
 
 def build_discovered_tweet(tweet_item: dict[str, Any]) -> DiscoveredTweet | None:
@@ -576,6 +766,9 @@ def build_discovered_tweet(tweet_item: dict[str, Any]) -> DiscoveredTweet | None
         is_retweet=formatted.is_retweet,
         is_quote=formatted.is_quote,
         source_text_kind=formatted.source_text_kind,
+        is_merged_thread=bool(tweet_item.get("_is_merged_thread")),
+        thread_length=tweet_item.get("_thread_length"),
+        thread_tweet_ids=tweet_item.get("_thread_tweet_ids"),
     )
 
 
@@ -721,6 +914,7 @@ def discover_tweets_by_keywords(
         run_input["tweetLanguage"] = tweet_language
 
     items = run_tweet_scraper(apify_client, run_input)
+    items = merge_self_reply_threads(items)
     return build_discovered_tweets_from_items(items, scope="discovery").tweets
 
 
@@ -756,6 +950,7 @@ def discover_tweet_collection_by_keywords(
         run_input["tweetLanguage"] = tweet_language
 
     items = run_tweet_scraper(apify_client, run_input)
+    items = merge_self_reply_threads(items)
     result = build_discovered_tweets_from_items(items, scope="discovery")
     result.counts["model_discovery_tweets_evaluated"] = len(result.tweets)
     return result
@@ -825,6 +1020,7 @@ def fetch_recent_tweet_details_for_user(
         run_input["tweetLanguage"] = tweet_language
 
     items = run_tweet_scraper(apify_client, run_input)
+    items = merge_self_reply_threads(items)
     return build_discovered_tweets_from_items(
         items,
         scope="profile",
@@ -867,6 +1063,7 @@ def fetch_recent_tweet_collection_for_user(
         run_input["tweetLanguage"] = tweet_language
 
     items = run_tweet_scraper(apify_client, run_input)
+    items = merge_self_reply_threads(items)
     result = build_discovered_tweets_from_items(
         items,
         scope="profile",
@@ -1009,7 +1206,7 @@ async def verify_user_from_triggered_tweet(
 
 def serialize_evidence_for_storage(evidence: EvaluatedTweet) -> dict[str, Any]:
     """Convert an evaluated tweet into the Mongo evidence document shape."""
-    return {
+    doc = {
         "tweet_key": evidence.tweet.tweet_key,
         "tweet_id": evidence.tweet.tweet_id,
         "tweet_url": evidence.tweet.tweet_url,
@@ -1024,6 +1221,11 @@ def serialize_evidence_for_storage(evidence: EvaluatedTweet) -> dict[str, Any]:
         "confidence": evidence.evaluation.confidence,
         "probabilities": evidence.evaluation.probabilities,
     }
+    if evidence.tweet.is_merged_thread:
+        doc["is_merged_thread"] = True
+        doc["thread_length"] = evidence.tweet.thread_length
+        doc["thread_tweet_ids"] = evidence.tweet.thread_tweet_ids
+    return doc
 
 
 def read_keywords_file(path: str | Path = KEYWORDS_FILE) -> list[str]:

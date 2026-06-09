@@ -352,6 +352,18 @@ const EvidenceItem: React.FC<EvidenceItemProps> = ({ evidence, onSetAdminLabel }
             <span className="text-xs text-gray-500">
               {phaseLabels[evidence.phase] || evidence.phase}
             </span>
+            {evidence.is_merged_thread && (
+              <span
+                className="px-2 py-1 rounded-full text-xs font-semibold border bg-purple-100 text-purple-800 border-purple-200"
+                title={
+                  evidence.thread_tweet_ids
+                    ? `מורכב מ-${evidence.thread_length} ציוצים: ${evidence.thread_tweet_ids.join(", ")}`
+                    : `מורכב מ-${evidence.thread_length} ציוצים`
+                }
+              >
+                שרשור ({evidence.thread_length} חלקים)
+              </span>
+            )}
             <span className="text-xs text-gray-400">
               {evidence.run_id || "-"}
             </span>
@@ -369,6 +381,12 @@ const EvidenceItem: React.FC<EvidenceItemProps> = ({ evidence, onSetAdminLabel }
           </a>
         )}
       </div>
+
+      {evidence.is_merged_thread && (
+        <div className="mb-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-900" dir="rtl">
+          <span className="font-semibold">שים לב:</span> זהו שרשור ציוצים מאוחד (self-reply thread) של {evidence.thread_length} ציוצים שפורסמו ברצף. הטקסט הבא משלב את כל חלקי השרשור — סווג אותו כיחידה אחת.
+        </div>
+      )}
 
       <p className="text-sm leading-6 text-gray-900 whitespace-pre-wrap" dir="auto">
         {evidence.text}

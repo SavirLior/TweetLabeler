@@ -75,6 +75,20 @@ class TweetTextFormatterTests(unittest.TestCase):
         self.assertTrue(result.formatted.is_quote)
         self.assertEqual(result.formatted.source_text_kind, "quote")
 
+    def test_merged_thread_gets_thread_source_text_kind(self):
+        result = format_tweet_text(
+            {
+                "lang": "en",
+                "fullText": "Part 1 of a thread\n\nPart 2 continues here",
+                "_is_merged_thread": True,
+            }
+        )
+
+        self.assertIsNotNone(result.formatted)
+        self.assertEqual(result.formatted.source_text_kind, "thread")
+        self.assertFalse(result.formatted.is_retweet)
+        self.assertFalse(result.formatted.is_quote)
+
     def test_arabic_main_retweet_or_quote_is_filtered(self):
         arabic_main = format_tweet_text({"lang": "ar", "fullText": "hello"})
         arabic_retweet = format_tweet_text(
