@@ -112,7 +112,7 @@ python3 -m crawler_pipeline.twitter_crawler jihad --discovery-limit 15
 1. שולף ציוצים לפי מילות המפתח שהוגדרו. ברירת המחדל היא עד 100 ציוצי discovery.
 2. מנקה את הטקסט באותו פורמט של הסקריפט הישן `scrape_with_api`.
 3. מריץ את המודל על ציוצי ה-discovery.
-4. אם ציוץ מסווג כ-`Salafi jihadi`, הזחלן מבצע deep dive על המשתמש.
+4. אם ציוץ discovery מסווג כ-`Salafi jihadi` בהסתברות מעל 70%, הזחלן מבצע deep dive על המשתמש. ציוץ שמסווג `Salafi taklidi` לא מפעיל deep dive.
 5. לכל משתמש חשוד נשלפים עד 150 ציוצים raw מפרופיל המשתמש.
 6. ציוצים בערבית, ריקים, או באורך עד 3 תווים אחרי ניקוי לא נכנסים למודל.
 7. כל הציוצים התקינים שנשארו נכנסים למודל.
@@ -130,6 +130,7 @@ python3 -m crawler_pipeline.twitter_crawler jihad shahid --discovery-limit 50 --
 - `positive_ratio_threshold = 0.12`
 - `min_positive_tweets = 8`
 - `min_profile_evaluated_tweets = 100`
+- `trigger_jihadi_probability_threshold = 0.70`
 - `profile_overfetch_multiplier = 1.5`
 - `profile raw fetch = 150` כש-`profile-limit` הוא 100
 

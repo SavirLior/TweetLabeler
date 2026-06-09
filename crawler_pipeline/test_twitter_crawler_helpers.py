@@ -5,7 +5,9 @@ from tempfile import TemporaryDirectory
 try:
     from . import twitter_crawler
     from .twitter_crawler import (
+        DiscoveredTweet,
         TweetEvaluation,
+        TweetCollectionResult,
         build_discovered_tweet,
         build_discovered_tweets_from_items,
         calculate_overfetch_limit,
@@ -20,7 +22,9 @@ try:
 except ImportError:
     import twitter_crawler
     from twitter_crawler import (
+        DiscoveredTweet,
         TweetEvaluation,
+        TweetCollectionResult,
         build_discovered_tweet,
         build_discovered_tweets_from_items,
         calculate_overfetch_limit,
@@ -81,31 +85,47 @@ class TwitterCrawlerHelperTests(unittest.TestCase):
         finally:
             twitter_crawler._training_usernames = original_training_usernames
 
-    def test_deep_dive_trigger_includes_jihadi_and_taklidi_tweets(self):
-        jihadi = TweetEvaluation(
+    def test_deep_dive_trigger_requires_high_confidence_jihadi_tweet(self):
+        high_confidence_jihadi = TweetEvaluation(
             tweet="jihadi",
             label="Salafi jihadi",
             flagged=True,
             confidence=0.9,
-            probabilities={},
+            probabilities={"Salafi jihadi": 0.71, "Salafi taklidi": 0.2},
+        )
+        threshold_jihadi = TweetEvaluation(
+            tweet="threshold jihadi",
+            label="Salafi jihadi",
+            flagged=True,
+            confidence=0.7,
+            probabilities={"Salafi jihadi": 0.70, "Salafi taklidi": 0.2},
+        )
+        low_confidence_jihadi = TweetEvaluation(
+            tweet="low jihadi",
+            label="Salafi jihadi",
+            flagged=True,
+            confidence=0.69,
+            probabilities={"Salafi jihadi": 0.69, "Salafi taklidi": 0.2},
         )
         taklidi = TweetEvaluation(
             tweet="taklidi",
             label="Salafi taklidi",
             flagged=False,
             confidence=0.9,
-            probabilities={},
+            probabilities={"Salafi jihadi": 0.05, "Salafi taklidi": 0.9},
         )
         irrelevant = TweetEvaluation(
             tweet="irrelevant",
             label="Irrelevant",
             flagged=False,
             confidence=0.9,
-            probabilities={},
+            probabilities={"Salafi jihadi": 0.05, "Irrelevant": 0.9},
         )
 
-        self.assertTrue(is_deep_dive_trigger(jihadi))
-        self.assertTrue(is_deep_dive_trigger(taklidi))
+        self.assertTrue(is_deep_dive_trigger(high_confidence_jihadi))
+        self.assertFalse(is_deep_dive_trigger(threshold_jihadi))
+        self.assertFalse(is_deep_dive_trigger(low_confidence_jihadi))
+        self.assertFalse(is_deep_dive_trigger(taklidi))
         self.assertFalse(is_deep_dive_trigger(irrelevant))
 
     def test_compact_source_includes_author_location_and_influence_metrics(self):
@@ -172,6 +192,77 @@ class TwitterCrawlerHelperTests(unittest.TestCase):
                 output_path.read_text(encoding="utf-8").splitlines(),
                 ["alphaUser", "BetaUser"],
             )
+
+
+class TwitterCrawlerPipelineTests(unittest.IsolatedAsyncioTestCase):
+    async def test_run_pipeline_does_not_deep_dive_on_taklidi_discovery_tweet(self):
+        class FakeStore:
+            def __init__(self):
+                self.finished_counts = None
+
+            def start_run(self, *, keywords, params, run_id=None):
+                return "run-1"
+
+            def finish_run(self, run_id, *, counts, errors=None, status="completed"):
+                self.finished_counts = dict(counts)
+
+        fake_store = FakeStore()
+        original_build_client = twitter_crawler.build_apify_client
+        original_discover = twitter_crawler.discover_tweet_collection_by_keywords
+        original_evaluate = twitter_crawler.evaluate_tweets_with_fusion_model
+        original_verify = twitter_crawler.verify_user_from_triggered_tweet
+
+        async def fake_evaluate(texts, batch_size=16):
+            return [
+                TweetEvaluation(
+                    tweet=texts[0],
+                    label="Salafi taklidi",
+                    flagged=False,
+                    confidence=0.95,
+                    probabilities={
+                        "Salafi jihadi": 0.01,
+                        "Salafi taklidi": 0.95,
+                    },
+                )
+            ]
+
+        async def fail_verify(*args, **kwargs):
+            raise AssertionError("Taklidi discovery tweets must not trigger deep dive.")
+
+        try:
+            twitter_crawler.build_apify_client = lambda: object()
+            twitter_crawler.discover_tweet_collection_by_keywords = (
+                lambda *args, **kwargs: TweetCollectionResult(
+                    tweets=[
+                        DiscoveredTweet(
+                            username="TaklidiUser",
+                            text="taklidi discovery text",
+                            tweet_key="x:1",
+                        )
+                    ],
+                    counts={
+                        "raw_discovery_tweets_seen": 1,
+                        "model_discovery_tweets_evaluated": 1,
+                    },
+                )
+            )
+            twitter_crawler.evaluate_tweets_with_fusion_model = fake_evaluate
+            twitter_crawler.verify_user_from_triggered_tweet = fail_verify
+
+            result = await twitter_crawler.run_pipeline(
+                ["keyword"],
+                mongo_store=fake_store,
+            )
+
+            self.assertEqual(result, {})
+            self.assertEqual(fake_store.finished_counts["triggered_tweets"], 0)
+            self.assertEqual(fake_store.finished_counts["triggered_users"], 0)
+            self.assertEqual(fake_store.finished_counts["deep_dived_users"], 0)
+        finally:
+            twitter_crawler.build_apify_client = original_build_client
+            twitter_crawler.discover_tweet_collection_by_keywords = original_discover
+            twitter_crawler.evaluate_tweets_with_fusion_model = original_evaluate
+            twitter_crawler.verify_user_from_triggered_tweet = original_verify
 
 
 class ThreadReconstructionTests(unittest.TestCase):

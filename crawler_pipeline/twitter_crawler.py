@@ -37,6 +37,7 @@ try:
     from .config import (
         APIFY_ACTOR_ID,
         DEFAULT_DEEP_DIVE_TWEET_LIMIT,
+        DEFAULT_DEEP_DIVE_TRIGGER_JIHADI_PROBABILITY_THRESHOLD,
         DEFAULT_DISCOVERY_LIMIT,
         DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
         DEFAULT_MIN_POSITIVE_TWEETS,
@@ -51,7 +52,6 @@ try:
         MODEL_DIR,
         MODEL_EXPORT_DIR,
         FINAL_JIHADI_USERS_FILE,
-        TAKLIDI_LABEL,
         THREAD_MAX_GAP_SECONDS,
     )
     from .mongo_store import (
@@ -71,6 +71,7 @@ except ImportError:  # Allows running this file directly from crawler_pipeline/.
     from config import (
         APIFY_ACTOR_ID,
         DEFAULT_DEEP_DIVE_TWEET_LIMIT,
+        DEFAULT_DEEP_DIVE_TRIGGER_JIHADI_PROBABILITY_THRESHOLD,
         DEFAULT_DISCOVERY_LIMIT,
         DEFAULT_MIN_PROFILE_EVALUATED_TWEETS,
         DEFAULT_MIN_POSITIVE_TWEETS,
@@ -85,7 +86,6 @@ except ImportError:  # Allows running this file directly from crawler_pipeline/.
         MODEL_DIR,
         MODEL_EXPORT_DIR,
         FINAL_JIHADI_USERS_FILE,
-        TAKLIDI_LABEL,
         THREAD_MAX_GAP_SECONDS,
     )
     from mongo_store import (
@@ -110,6 +110,9 @@ USER_JIHADI_TWEET_THRESHOLD = DEFAULT_MIN_POSITIVE_TWEETS
 POSITIVE_RATIO_THRESHOLD = DEFAULT_POSITIVE_RATIO_THRESHOLD
 TAKLIDI_RATIO_THRESHOLD = DEFAULT_TAKLIDI_RATIO_THRESHOLD
 TAKLIDI_RATIO_MARGIN = DEFAULT_TAKLIDI_RATIO_MARGIN
+DEEP_DIVE_TRIGGER_JIHADI_PROBABILITY_THRESHOLD = (
+    DEFAULT_DEEP_DIVE_TRIGGER_JIHADI_PROBABILITY_THRESHOLD
+)
 TRAINING_USERS_FILE = Path(__file__).resolve().parent / "training_users.txt"
 
 logger = logging.getLogger(__name__)
@@ -278,8 +281,21 @@ def get_local_classifier() -> LocalTweetClassifier:
     return _local_classifier
 
 
-def is_deep_dive_trigger(evaluation: TweetEvaluation) -> bool:
-    return evaluation.flagged or evaluation.label == TAKLIDI_LABEL
+def is_deep_dive_trigger(
+    evaluation: TweetEvaluation,
+    *,
+    jihadi_probability_threshold: float = DEEP_DIVE_TRIGGER_JIHADI_PROBABILITY_THRESHOLD,
+) -> bool:
+    if not evaluation.flagged:
+        return False
+
+    jihadi_probability = evaluation.confidence
+    for label, probability in evaluation.probabilities.items():
+        if JIHADI_LABEL_TOKEN in label.casefold():
+            jihadi_probability = float(probability)
+            break
+
+    return jihadi_probability > jihadi_probability_threshold
 
 
 def build_apify_client(api_token: str = APIFY_API_TOKEN) -> ApifyClient:
@@ -1243,6 +1259,9 @@ async def run_pipeline(
     positive_ratio_threshold: float = POSITIVE_RATIO_THRESHOLD,
     taklidi_ratio_threshold: float = TAKLIDI_RATIO_THRESHOLD,
     taklidi_ratio_margin: float = TAKLIDI_RATIO_MARGIN,
+    trigger_jihadi_probability_threshold: float = (
+        DEEP_DIVE_TRIGGER_JIHADI_PROBABILITY_THRESHOLD
+    ),
     profile_overfetch_multiplier: float = PROFILE_OVERFETCH_MULTIPLIER,
     tweet_language: str | None = DEFAULT_TWEET_LANGUAGE,
     mongo_store: CrawlerMongoStore | None = None,
@@ -1273,6 +1292,9 @@ async def run_pipeline(
             "min_profile_evaluated_tweets": min_profile_evaluated_tweets,
             "taklidi_ratio_threshold": taklidi_ratio_threshold,
             "taklidi_ratio_margin": taklidi_ratio_margin,
+            "trigger_jihadi_probability_threshold": (
+                trigger_jihadi_probability_threshold
+            ),
             "tweet_language": tweet_language,
         },
     )
@@ -1320,7 +1342,10 @@ async def run_pipeline(
         triggered_by_user: dict[str, list[tuple[DiscoveredTweet, TweetEvaluation]]] = {}
 
         for discovered_tweet, evaluation in zip(discovered_tweets, initial_evaluations):
-            if not is_deep_dive_trigger(evaluation):
+            if not is_deep_dive_trigger(
+                evaluation,
+                jihadi_probability_threshold=trigger_jihadi_probability_threshold,
+            ):
                 continue
 
             username = discovered_tweet.username
@@ -1459,6 +1484,12 @@ def main() -> None:
         help="Minimum taklidi ratio lead over jihadi ratio. Default 0.07.",
     )
     parser.add_argument(
+        "--trigger-jihadi-probability",
+        type=float,
+        default=DEEP_DIVE_TRIGGER_JIHADI_PROBABILITY_THRESHOLD,
+        help="Minimum Salafi jihadi probability for a discovery tweet to trigger a deep dive. Default 0.70.",
+    )
+    parser.add_argument(
         "--tweet-language",
         default=DEFAULT_TWEET_LANGUAGE,
         help="Tweet language sent to Apify. Use an empty value to disable.",
@@ -1481,6 +1512,7 @@ def main() -> None:
             positive_ratio_threshold=args.ratio,
             taklidi_ratio_threshold=args.taklidi_ratio,
             taklidi_ratio_margin=args.taklidi_margin,
+            trigger_jihadi_probability_threshold=args.trigger_jihadi_probability,
             profile_overfetch_multiplier=args.overfetch_multiplier,
             tweet_language=args.tweet_language or None,
         )
